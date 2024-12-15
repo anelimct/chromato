@@ -62,8 +62,8 @@ list(
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
   
-  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" ))
+  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
  
   
-  
+  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
 )
