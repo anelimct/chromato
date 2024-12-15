@@ -21,3 +21,10 @@ README.html
 inst/doc
 man/
 NAMESPACE
+
+# All data files should be dowladed by the user from the cloud and are not provided ----
+/data/
+
+
+# All outputs should be recreated by running the code ----
+/outputs/
