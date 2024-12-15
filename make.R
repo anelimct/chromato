@@ -6,7 +6,7 @@
 #' 
 #' @author Miléna Chateau \email{milena.chateau@imbe.fr}
 #' 
-#' @date 2024/12/15
+#' @date 2024/12/11
 
 
 
@@ -18,12 +18,13 @@ devtools::install_deps(upgrade = "never")
 ## Load Project Addins (R Functions and Packages) ----
 
 devtools::load_all(here::here())
+library(targets)
+library(ggplot2)
 
+
+targets::tar_config_set(store = "outputs/pipeline/", script = "analyses/pipeline.R")
 
 ## Global Variables ----
-
-# You can list global variables here (or in a separate R script)
-
 
 ## Run Project ----
 
