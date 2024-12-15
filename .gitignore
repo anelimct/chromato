@@ -28,3 +28,6 @@ NAMESPACE
 
 # All outputs should be recreated by running the code ----
 /outputs/
+*.html
+*.csv
+*.zip
