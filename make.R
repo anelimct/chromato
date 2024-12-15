@@ -23,7 +23,7 @@ library(ggplot2)
 
 
 targets::tar_config_set(store = "outputs/pipeline/", script = "analyses/pipeline.R")
-tar
+targets::tar_make()
 ## Global Variables ----
 
 ## Run Project ----
