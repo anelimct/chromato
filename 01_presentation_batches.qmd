@@ -1,0 +1,31 @@
+---
+title: "01_presentation_batches"
+format: html
+editor: source
+---
+
+```{r}
+#| echo: false
+
+targets::tar_config_set(store = "outputs/pipeline/", 
+                        script = "analyses/pipeline.R")
+
+```
+
+## Est-ce que toutes les chromatos sont présentes
+ Année 2023
+```{r}
+#| echo: false
+#| label: 'tbl-mchromato_2023'
+#| fig-cap: "Table de présence dans le cloud des chromato pour l'année 2023"
+targets::tar_load(check_chromato_2023)
+
+kableExtra::kbl(check_chromato_2023) |> 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+
+
+
