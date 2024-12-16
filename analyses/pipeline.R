@@ -51,10 +51,15 @@ tar_source()
 
 # Replace the target list below with your own:
 list(
+  tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
+  tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
+  tar_target(renamed_alcanes, rename_alkanes_files(alcanes_samples)),
+  
+  
   tar_target(bvocs_samples_file, here::here("data", "BVOCS_samples.csv" ), format = "file"),
-  tar_target(bvocs_samples,readr::read_csv(bvocs_samples_file)), 
-  tar_target(subset_2023, subset_year(bvocs_samples, "2023")),
-  tar_target(subset_2024, subset_year(bvocs_samples, "2024")), 
+  tar_target(bvocs_samples,utils::read.csv(bvocs_samples_file)), 
+  tar_target(subset_2023, subset_year(bvocs_samples, "2023", renamed_alcanes)),
+  tar_target(subset_2024, subset_year(bvocs_samples, "2024", renamed_alcanes)), 
   
   tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
   tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
@@ -62,7 +67,9 @@ list(
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
   
-  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
+  tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
+  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )), 
+  
  
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")

@@ -36,6 +36,9 @@ kableExtra::kbl(check_chromato_2024) |>
 
 ```
 
+En résumé pour les chromatos de 2023 il y a tous les tubes "composé C5" sauf B_198952_15062023 puisque HS, est-ce qu'à la place on pourrait utilisé l'échantillon C5 ? 
+
+Pour l'année 2024 il manque : `r paste(unique(check_chromato_2024$missing_list), collapse = ", ")` 
 ```{r}
 #| echo: false
 #| layout-ncol: 2

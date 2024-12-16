@@ -31,6 +31,16 @@ chromato_file_check <- function(data, year) {
 }
 
 
+
+#' Creates folders with chromato organised by batch (same week of desorption)
+#'
+#' @param data 
+#' @param year 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 organize_gc_files_by_batch <- function(data, year) {
   # Définir les dossiers source et cible
   source_folder <- here::here("data", "GC-MS_files", paste0(year))
@@ -95,3 +105,50 @@ organize_gc_files_by_batch <- function(data, year) {
   # Retourner les données mises à jour
   return(data)
 }
+
+
+
+
+#' Rename alcanes files in the data folder
+#'
+#' @param alcanes 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+rename_alkanes_files <- function(alcanes){
+  source_folder <- here::here("data", "GC-MS_files", "alcanes")
+  files_in_folder <- list.files(source_folder, full.names = FALSE)
+
+# #vérifier que tous les ichiers alcanes ont été rentrés dans les csv = on a relevé leur date et on leur a attribué un nouveau nom   
+#   missing_files <- setdiff( files_in_folder, alcanes$initial_name)
+#   if (length(missing_files) > 0) {
+#     stop(paste(
+#       "Les alcanes suivant n'apparaissent pas dans le csv  :",
+#       paste(missing_files, collapse = ", ")
+#     ))
+#   }
+  
+  # Parcourir les correspondances et renommer les fichiers/dossiers
+  for (i in 1:nrow(alcanes)) {
+    initial <-alcanes$initial_name[i]
+    new <- alcanes$new_name[i]
+    # Chemins source et cible
+    initial_path <- file.path(source_folder, initial)
+    new_path <- file.path(source_folder, new)
+    
+    # Renommer le dossier
+    if (file.exists(initial_path)) {
+      success <- file.rename(initial_path, new_path)
+      if (!success) {
+        warning(paste("Impossible de renommer :", initial, "->", new))
+      }
+    } else {
+      warning(paste("Le fichier/dossier", initial, "n'existe pas dans le dossier source."))
+    }
+  }
+  return(alcanes)
+}
+
+
