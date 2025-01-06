@@ -1,8 +1,7 @@
 
 #' Creates a visual mapping of desorption date in the year_subplot
 #'
-#' @param data 
-#'
+#' @param data  a dataframe qui contient le nom des tubes fait la même année et l'attribution a des batches
 #' @return a plot with time in the x axis
 #' @export
 #'
