@@ -1,6 +1,6 @@
 #' Subset samples according to a choosen year and creates batches according to desorption date
 #'
-#' @param data , data frame
+#' @param data , data frame qui contient le nom des tubes et leurs date de désorption
 #' @param year , year of choice (2023, 2024, 2025) in a character "" format
 #' @param alcanes 
 #'
@@ -9,16 +9,16 @@
 #'
 #' @examples
 subset_year<- function(data, year, alcanes) {
-  # Filtrer pour les lignes de 2024
+  # Filtrer = garder seulement les lignes de l'année choisie
   data <- data |>
     dplyr::filter(stringr::str_detect(ID, paste0(year)))
   
-  # Conversion en format Date
+  # Conversion de la date en format Date compréhensible pour Rstudio, jour/mois/année, puis regrouper par batch = désorbé la même semaine
   data <- data |> 
     dplyr::mutate(Date_desorption = as.Date(Date_desorption, format = "%d.%m.%Y")) |>  
     dplyr::mutate(batch = paste0( "w", lubridate::week(Date_desorption), "_", year))
   
-  # Conversion des dates des alcanes en format Date
+  # Conversion des dates des alcanes en format Date compréhensible pour Rstudio, jour/mois/année
   alcanes <- alcanes |> 
     dplyr::mutate(date = as.Date(date, format = "%d/%m/%Y"))
 
