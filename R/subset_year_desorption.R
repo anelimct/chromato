@@ -15,7 +15,7 @@ subset_year<- function(data, year, alcanes) {
   
   # Conversion de la date en format Date compréhensible pour Rstudio, jour/mois/année, puis regrouper par batch = désorbé la même semaine
   data <- data |> 
-    dplyr::mutate(Date_desorption = as.Date(Date_desorption, format = "%d.%m.%Y")) |>  
+    dplyr::mutate(Date_desorption = as.Date(Date_desorption, format = "%d/%m/%Y")) |>  
     dplyr::mutate(batch = paste0( "w", lubridate::week(Date_desorption), "_", year))
   
   # Conversion des dates des alcanes en format Date compréhensible pour Rstudio, jour/mois/année

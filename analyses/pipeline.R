@@ -56,8 +56,8 @@ list(
   tar_target(renamed_alcanes, rename_alkanes_files(alcanes_samples)),
   
   
-  tar_target(bvocs_samples_file, here::here("data", "BVOCS_samples.csv" ), format = "file"),
-  tar_target(bvocs_samples,utils::read.csv(bvocs_samples_file)), 
+  tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
+  tar_target(bvocs_samples,utils::read.csv(bvocs_samples_file, sep = ";")), 
   tar_target(subset_2023, subset_year(bvocs_samples, "2023", renamed_alcanes)),
   tar_target(subset_2024, subset_year(bvocs_samples, "2024", renamed_alcanes)), 
   
