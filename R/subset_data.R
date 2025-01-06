@@ -2,7 +2,7 @@
 #'
 #' @param data , data frame qui contient le nom des tubes et leurs date de désorption
 #' @param year , year of choice (2023, 2024, 2025) in a character "" format
-#' @param alcanes 
+#' @param alcanes , listes des fichiers alcanes disponibles
 #'
 #' @return
 #' @export
