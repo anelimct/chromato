@@ -9,7 +9,7 @@ make_ibuttons_table <- function(paths_csv_files, type){
     })
   
   N_buttons <- stringr::str_sub(name_file, end = 2)
-  # mettre des slash entre les différent élément de la date qui était dans le nom du fichier ou tout était collé
+  # mettre des "-" entre les différent élément de la date qui était dans le nom du fichier ou tout était collé
   dates <- stringr::str_sub(name_file, start = 4, end = 11) |> 
     (\(x) stringr::str_c(
       stringr::str_sub(x, end = 4),
@@ -18,13 +18,12 @@ make_ibuttons_table <- function(paths_csv_files, type){
       sep = "-"
     ))()
     
-  # read all the files and renames colums because 3 colnames for 4 colums so fread takes the first one as index
-  #when really the "issue" is the lats column that does mean anything -> renamed v_extra
+  # read all the files use fill = T because in some files there is missing the extra value at this end and no "," so otherwise it stops
   list.DFs <- lapply(paths_csv_files, function(file) {
     data.table::fread(file, fill = T, skip = 19)
   })
 
-  #coller le numéro du ibutton et la date qui proviennent du nom du fchier
+  #coller le numéro du ibutton et la date qui proviennent du nom du fichier
   list.DFs <- mapply(function(df, n) {
     dplyr::mutate(df, N_button = n)
   }, list.DFs, N_buttons, SIMPLIFY = FALSE)
@@ -35,7 +34,7 @@ make_ibuttons_table <- function(paths_csv_files, type){
   
   
   df <- do.call(rbind, list.DFs) |>
-    dplyr::mutate( Date_Time = stringr::str_replace( `Date/Time`, "/24", "/2024")) |> #day ne peut jamais avoir un slash devant puisque en première position don c'est OK
+    dplyr::mutate( Date_Time = stringr::str_replace( `Date/Time`, "/24", "/2024")) |> #day ne peut jamais avoir un slash devant puisque en première position donc c'est OK
     dplyr::mutate( Date_Time = stringr::str_replace( Date_Time, "/23", "/2023")) |>
     dplyr::mutate(Date_Time = as.POSIXct(Date_Time, format = "%d/%m/%Y %H:%M:%OS"))
   
@@ -67,9 +66,7 @@ export_ibuttons_data <- function(data, ibutton_table, type){
     dplyr::mutate(end_prelevement = as.POSIXct(end_prelevement, format = "%d/%m/%Y %Hh%M")) |> 
     dplyr::mutate(interval = lubridate::interval(start_prelevement, end_prelevement)) 
   
-  variable_in =  paste0("values_", type, "_in")
-  variable_out = paste0("values_", type, "_out")
-  
+  # the !! paste0 is to have an interactive column name in the mutate in order to add the suffix _T ou _H to colname 
   data <- data |> 
     dplyr::rowwise() |> 
     dplyr::mutate(

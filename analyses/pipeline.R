@@ -52,7 +52,7 @@ tar_source()
 
 # Replace the target list below with your own:
 list(
-  ## Ranger les chromato par batch avec leurs alcanes correpondants
+ 
   tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
   tar_target(renamed_alcanes, rename_alkanes_files(alcanes_samples)),
@@ -60,8 +60,21 @@ list(
   
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
   tar_target(bvocs_samples,utils::read.csv(bvocs_samples_file, sep = ";")), 
-  tar_target(subset_2023, subset_year(bvocs_samples, "2023", renamed_alcanes)),
-  tar_target(subset_2024, subset_year(bvocs_samples, "2024", renamed_alcanes)), 
+  
+  
+  ## Récupérer les données des iButtuns
+  
+  tar_target(ibuttons_files, list.files ( here::here("data", "iButton_files"), full.names = TRUE), format = "file"), 
+  tar_target(ibutton_table_T, make_ibuttons_table(ibuttons_files, "T")), 
+  tar_target(ibutton_table_H, make_ibuttons_table(ibuttons_files, "H")),
+  tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples, ibutton_table_T, "T")),
+  tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples, ibutton_table_H, "H")), 
+  tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
+  
+  ## Ranger les chromato par batch avec leurs alcanes correpondants
+  
+  tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes)),
+  tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes)), 
   
   tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
   tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
@@ -74,15 +87,7 @@ list(
   
  
   
-  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
   
-  ## Récupérer les données des iButtuns
-  
-  tar_target(ibuttons_files, list.files ( here::here("data", "iButton_files"), full.names = TRUE), format = "file"), 
-  tar_target(ibutton_table_T, make_ibuttons_table(ibuttons_files, "T")), 
-  tar_target(ibutton_table_H, make_ibuttons_table(ibuttons_files, "H")),
-  tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples, ibutton_table_T, "T")),
-  tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples, ibutton_table_H, "H")), 
-  tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H))
   
 )
