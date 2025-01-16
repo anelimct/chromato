@@ -1,6 +1,6 @@
 #' See if files present in the chromato file for the year match files said to be present
 #'
-#' @param data 
+#' @param data A dataframe with bvocs samples 
 #' @param year 
 #'
 #' @return A dataframe with : how many chromato should by present, how many are available, the names the missing files if there is any within pairs of samples ( for the year 2023 one tube C5 one tube C15)
