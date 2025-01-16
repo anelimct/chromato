@@ -71,7 +71,7 @@ list(
   tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples, ibutton_table_H, "H")), 
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
   
-  ## Ranger les chromato par batch avec leurs alcanes correpondants
+  ## Trier les chromato, subset is done on desorption date
   
   tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes)),
   tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes)), 
@@ -82,6 +82,7 @@ list(
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
   
+  ##Ranger les chromato par batch avec leurs alcanes correpondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
   tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )), 
   
