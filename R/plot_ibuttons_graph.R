@@ -49,7 +49,7 @@ plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_o
   
   complete_plot_path <- stringr::str_glue("figures/graphs_ibuttons/{tolower(name)}_ibuttons.png")
   
-    ggsave( plot_name, gg_final, path = plot_path, width = 16, height = 4.95, units = "cm" )
+    ggsave( plot_name, gg_final, path = plot_path, width = 16, height = 4.95, units = "cm", bg = "white" )
   return(complete_plot_path)
 }
 
