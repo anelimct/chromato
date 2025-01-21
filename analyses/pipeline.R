@@ -84,9 +84,16 @@ list(
   
   ##Ranger les chromato par batch avec leurs alcanes correpondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
-  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )), 
+  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
+  
+  tar_target(plot_ibuttons_2024, save_plot_ibuttons (subset_2024, "2024")),
+  tar_target(plot_ibuttons_2023, save_plot_ibuttons (subset_2023, "2023")), 
   
  
+  ## Library CAS
+  
+  tar_target(CAS_files, list.files(here::here("data" , "web_requests_CAS"), full.names = T), format = "file"), 
+  tar_target(library_CAS, create_library(CAS_files)),
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
   

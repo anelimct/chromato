@@ -67,21 +67,78 @@ export_ibuttons_data <- function(data, ibutton_table, type){
     dplyr::mutate(interval = lubridate::interval(start_prelevement, end_prelevement)) 
   
   # the !! paste0 is to have an interactive column name in the mutate in order to add the suffix _T ou _H to colname 
+  #One issue is in some files overlapp like for QCRE_878434_23072024 data from the ibutton 44 the 23/07/2024 between 11h14 and 11h29 are available in 44_20240723 and 44_20240724 so they end up being doubled in the final data
+  #This is why I want to unclude an distinct(across(-Date_file_name)) but it is dangerous 
   data <- data |> 
     dplyr::rowwise() |> 
     dplyr::mutate(
       !!paste0("values_", type, "_in") := list(
         ibutton_table |> 
           dplyr::filter(Date_Time %within% interval & N_button == N..iButton.IN) |> 
+          dplyr::distinct(across(-Date_file_name)) |>
           dplyr::pull(Value)
       ),
       !!paste0("values_", type, "_out") := list(
         ibutton_table |> 
-          dplyr::filter(Date_Time %within% interval & N_button == N..iButton.OUT) |> 
+          dplyr::filter(Date_Time %within% interval & N_button == N..iButton.OUT) |>
+          dplyr::distinct(across(-Date_file_name)) |>
           dplyr::pull(Value)
+      ),
+      !!paste0("Time_", type, "_in") := list(
+        ibutton_table |> 
+          dplyr::filter(Date_Time %within% interval & N_button == N..iButton.IN) |>
+          dplyr::distinct(across(-Date_file_name)) |>
+          dplyr::pull(Date_Time)
+      ), 
+      !!paste0("Time_", type, "_out") := list(
+        ibutton_table |> 
+          dplyr::filter(Date_Time %within% interval & N_button == N..iButton.OUT) |> 
+          dplyr::distinct(across(-Date_file_name)) |> 
+          dplyr::pull(Date_Time)
       )
+      
     ) |> 
     dplyr::ungroup()
   return(data)    
       
 }
+
+
+
+## Code chat pour vérifier que les time in et out sont les memes
+compute_time_differences <- function(row) {
+  # Extract the lists of times
+  time_t_in <- row$Time_T_in[[1]]
+  time_t_out <- row$Time_T_out[[1]]
+  time_h_in <- row$Time_H_in[[1]]
+  time_h_out <- row$Time_H_out[[1]]
+  
+  # Initialize a result list
+  results <- list()
+  
+  # Check if lengths match
+  if (length(time_t_in) != length(time_t_out)) {
+    results$t_in_out_diff <- "Mismatch in length"
+  } else {
+    results$t_in_out_diff <- as.numeric(difftime(time_t_out, time_t_in, units = "secs"))
+  }
+  
+  if (length(time_h_in) != length(time_h_out)) {
+    results$h_in_out_diff <- "Mismatch in length"
+  } else {
+    results$h_in_out_diff <- as.numeric(difftime(time_h_out, time_h_in, units = "secs"))
+  }
+  
+  # Return results
+  return(results)
+}
+
+# exemple application
+
+# results <- subset_2024 %>%
+#   rowwise() %>%
+#   mutate(
+#     time_differences = list(compute_time_differences(cur_data()))
+#   ) %>%
+#   unnest_wider(time_differences)
+
