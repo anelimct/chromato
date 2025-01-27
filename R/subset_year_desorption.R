@@ -16,12 +16,29 @@ subset_year<- function(data, year, alcanes) {
   # Conversion de la date en format Date compréhensible pour Rstudio, jour/mois/année, puis regrouper par batch = désorbé la même semaine
   data <- data |> 
     dplyr::mutate(Date_desorption = as.Date(Date_desorption, format = "%d/%m/%Y")) |>  
-    dplyr::mutate(batch = paste0( "w", lubridate::week(Date_desorption), "_", year))
+    dplyr::mutate(    batch = dplyr::case_when(
+      !startsWith(ID, "B_") ~ paste0("w", week(Date_desorption), "_", year(Date_desorption)),
+      TRUE ~ NA_character_))
+  
+  
+  blanks <- data |> 
+    dplyr::filter(startsWith(ID, "B_")) |> 
+    dplyr::select(Date, ID) 
+  
+  data_b <- data |> 
+    dplyr::left_join(blanks, by = "Date", suffix = c("", "_blank"), relationship =
+                       "many-to-many")|> 
+    dplyr::filter(!startsWith(ID, "B_")) |> 
+    dplyr::group_by(ID) |> dplyr::summarise(list(ID_blank))
+  
+  data <- data |> dplyr::left_join(data_b, by = "ID")
+  
+  
   
   # Conversion des dates des alcanes en format Date compréhensible pour Rstudio, jour/mois/année
   alcanes <- alcanes |> 
     dplyr::mutate(date = as.Date(date, format = "%d/%m/%Y"))
-
+  
   # Associer à chaque ligne de 'data' le fichier alcane le plus proche
   data <- data |>
     dplyr::rowwise() |>

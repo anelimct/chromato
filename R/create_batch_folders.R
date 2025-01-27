@@ -42,6 +42,16 @@ chromato_file_check <- function(data, year) {
 #'
 #' @examples
 organize_gc_files_by_batch <- function(data, year) {
+  
+  
+blanks <- data |> 
+      dplyr::select(batch,`list(ID_blank)` ) |> 
+       dplyr::filter(!is.na(batch), !purrr::map_lgl(`list(ID_blank)`, is.null)) |>  # Filtrer les lignes pertinentes
+       tidyr::unnest_longer(`list(ID_blank)`) |>                            # Éclater les éléments des listes
+    dplyr::rename(ID = `list(ID_blank)`) |> dplyr::distinct(ID, batch)
+
+data <- data |>  dplyr::filter(!startsWith(ID, "B_")) |>  dplyr::select(ID, batch) |>  rbind(blanks)
+
   # Définir les dossiers source et cible
   source_folder <- here::here("data", "GC-MS_files", paste0(year))
   target_base_folder <- here::here("data", "GC-MS_batches", paste0(year))
