@@ -55,7 +55,14 @@ list(
  
   tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
-  tar_target(renamed_alcanes, rename_alkanes_files(alcanes_samples)),
+  tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes")),
+  
+  tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
+  tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
+  tar_target(renamed_calib, rename_GC_files(calib_samples, "calib")),
+  
+  tar_target(calib_quanti_file, here::here("data", "calib_quanti.csv" ), format = "file"),
+  tar_target(calib_quanti,utils::read.csv(calib_quanti_file, sep = ";")),
   
   
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),

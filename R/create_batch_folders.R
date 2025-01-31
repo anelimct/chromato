@@ -127,23 +127,14 @@ data <- data |>  dplyr::filter(!startsWith(ID, "B_")) |>  dplyr::select(ID, batc
 #' @export
 #'
 #' @examples
-rename_alkanes_files <- function(alcanes){
-  source_folder <- here::here("data", "GC-MS_files", "alcanes")
+rename_GC_files <- function(dataframe, name){
+  source_folder <- here::here("data", "GC-MS_files", paste0(name))
   files_in_folder <- list.files(source_folder, full.names = FALSE)
-
-# #vérifier que tous les ichiers alcanes ont été rentrés dans les csv = on a relevé leur date et on leur a attribué un nouveau nom   
-#   missing_files <- setdiff( files_in_folder, alcanes$initial_name)
-#   if (length(missing_files) > 0) {
-#     stop(paste(
-#       "Les alcanes suivant n'apparaissent pas dans le csv  :",
-#       paste(missing_files, collapse = ", ")
-#     ))
-#   }
   
   # Parcourir les correspondances et renommer les fichiers/dossiers
-  for (i in 1:nrow(alcanes)) {
-    initial <-alcanes$initial_name[i]
-    new <- alcanes$new_name[i]
+  for (i in 1:nrow(dataframe)) {
+    initial <-dataframe$initial_name[i]
+    new <- dataframe$new_name[i]
     # Chemins source et cible
     initial_path <- file.path(source_folder, initial)
     new_path <- file.path(source_folder, new)
@@ -158,7 +149,7 @@ rename_alkanes_files <- function(alcanes){
       warning(paste("Le fichier/dossier", initial, "n'existe pas dans le dossier source."))
     }
   }
-  return(alcanes)
+  return(dataframe)
 }
 
 
