@@ -55,7 +55,8 @@ list(
  
   tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
-  tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes")),
+  tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes") |> dplyr::filter(exploitables == "oui") |> dplyr::mutate(dplyr::across(c("octane", "nonane", "decane", "undecane", "dodecane", 
+                                                                                                                                            "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric))) ,
   
   tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
   tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),

@@ -1,7 +1,7 @@
 
 #' Creates a visual mapping of desorption date in the year_subplot
 #'
-#' @param data  a dataframe qui contient le nom des tubes fait la même année et l'attribution a des batches
+#' @param data  a dataframe qui contient le nom des tubes fait la même année et l'attribution a des batches + les blancs associés à chaque sample
 #' @return a plot with time in the x axis
 #' @export
 #'
@@ -13,8 +13,8 @@ chronologie <- function(data) {
     dplyr::summarise(
       first_date = min(Date_desorption, na.rm = TRUE),
       last_date = max(Date_desorption, na.rm = TRUE),
-      num_samples = dplyr::n(),
-      num_exploitables = sum(Pics_exploitables != "Non", na.rm = TRUE),  # Compte des exploitables
+      num_samples = dplyr::n() + length(unique(unlist(`list(ID_blank)`))),
+      #num_exploitables = sum(Pics_exploitables != "Non", na.rm = TRUE) + data[] ,  # Compte des exploitables
       num_paradise = sum(Remarque_pics == "OK", na.rm = FALSE),  # Compte des exploitables paradise
       .groups = "drop"
     )
@@ -22,19 +22,19 @@ chronologie <- function(data) {
   # Préparer les données pour inclure les trois types
   bar_data <- summary_data |>
     tidyr::pivot_longer(
-      cols = c(num_samples, num_exploitables, num_paradise),
+      cols = c(num_samples, num_paradise),  #num_exploitables
       names_to = "type",
       values_to = "count"
     ) |>
     dplyr::mutate(
       y_position = dplyr::case_when(
         type == "num_samples" ~ as.numeric(factor(batch)),  # Position centrale (barre rose)
-        type == "num_exploitables" ~ as.numeric(factor(batch)) - 0.2,  # Barre verte, décalée vers le bas
+        #type == "num_exploitables" ~ as.numeric(factor(batch)) - 0.2,  # Barre verte, décalée vers le bas
         type == "num_paradise" ~ as.numeric(factor(batch)) -0.4   # Barre bleue, décalée vers le haut
       ),
       color = dplyr::case_when(
         type == "num_samples" ~ "Total",
-        type == "num_exploitables" ~ "Exploitables",
+        #type == "num_exploitables" ~ "Exploitables",
         type == "num_paradise" ~ "Paradise"
       )
     )
