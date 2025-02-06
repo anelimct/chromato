@@ -5,6 +5,7 @@
 
 # Load packages required to define the pipeline:
 library(targets)
+library(tarchetypes)
 library(ggplot2)
 library(lubridate)
 # library(tarchetypes) # Load other packages as needed.
@@ -100,10 +101,13 @@ list(
  
   ## Library CAS
   
-  tar_target(CAS_files, list.files(here::here("data" , "web_requests_CAS"), full.names = T), format = "file"), 
+  tar_files(
+    CAS_files,
+    list.files(here::here("data", "web_requests_CAS"), full.names = TRUE)
+  ), 
   tar_target(library_CAS, create_library(CAS_files)),
+  tar_target(library_CAS_RI, update_lib(library_CAS)),
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
-  
-  
+
 )
