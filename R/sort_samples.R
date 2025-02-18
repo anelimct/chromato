@@ -1,6 +1,6 @@
 # selectionner tous les samples qui sont perdu ou erreur 
 
-filter_samples <- function(data, T_max, µ_max_T){
+filter_out_samples <- function(data, T_max, µ_max_T){
   # selectionner tous les samples qui sont perdu ou erreur 
   #selectionner tous les samples pour les quelques on a perdu les ibutton values in 
   #tous les samples qui on une moyenne de température supérieur à 40 degres (faire une fonction avec un paramètre de,température à ne pas dépasser pour la moyenne ou pour les valeurs extremes)
@@ -13,7 +13,7 @@ filter_samples <- function(data, T_max, µ_max_T){
 }
 
 
-summary_filter_samples <- function(data, T_max, µ_max_T){
+summary_filter_out_samples <- function(data, T_max, µ_max_T){
 
     # Ajouter des colonnes indicatrices pour chaque condition
     data <- data |>
