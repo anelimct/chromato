@@ -59,9 +59,9 @@ list(
   tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes") |> dplyr::filter(exploitables == "oui") |> dplyr::mutate(dplyr::across(c("octane", "nonane", "decane", "undecane", "dodecane", 
                                                                                                                                             "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric))) ,
   
-  tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
-  tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
-  tar_target(renamed_calib, rename_GC_files(calib_samples, "calib")),
+  #tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
+  #tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
+  #tar_target(renamed_calib, rename_GC_files(calib_samples, "calib")),
   
   tar_target(calib_quanti_file, here::here("data", "calib_quanti.csv" ), format = "file"),
   tar_target(calib_quanti,utils::read.csv(calib_quanti_file, sep = ";")),
@@ -100,13 +100,16 @@ list(
   
  
   ## Library CAS
-  
+
+  tar_target(RI_file, here::here("data", "library_cas_ri.xlsx" ), format = "file"),
+  tar_target(RI,  readxl::read_xlsx(RI_file, sheet = 1)), 
   tar_files(
     CAS_files,
     list.files(here::here("data", "web_requests_CAS"), full.names = TRUE)
   ), 
-  tar_target(library_CAS, create_library(CAS_files)),
-  tar_target(library_CAS_RI, update_lib(library_CAS)),
+  
+  tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
+  tar_target(library_CAS_RI, update_lib(library_CAS, RI)),
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
 

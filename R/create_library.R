@@ -25,9 +25,8 @@ create_library <- function(files_path){
 }
 
 
-update_lib <- function (new_lib) {
+update_lib <- function (new_lib, old_correspondant_table_with_RI) {
   
-  old_correspondant_table_with_RI <- readxl::read_xlsx(here::here("data", "library_cas_ri.xlsx"), sheet = 1)
   
   old <- unlist(old_correspondant_table_with_RI$Merged_CAS_Numbers)
   new_lib <- new_lib |> dplyr::filter(!`CAS Registry Number` %in% old) #enlever toutes les lignes qui sont déja dans old
