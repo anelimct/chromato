@@ -20,6 +20,7 @@ plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_o
          x = "Temps",
          y = "Température (°C)",
          color = "variable") +
+    ylim(18, 55)+
     theme_minimal()+
     ggtitle(t_title)
   

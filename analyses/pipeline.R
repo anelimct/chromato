@@ -57,7 +57,7 @@ list(
   tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
   tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes") |> dplyr::filter(exploitables == "oui") |> dplyr::mutate(dplyr::across(c("octane", "nonane", "decane", "undecane", "dodecane", 
-                                                                                                                                            "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric))) ,
+                                                                                                                                            "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric)) |> imput_missing_alcanes() ) ,
   
   #tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
   #tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
@@ -68,16 +68,20 @@ list(
   
   
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
-  tar_target(bvocs_samples,utils::read.csv(bvocs_samples_file, sep = ";")), 
+  tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")), 
   
+  #liste des paradise reports
+  
+  tar_target( paradise_reports_files, list.files(here::here("data", "paradise_reports"), pattern = "\\.xlsx$")),
+  tar_target( paradise_reports_list , read_paradise_4( paradise_reports_files, library_CAS_RI)),
   
   ## Récupérer les données des iButtuns
   
   tar_target(ibuttons_files, list.files ( here::here("data", "iButton_files"), full.names = TRUE), format = "file"), 
   tar_target(ibutton_table_T, make_ibuttons_table(ibuttons_files, "T")), 
   tar_target(ibutton_table_H, make_ibuttons_table(ibuttons_files, "H")),
-  tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples, ibutton_table_T, "T")),
-  tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples, ibutton_table_H, "H")), 
+  tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples_raw, ibutton_table_T, "T")),
+  tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples_raw, ibutton_table_H, "H")), 
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
   
   ## Trier les chromato, subset is done on desorption date
@@ -90,6 +94,14 @@ list(
   
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
+  
+  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti )),
+  
+
+  #tar_target(failed_samples, filter_out_samples ( bvocs_samples_ibuttons_values, 45, 40)), 
+  #tar_target(failed_samples_summary, summary_filter_out_samples ( bvocs_samples_ibuttons_values, 45, 40)),
+  
+  
   
   ##Ranger les chromato par batch avec leurs alcanes correpondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
@@ -111,6 +123,9 @@ list(
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
   tar_target(library_CAS_RI, update_lib(library_CAS, RI)),
   
+  ## working on paradise_files
+  
+  #tar_target(test ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
 
 )

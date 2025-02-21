@@ -43,7 +43,7 @@ subset_year<- function(data, year, alcanes) {
   data <- data |>
     dplyr::rowwise() |>
     dplyr::mutate(
-      alcane_closest = list(alcanes$new_name[which.min(abs(difftime(Date_desorption, alcanes$date, units = "days")))])
+      alcane_closest = dplyr::first(alcanes$new_name[which.min(abs(difftime(Date_desorption, alcanes$date, units = "days")))])
     ) |>
     dplyr::ungroup()
   
