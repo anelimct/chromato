@@ -29,7 +29,7 @@ create_library <- function(files_path){
 #'
 #' @param new_lib, new library from the recent files path present in telechargement CAS
 #' @param old_correspondant_table_with_RI previous library where RI were added
-#' The fonction sort the CAS that are, which means that were not in the previous library version, 
+#' The fonction sort the CAS that are new, which means that were not in the previous library version, 
 #' then merged the new cas to existing line if the canonical smiles was already present (isomere, same canonical smiles but different CAS cause different names), 
 #' or creates a new line if the canonical smiles has no match in the previous library 
 #' @returns A library with one CAS name and CAS number for each CANONICALS smiles, RI if available and number of carbons to compute Retention index
@@ -38,9 +38,12 @@ create_library <- function(files_path){
 #' @examples
 update_lib <- function (new_lib, old_correspondant_table_with_RI) {
   
-  
+  # enlever la ligne de tous les merged_CAS_numbers qui ont été merged ensemble parce que canonicales smiles de CAS est vide
+  old_correspondant_table_with_RI <- old_correspondant_table_with_RI |> dplyr::filter(!is.na('Canonical SMILES'))
+  #list de CAS déjà présents
   old <- unlist(old_correspondant_table_with_RI$Merged_CAS_Numbers)
-  new_lib <- new_lib |> dplyr::filter(!`CAS Registry Number` %in% old) #enlever toutes les lignes qui sont déja dans old
+  new_lib <- new_lib |> dplyr::filter(!`CAS Registry Number` %in% old) |> #enlever toutes les lignes qui sont déja dans old
+                        dplyr::filter(!is.na('Canonical SMILES'))
   
   # permet de merged tous les noms de composants et leur numéros CAS pour ceuw qui avit déjà un Canonical smiles dans la table des correspondances
   updated_table <- old_correspondant_table_with_RI |> 

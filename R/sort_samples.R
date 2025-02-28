@@ -12,43 +12,81 @@ filter_out_samples <- function(data, T_max, µ_max_T){
   # selectionner tous les samples qui sont perdu ou erreur 
   #selectionner tous les samples pour les quelques on a perdu les ibutton values in 
   #tous les samples qui on une moyenne de température supérieur à 40 degres (faire une fonction avec un paramètre de,température à ne pas dépasser pour la moyenne ou pour les valeurs extremes)
-  data <- data |> dplyr::filter(
+  #Tous les échantillons qui ne ce sont pas ouverts dans paradise
+  data <- data |> dplyr::filter(Taxon != "BLANC")
+  
+  
+  
+  data <- data |> 
+    dplyr::mutate( issue = dplyr::if_else(
     Etat %in% c("perdu", "Perdu", "Erreur") |
                                   purrr::map_lgl(values_T_in, ~ any(.x > T_max))|
                                   purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
-                                  purrr::map_lgl(values_T_in, ~ length(.x) == 0)
-                                )
+                                  purrr::map_lgl(values_T_in, ~ length(.x) == 0) |
+                                  paradise==FALSE, TRUE, FALSE
+                                ))
   
+ data <- data |> dplyr::group_by(ID_pairs) |> 
+   dplyr::filter( all(issue)) |> 
+   dplyr::distinct(ID_pairs, .keep_all = TRUE)
+  
+}
+
+
+paired_samples <- function (bvocs){
+  
+  data <- bvocs |> dplyr::mutate(ID_pairs = dplyr::if_else(stringr::str_detect(ID, "2023"),  stringr::str_remove(ID, "_[^_]*_"), ID))
+                                   
+  
+  return(data)
+}
+
+
+
+
+summarize_lost_samples <- function(data, T_max, µ_max_T) {
   data <- data |> dplyr::filter(Taxon != "BLANC")
   
-}
-
-
-summary_filter_out_samples <- function(data, T_max, µ_max_T){
-
-    # Ajouter des colonnes indicatrices pour chaque condition
-    data <- data |>
-      dplyr::mutate(
-        is_perdu_erreur = Etat %in% c("perdu", "Perdu", "Erreur"),
-        any_above_T_max = purrr::map_lgl(values_T_in, ~ any(.x > T_max)),
-        mean_above_µ_max_T = purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T,
-        is_empty = purrr::map_lgl(values_T_in, ~ length(.x) == 0)
-      )
-    
-    # Filtrer les lignes qui correspondent à au moins une condition
-    filtered_data <- data |>
-      dplyr::filter(is_perdu_erreur | any_above_T_max | mean_above_µ_max_T | is_empty) |> 
-      dplyr::filter(Taxon != "BLANC")
-    
-    # Compter le nombre de TRUE pour chaque condition
-    summary_table <- filtered_data |>
-      dplyr::summarise(
-        n_perdu_erreur = sum(is_perdu_erreur),
-        n_any_above_T_max = sum(any_above_T_max),
-        n_mean_above_µ_max_T = sum(mean_above_µ_max_T, na.rm = TRUE),
-        n_inutton_lost = sum(is_empty)
-      )
-    
-}
   
+  
+  data <- data |> 
+    dplyr::mutate( issue = dplyr::if_else(
+      Etat %in% c("perdu", "Perdu", "Erreur") |
+        purrr::map_lgl(values_T_in, ~ any(.x > T_max))|
+        purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
+        purrr::map_lgl(values_T_in, ~ length(.x) == 0) |
+        paradise==FALSE, TRUE, FALSE
+    ))
+  
+  total_counts <- data |>
+    dplyr::summarize(total_count = dplyr::n(), .groups = 'drop')
+  
+  # Create a summary table of lost samples
+  lost_samples_summary <- data |>
+    dplyr::filter(issue) |>
+    dplyr::group_by(ID) |> 
+    dplyr::summarize(
+      lost_count = dplyr::n(),
+      lost_reasons = toString(unique(
+        dplyr::case_when(
+          Etat %in% c("perdu", "Perdu", "Erreur") ~ "Status: Perdu/Erreur",
+          purrr::map_lgl(values_T_in, ~ any(.x > T_max)) ~ "Temp: Exceeds Max",
+          purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T ~ "Avg Temp: Exceeds Max",
+          purrr::map_lgl(values_T_in, ~ length(.x) == 0) ~ "Temp Values: Missing",
+          paradise == FALSE ~ "Paradise: Not Opened",
+          TRUE ~ ""
+        )
+      ))
+    )
+  # Join the total counts and lost counts
+  summary_table <- lost_samples_summary |>
+    dplyr::mutate(lost_count = ifelse(is.na(lost_count), 0, lost_count),
+           lost_reasons = ifelse(is.na(lost_reasons), "None", lost_reasons)) |> 
+    dplyr::filter(lost_count != 0)
+  
+  return(summary_table)
+  
+  
+
+}
   

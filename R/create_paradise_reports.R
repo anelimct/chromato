@@ -1,12 +1,12 @@
 
 
-read_paradise_4 <- function(files_path, CAS_library) {
+read_paradise_4 <- function(files_path, CAS_library, option = "") {
   # Initialize the list to store data frames
   list_pardise_files <- list()
   
   # Iterate over each file path
   for (i in seq_along(files_path)) {
-    file_path <- paste0(here::here("data", "paradise_reports"), "/", files_path[i])
+    file_path <- paste0(here::here("data", "paradise_reports"), "/", option,  files_path[i])
     
     # Read the Excel sheets
     peak_area <- readxl::read_xlsx(file_path, sheet = 2)
@@ -54,7 +54,7 @@ read_paradise_4 <- function(files_path, CAS_library) {
 #' @export
 #'
 #' @examples
-samples_paradise <- function(pradise_list, calib_files){
+samples_paradise <- function(paradise_reports_list, calib_files){
   # dans le paradise report il y a une colonne pour chaque samples et donc il y a aussi des colonnes pour les calib que l'on veut ignorées
   calib_files <- stringr::str_replace(calib_files[,1], ".D", ".CDF")
   columns_to_exclude <- c("Compound Name", "New_CAS_Name", "Match Quality", "Compound ID", "Interval ID", "Model Order" , "Component #", "Est. Retention Time (min)", "Comments", "Hit 1: Probability" , "Hit 1: CAS", calib_files, "RI",  "nb_C_n", "nb_C_n_s" )
@@ -63,8 +63,8 @@ samples_paradise <- function(pradise_list, calib_files){
   paradise_samples_list <- list()
   
   # Parcourir chaque DataFrame dans la liste
-  for (name in names(pradise_list)) {
-    data <- pradise_list[[name]]
+  for (name in names(paradise_reports_list)) {
+    data <- paradise_reports_list[[name]]
     paradise_samples <- setdiff(colnames(data), columns_to_exclude)
     paradise_samples <- stringr::str_remove(paradise_samples, ".CDF")
     paradise_samples_list[[name]] <- paradise_samples

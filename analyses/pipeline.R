@@ -75,6 +75,11 @@ list(
   tar_target( paradise_reports_files, list.files(here::here("data", "paradise_reports"), pattern = "\\.xlsx$")),
   tar_target( paradise_reports_list , read_paradise_4( paradise_reports_files, library_CAS_RI)),
   
+  #liste des paradise reports calibrations
+  
+  tar_target( paradise_reports_calib_files, list.files(here::here("data", "paradise_reports", "calib"), pattern = "\\.xlsx$")),
+  tar_target( paradise_reports_calib_list , read_paradise_4( paradise_reports_calib_files, library_CAS_RI, option = "calib/")),
+  
   ## Récupérer les données des iButtuns
   
   tar_target(ibuttons_files, list.files ( here::here("data", "iButton_files"), full.names = TRUE), format = "file"), 
@@ -83,7 +88,14 @@ list(
   tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples_raw, ibutton_table_T, "T")),
   tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples_raw, ibutton_table_H, "H")), 
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
+  ##Lire les articles BD_litt
   
+  tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_extraction_R_edit_v_stage"), full.names = TRUE), format = "file"), 
+  tar_target(DB_bvocs, {
+    files <- lapply(articles, read_excel_articles)
+    do.call(rbind, files)
+  } |> select_iso_mono()), 
+             
   ## Trier les chromato, subset is done on desorption date
   
   tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes)),
@@ -95,11 +107,10 @@ list(
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
   
-  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti )),
+  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti ) |> paired_samples()),
   
 
-  #tar_target(failed_samples, filter_out_samples ( bvocs_samples_ibuttons_values, 45, 40)), 
-  #tar_target(failed_samples_summary, summary_filter_out_samples ( bvocs_samples_ibuttons_values, 45, 40)),
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 42, 40)),
   
   
   
@@ -114,18 +125,20 @@ list(
   ## Library CAS
 
   tar_target(RI_file, here::here("data", "library_cas_ri.xlsx" ), format = "file"),
-  tar_target(RI,  readxl::read_xlsx(RI_file, sheet = 1)), 
+  tar_target(RI_th,  readxl::read_xlsx(RI_file, sheet = 1)), 
   tar_files(
     CAS_files,
     list.files(here::here("data", "web_requests_CAS"), full.names = TRUE)
   ), 
   
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
-  tar_target(library_CAS_RI, update_lib(library_CAS, RI)),
+  tar_target(library_CAS_RI, update_lib(library_CAS, RI_th)),
   
   ## working on paradise_files
   
-  #tar_target(test ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+  
+  tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+  
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
 
 )
