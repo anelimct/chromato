@@ -68,7 +68,13 @@ list(
   
   
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
-  tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")), 
+  tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")),
+  
+  tar_target(storing_species_file, here::here("data", "splist_storing_AS.csv"), format = "file"), 
+  tar_target(storing_species, utils::read.csv(storing_species_file, sep = ";")),
+  
+  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_Species.csv")), 
+  tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
   #liste des paradise reports
   
@@ -94,7 +100,16 @@ list(
   tar_target(DB_bvocs, {
     files <- lapply(articles, read_excel_articles)
     do.call(rbind, files)
-  } |> select_iso_mono()), 
+  } |> species_aggregation(woodiv_species)|> select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) ),
+  
+  tar_target(DB_bvocs_filtered, select_std_or_standardisable(DB_bvocs, storing_species)  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
+               dplyr::mutate(
+                 Country = clean_country(Country),
+                 Origin_city = clean_city_locality(Origin_city),
+                 Origin_locality = clean_city_locality(Origin_locality),
+                 Origin_pop = paste(Origin_city, Origin_locality, sep = " "),
+                 Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
+               ) |> create_population_variable ()),
              
   ## Trier les chromato, subset is done on desorption date
   
@@ -110,17 +125,18 @@ list(
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti ) |> paired_samples()),
   
 
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 42, 40)),
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 42, 42)), #42 Tmax mean 40
   
   
   
-  ##Ranger les chromato par batch avec leurs alcanes correpondants
+  ##Ranger les chromato par batch avec leurs alcanes correspondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
   tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
   
-  tar_target(plot_ibuttons_2024, save_plot_ibuttons (subset_2024, "2024")),
-  tar_target(plot_ibuttons_2023, save_plot_ibuttons (subset_2023, "2023")), 
-  
+  tar_target(plot_ibuttons_2024, save_plot_ibuttons (subset_2024, "2024", plot_in_out)),
+  tar_target(plot_corr_T_2024, save_plot_corr_T (subset_2024, "2024", plot_corr_Tin_Tout)),
+  tar_target(plot_ibuttons_2023, save_plot_ibuttons (subset_2023, "2023", plot_in_out)), 
+  tar_target(plot_corr_T_2023, save_plot_corr_T (subset_2023, "2023", plot_corr_Tin_Tout)),
  
   ## Library CAS
 
@@ -133,6 +149,8 @@ list(
   
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
   tar_target(library_CAS_RI, update_lib(library_CAS, RI_th)),
+  
+
   
   ## working on paradise_files
   
