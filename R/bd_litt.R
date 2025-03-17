@@ -53,6 +53,9 @@ numeric_emissions_g_h <- function(data){
     dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanogC", Emission / 1000, Emission),
            Emission_var_value = ifelse(Emission_unit_comp == "nanogC", Emission /1000, Emission_var_value),
            Emission_unit_comp = ifelse(Emission_unit_comp == "nanogC", "microgC", Emission_unit_comp))
+  
+  
+  data <- data |>  dplyr:: filter(Emission_unit_leaf == "g")
 }
 
 
@@ -321,6 +324,24 @@ standardisation <- function(data){
     Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
     TRUE ~ ES_iso_G93
   )) 
+  
+}
+
+
+count_available <- function (data, minimum_nb_origin_pop){
+  #espèces =Taxon pour les quelles 3 records = 3 distinct Origin_pop pour compound =  isoprene et 3 records pour monoterpenes
+
+  species_counts <- data |> 
+    dplyr::group_by(Taxon, Compound) |> 
+    dplyr::summarise(distinct_origins = dplyr::n_distinct(Origin_pop), .groups = 'drop')
+  
+  # Filtrer les espèces avec au moins 3 distincts Origin_pop pour chaque composé
+  available_species <- species_counts |> 
+    dplyr::group_by(Taxon) |> 
+    dplyr::filter(all(distinct_origins >= minimum_nb_origin_pop)) |> 
+    dplyr::distinct(Taxon)
+  
+  return(available_species)
   
 }
 
