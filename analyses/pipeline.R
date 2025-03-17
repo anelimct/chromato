@@ -76,6 +76,8 @@ list(
   tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_Species.csv")), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
+  tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
+  
   #liste des paradise reports
   
   tar_target( paradise_reports_files, list.files(here::here("data", "paradise_reports"), pattern = "\\.xlsx$")),
@@ -110,6 +112,7 @@ list(
                  Origin_pop = paste(Origin_city, Origin_locality, sep = " "),
                  Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
+  tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree)),
              
   ## Trier les chromato, subset is done on desorption date
   

@@ -23,7 +23,8 @@ select_iso_mono <- function(data){
   # Standardize Compound names and filter relevant compounds
   data <- data |> 
     dplyr::mutate(Compound = ifelse(Compound %in% variantes_monoterpenes, "monoterpenes", Compound)) |> 
-    dplyr::filter(Compound == "isoprene" | Compound == "monoterpenes")
+    dplyr::filter(Compound == "isoprene" | Compound == "monoterpenes") |> 
+    dplyr::filter(Compound_TvsP != "partial")
 }
 
 numeric_emissions_g_h <- function(data){
@@ -58,10 +59,27 @@ numeric_emissions_g_h <- function(data){
 convert_temperature <- function(data) {
   # Si la température est en Celsius
   data <- data |> 
-    dplyr::mutate(
-           Temperature_C = dplyr::if_else(Temperature_unit == "K", Temperature - 273.15, Temperature),
+    dplyr::mutate(Temperature_C = dplyr::if_else(Temperature_unit == "C", Temperature, Temperature - 273.15),
+           Temperature_min_C = dplyr::if_else(Temperature_unit == "C", Temperature_min, Temperature_min - 273.15),
+           Temperature_max_C = dplyr::if_else(Temperature_unit == "C", Temperature_max, Temperature_max - 273.15),
+           Temperature_K = dplyr::if_else(Temperature_unit == "C", Temperature + 273.15, Temperature),
+           Temperature_min_K = dplyr::if_else(Temperature_unit == "C", Temperature_min + 273.15, Temperature_min),
+           Temperature_max_K = dplyr::if_else(Temperature_unit == "C", Temperature_max + 273.15, Temperature_max))
+  
+  # Si la température est en Kelvin
+  data <- data |> 
+    dplyr::mutate(Temperature_C = dplyr::if_else(Temperature_unit == "K", Temperature - 273.15, Temperature),
            Temperature_min_C = dplyr::if_else(Temperature_unit == "K", Temperature_min - 273.15, Temperature_min),
-           Temperature_max_C = dplyr::if_else(Temperature_unit == "K", Temperature_max - 273.15, Temperature_max))
+           Temperature_max_C = dplyr::if_else(Temperature_unit == "K", Temperature_max - 273.15, Temperature_max),
+           Temperature_K = dplyr::if_else(Temperature_unit == "K", Temperature, Temperature + 273.15),
+           Temperature_min_K = dplyr::if_else(Temperature_unit == "K", Temperature_min, Temperature_min + 273.15),
+           Temperature_max_K = dplyr:: if_else(Temperature_unit == "K", Temperature_max, Temperature_max + 273.15))
+  data <- data %>%
+    dplyr::mutate(T_algo_K = dplyr::if_else(!is.na(Temperature_K), Temperature_K, (Temperature_max_K + Temperature_min_K) / 2)) %>% 
+    dplyr::select(-c(Temperature_K, Temperature_min_K, Temperature_max_K))
+  
+  data <- data %>%
+    dplyr::mutate(PAR_algo = dplyr::if_else(!is.na(PAR), PAR, (PAR_max + PAR_min) / 2))
   
   return(data)
 }
@@ -71,11 +89,11 @@ convert_temperature <- function(data) {
 select_std_or_standardisable <- function(data, sp_storing) {
   
   data <- data |> 
-    dplyr::left_join(sp_storing, by = c('spcode.agg' = 'spcode' ))
+    dplyr::left_join(sp_storing, by = c('spcode.agg' = 'spcode' )) |>  dplyr::mutate(Taxon = stringr::str_replace(Taxon, " ", "_"))
   
   data_std <- data |> dplyr::filter(Standardized == "true")
   
-  data<- data |> dplyr::filter(Standardized == "false")
+  data<- data |> dplyr::filter(Standardized == "false") |> dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") 
   
   data <- data |> dplyr::filter(
     Stockage == "oui" & Compound == "monoterpenes" & 
@@ -243,5 +261,66 @@ create_population_variable <- function(df) {
   return(df)
 }
 
+# Définition de la fonction
+std_iso_G93 <- function(L, T, E) {
+  # Définition des constantes
+  alpha <- 0.0027
+  CL1 <- 1.066
+  CT1 <- 95000
+  CT2 <- 230000
+  TM <- 314
+  R <- 8.314
+  TS <- 303
+  
+  # Calcul des termes CL et CT
+  CL <- CL1 * alpha * L / sqrt(1 + alpha^2 * L^2)
+  CT <- exp(CT1 * (T - TS) / (R * TS * T)) / (1 + exp(CT2 * (T - TM) / (R * TS * T)))
+  
+  # Calcul de ES
+  ES <- E / (CL * CT)
+  
+  return(ES)
+}
 
+# Définition de la fonction
+std_mono_G93 <- function(T, E, beta = 0.09) {
+  # Définition des constantes
+  TS <- 303
+  
+  # Calcul de CT
+  CT <- exp(beta * (T - TS))
+  
+  # Calcul de ES
+  ES <- E / CT
+  
+  return(ES)
+}
+
+apply_standardization <- function(data) {
+  # Appliquer l'algorithme pour l'isoprène si Standardized est différent de "true"
+  data <- data |> 
+    dplyr::mutate(ES_iso_G93 = dplyr::if_else(Standardized != "true", std_iso_G93(L = PAR_algo, T = T_algo_K, E = Emission), NA_real_))
+  
+  # Appliquer l'algorithme pour les monoterpènes si Standardized est différent de "true"
+  data <- data |> 
+    dplyr::mutate(ES_mono_G93 = dplyr::if_else(Standardized != "true", std_mono_G93(T = T_algo_K, E = Emission), NA_real_))
+  
+  return(data)
+}
+
+
+
+standardisation <- function(data){
+  data <- apply_standardization(data)
+  
+  # 1- Keep Emission when it was already standardized
+  # 2- Take ES_isi_93 by default, if coumpound is monoterpenes and storing species take mono_93
+  
+  data |>  dplyr:: mutate(EF = dplyr::case_when(
+    Standardized == "true" & !is.na(Emission) ~ Emission,
+    Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
+    TRUE ~ ES_iso_G93
+  )) 
+  
+}
 
