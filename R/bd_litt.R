@@ -93,7 +93,20 @@ select_std_or_standardisable <- function(data, sp_storing) {
   
   data <- data |> 
     dplyr::left_join(sp_storing, by = c('spcode.agg' = 'spcode' )) |>  dplyr::mutate(Taxon = stringr::str_replace(Taxon, " ", "_"))
+  ## verifier que sp storing a toutes les infos
   
+  # Identifier les spcode.agg qui ne sont pas dans sp_storing
+  missing_spcodes <- data |>
+    dplyr::anti_join(sp_storing, by = c('spcode.agg' = 'spcode')) |>
+    dplyr::distinct(spcode.agg)
+  
+  # Vérifier s'il y a des spcode.agg manquants et afficher un message
+  if (nrow(missing_spcodes) > 0) {
+    cat("Storing species file must be updated. The following spcode.agg are missing:\n")
+    print(missing_spcodes)
+  }
+    
+    ##
   data_std <- data |> dplyr::filter(Standardized == "true")
   
   data<- data |> dplyr::filter(Standardized == "false") |> dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") 
@@ -332,14 +345,19 @@ count_available <- function (data, minimum_nb_origin_pop){
   #espèces =Taxon pour les quelles 3 records = 3 distinct Origin_pop pour compound =  isoprene et 3 records pour monoterpenes
 
   species_counts <- data |> 
-    dplyr::group_by(Taxon, Compound) |> 
+    dplyr::group_by(Taxon, spcode.agg, Compound) |> 
     dplyr::summarise(distinct_origins = dplyr::n_distinct(Origin_pop), .groups = 'drop')
   
-  # Filtrer les espèces avec au moins 3 distincts Origin_pop pour chaque composé
-  available_species <- species_counts |> 
-    dplyr::group_by(Taxon) |> 
-    dplyr::filter(all(distinct_origins >= minimum_nb_origin_pop)) |> 
-    dplyr::distinct(Taxon)
+  # Filter species with at least 'minimum_nb_origin_pop' distinct Origin_pop for each compound
+  available_species <- species_counts |>
+    dplyr::group_by(Taxon, spcode.agg) |>
+    dplyr::filter(all(distinct_origins >= minimum_nb_origin_pop)) |>
+    dplyr::ungroup()
+  
+  # Pivot the data to have separate columns for isoprene and monoterpenes
+  available_species <- available_species |>
+    tidyr::pivot_wider(names_from = Compound, values_from = distinct_origins, values_fill = list(distinct_origins = 0))
+  
   
   return(available_species)
   

@@ -20,7 +20,9 @@ make_ibuttons_table <- function(paths_csv_files, type){
     
   # read all the files use fill = T because in some files there is missing the extra value at this end and no "," so otherwise it stops
   list.DFs <- lapply(paths_csv_files, function(file) {
-    data.table::fread(file, fill = T, skip = 19)
+    data.table::fread(file, fill = T, skip = 19) |> 
+      dplyr::mutate(V4 = replace(V4, is.na (V4), 0)) |> 
+      dplyr::mutate(Value =  Value + V4 / (10^nchar(as.character(V4))))
   })
 
   #coller le numéro du ibutton et la date qui proviennent du nom du fichier

@@ -73,7 +73,7 @@ list(
   tar_target(storing_species_file, here::here("data", "splist_storing_AS.csv"), format = "file"), 
   tar_target(storing_species, utils::read.csv(storing_species_file, sep = ";")),
   
-  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_Species.csv")), 
+  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_Species.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
@@ -113,6 +113,8 @@ list(
                  Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
   tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree)),
+  
+  tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
              
   ## Trier les chromato, subset is done on desorption date
   
@@ -128,9 +130,9 @@ list(
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti ) |> paired_samples()),
   
 
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 42, 42)), #42 Tmax mean 40
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42)), #42 Tmax mean 40
   
-  
+
   
   ##Ranger les chromato par batch avec leurs alcanes correspondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
@@ -160,6 +162,24 @@ list(
   
   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
   
-  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd")
+  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  
+  
+  ##SPATIAL maps
+  
+  tar_target(WOODIV_grid, {
+    sf::st_read(paste0(here::here("data", "WOODIV", "SPATIAL", "WOODIV_grid"), "/WOODIV_grid.shp"))
+  }),
+  tar_target(WOODIV_shape, {
+    sf::st_read(paste0(here::here("data", "WOODIV", "SPATIAL", "WOODIV_shape"), "/WOODIV_shape.shp"))
+  }),
+  tar_target(working_file, {
+    load(paste0(here::here("data", "WOODIV"), "/working_file.rdata"))
+    working.file
+  }) 
+  #tar_target(completeness <- compute_completeness(WOODIV_grid, working_file, summary_DB) ) 
+  # tar_target(map <-  map_et_plot_completness(completeness, WOODIV_shape))
+  
+  
 
 )

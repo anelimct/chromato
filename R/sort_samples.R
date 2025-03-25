@@ -24,7 +24,7 @@ filter_out_samples <- function(data, T_max, µ_max_T){
     Etat %in% c("perdu", "Perdu", "Erreur") |
                                   purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
                                   purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
-                                  purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 300 | #496
+                                  purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
                                   paradise==FALSE, TRUE, FALSE
                                 ))
   
