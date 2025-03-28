@@ -3,7 +3,19 @@
 # WOODIV_shape <- sf::st_read(paste0(here::here ( "data", "WOODIV", "SPATIAL", "WOODIV_shape"), "/WOODIV_shape.shp"))
 # load(paste0(here::here ( "data", "WOODIV"), "/working_file.rdata"))
 
-
+process_summary_data <- function(summary_data) {
+  final_data <- summary_data |>
+    dplyr::mutate(
+      distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins, 0),
+      distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins, 0),
+      nb_trees_isoprene = dplyr::coalesce(nb_trees_isoprene, 0) + dplyr::coalesce(n_entries, 0),
+      nb_trees_monoterpenes = dplyr::coalesce(nb_trees_monoterpenes, 0) + dplyr::coalesce(n_entries, 0),
+      nb_entries_isoprene = dplyr::coalesce(nb_entries_isoprene, 0) + dplyr::coalesce(n_entries, 0),
+      nb_entries_monoterpenes = dplyr::coalesce(nb_entries_monoterpenes, 0) + dplyr::coalesce(n_entries, 0)
+    )
+  
+  return(final_data)
+}
 
 
 compute_completeness <- function(WOODIV_grid, working_file, summary_DB) {

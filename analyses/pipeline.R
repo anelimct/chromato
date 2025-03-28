@@ -133,7 +133,7 @@ list(
   tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed")),#43 Tmax, mean 42
   tar_target(valid_samples,  filter_out_samples(bvocs_samples, 43, 42, type = "keep") |> species_aggregation( woodiv_species, "field")),
   
-  #tar_target(summary_field, )
+  tar_target(summary_field, summarize_field (valid_samples)),
   
 
   
@@ -178,7 +178,8 @@ list(
     working.file
   }), 
   
-  tar_target(rank_species , ranking_species(working_file))
+  tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = "spcode.agg") |>  dplyr::left_join(summary_field, by = "spcode.agg") |> 
+               process_summary_data())
   
   #tar_target(completeness <- compute_completeness(WOODIV_grid, working_file, summary_DB) ) 
   # tar_target(map <-  map_et_plot_completness(completeness, WOODIV_shape))
