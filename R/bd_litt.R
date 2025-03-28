@@ -8,12 +8,20 @@ read_excel_articles <- function(file) {
 #data <- WOODIV_Species_code %>%   left_join(WOODIV_Nomenclature %>% select(spcode, class, subclass, order, family), by = 'spcode')
 #data <- data %>%    left_join(WOODIV_Aggregation , by = 'spcode')
 
-species_aggregation <- function(data, species_woodiv){
+species_aggregation <- function(data, species_woodiv, dataset){
+  if (dataset == "litt"){
+    data <- data |> 
+      dplyr::left_join(species_woodiv %>% dplyr::select(genus_species_subspecies, to_aggregate_with),
+                       by = c('Taxon_in_ref' = 'genus_species_subspecies')) |> 
+      dplyr::rename(spcode.agg = to_aggregate_with)
+    
+  } else {
+    data <- data |> 
+      dplyr::left_join(species_woodiv %>% dplyr::select(genus_species_subspecies, to_aggregate_with),
+                       by = c('Taxon' = 'genus_species_subspecies')) |> 
+      dplyr::rename(spcode.agg = to_aggregate_with)
+  }
   
-  data <- data |> 
-    dplyr::left_join(species_woodiv %>% dplyr::select(genus_species_subspecies, to_aggregate_with),
-              by = c('Taxon_in_ref' = 'genus_species_subspecies')) |> 
-    dplyr::rename(spcode.agg = to_aggregate_with)
 }
 
 

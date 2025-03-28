@@ -8,15 +8,14 @@ var_paradise <- function(bvocs, paradise_reports_list, calib_files){
 
 # selectionner tous les samples qui sont perdu ou erreur 
 
-filter_out_samples <- function(data, T_max, µ_max_T){
+filter_out_samples <- function(data, T_max, µ_max_T, type){
   # selectionner tous les samples qui sont perdu ou erreur 
   #selectionner tous les samples pour les quelques on a perdu les ibutton values in 
   #tous les samples qui on une moyenne de température supérieur à 40 degres (faire une fonction avec un paramètre de,température à ne pas dépasser pour la moyenne ou pour les valeurs extremes)
   #Tous les échantillons qui ne ce sont pas ouverts dans paradise
   cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
                 "PAR.milieu.2",       "PAR.fin.1",          "PAR.fin.2")
-  
-  
+  blancs <- data |> dplyr::filter(Taxon == "BLANC") |>  dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |>  dplyr::mutate(issue = FALSE)
   data <- data |> dplyr::filter(Taxon != "BLANC") |> dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE))
 
   data <- data |> 
@@ -28,11 +27,17 @@ filter_out_samples <- function(data, T_max, µ_max_T){
                                   paradise==FALSE, TRUE, FALSE
                                 ))
   
-  #mean_PAR < 
+  if(type == "failed"){
+    data <- data |> dplyr::group_by(ID_pairs) |> 
+      dplyr::filter( all(issue)) |> 
+      dplyr::distinct(ID_pairs, .keep_all = TRUE)
+    
+  } else {
+    data <- data |>  
+      dplyr::filter( ! issue) |> rbind(blancs)
+  }
   
- data <- data |> dplyr::group_by(ID_pairs) |> 
-   dplyr::filter( all(issue)) |> 
-   dplyr::distinct(ID_pairs, .keep_all = TRUE)
+ return(data)
  
 }
 

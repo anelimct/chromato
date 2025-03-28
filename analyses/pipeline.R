@@ -102,7 +102,7 @@ list(
   tar_target(DB_bvocs, {
     files <- lapply(articles, read_excel_articles)
     do.call(rbind, files)
-  } |> species_aggregation(woodiv_species)|> select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) ),
+  } |> species_aggregation(woodiv_species, "litt")|> select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) ),
   
   tar_target(DB_bvocs_filtered, select_std_or_standardisable(DB_bvocs, storing_species)  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
                dplyr::mutate(
@@ -118,8 +118,8 @@ list(
              
   ## Trier les chromato, subset is done on desorption date
   
-  tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes)),
-  tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes)), 
+  tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes) |> save_plot_ibuttons ("2023", plot_in_out) |> save_plot_corr_T ("2023", plot_corr_Tin_Tout)),
+  tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
   
   tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
   tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
@@ -130,18 +130,16 @@ list(
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti ) |> paired_samples()),
   
 
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42)), #42 Tmax mean 40
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed")),#43 Tmax, mean 42
+  tar_target(valid_samples,  filter_out_samples(bvocs_samples, 43, 42, type = "keep") |> species_aggregation( woodiv_species, "field")),
+  
+  #tar_target(summary_field, )
   
 
   
   ##Ranger les chromato par batch avec leurs alcanes correspondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
   tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
-  
-  tar_target(plot_ibuttons_2024, save_plot_ibuttons (subset_2024, "2024", plot_in_out)),
-  tar_target(plot_corr_T_2024, save_plot_corr_T (subset_2024, "2024", plot_corr_Tin_Tout)),
-  tar_target(plot_ibuttons_2023, save_plot_ibuttons (subset_2023, "2023", plot_in_out)), 
-  tar_target(plot_corr_T_2023, save_plot_corr_T (subset_2023, "2023", plot_corr_Tin_Tout)),
  
   ## Library CAS
 
@@ -161,7 +159,7 @@ list(
   
   
   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
-  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list = paradise_reports_list, paradise_reports_calib_list = paradise_reports_calib_list)),
+  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list) |>   plot_calib_btw_session( calib_quanti)),
   
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
@@ -178,9 +176,16 @@ list(
   tar_target(working_file, {
     load(paste0(here::here("data", "WOODIV"), "/working_file.rdata"))
     working.file
-  }) 
+  }), 
+  
+  tar_target(rank_species , ranking_species(working_file))
+  
   #tar_target(completeness <- compute_completeness(WOODIV_grid, working_file, summary_DB) ) 
   # tar_target(map <-  map_et_plot_completness(completeness, WOODIV_shape))
+  
+  
+  #How important are species to sample to have max completness
+  
   
   
 

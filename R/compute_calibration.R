@@ -16,11 +16,11 @@ compare_calib_btw_reports <- function (calib_files, paradise_reports_list, parad
   #on ne garde que les lignes qui correspondent au mélange de mono utilisés
   #garder que les colonnes qui nous interesse CaD , les colonnes calib, hit CAS, et Name CAS
   #pivoter pour avoir le nom de la calib dans une colonne et les valeurs dans une colonne qui porte le nom de la paradise session
-  calib_solo_mono <- paradise_reports_calib_list[["calib_mono.xlsx"]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "Limonene", "p-Cymene (8CI)" ))|>
+  calib_solo_mono <- paradise_reports_calib_list[["calib_mono.xlsx"]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "D-Limonene", "p-Cymene" ))|>
     dplyr::select(tidyselect::all_of(cols_to_include_mono)) |> tidyr::pivot_longer(paste0(calib_samples_mono), names_to ="calib", values_to = paste0("calib_mono.xlsx"))
   
 for (name in names(paradise_reports_list)) {
-  data <- paradise_reports_list[[name]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "Limonene", "p-Cymene (8CI)" ))|>
+  data <- paradise_reports_list[[name]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "D-Limonene", "p-Cymene" ))|>
   dplyr::select(tidyselect::all_of(cols_to_include_mono)) |> tidyr::pivot_longer(paste0(calib_samples_mono), names_to ="calib", values_to = paste0(name))
 
 
@@ -51,11 +51,11 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file) {
       dplyr::filter(New_CAS_Name == name)
     
     # Melt the data to long format for ggplot2
-    long_data <- tidyr::pivot_longer(compound_data, cols = all_of(cols_to_plot), names_to = "variable", values_to = "value")
+    long_data <- tidyr::pivot_longer(compound_data, cols = all_of(cols_to_plot), names_to = "session", values_to = "value")
     
     # Calculate model data
     model_data <- long_data |>
-      dplyr::group_by(variable) |>
+      dplyr::group_by(session) |>
       dplyr::summarise(
         slope = coef(lm(value ~ 0 + µg))[1],
         R2 = summary(lm(value ~ 0 + µg))$r.squared,
@@ -64,16 +64,16 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file) {
     
     # Create a summary table
     summary_table <- model_data |>
-      dplyr::select(variable, slope, p_value, R2)
+      dplyr::select(session, slope, p_value, R2)
     
     # Create the plot
-    p <- ggplot(long_data, aes(x = µg, y = value, color = variable)) +
+    p <- ggplot(long_data, aes(x = µg, y = value, color = session)) +
       geom_point() +  # Scatter plot
       theme_minimal() +
       labs(title = paste("Plot for", name), x = "µg", y = "Area") +
       geom_abline(
         data = model_data,
-        aes(slope = slope, intercept = 0, color = variable),
+        aes(slope = slope, intercept = 0, color = session),
         linetype = "dashed"
       )
     
@@ -81,7 +81,9 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file) {
     table_grob <- gridExtra::tableGrob(summary_table, rows = NULL)
     
     # Arrange the plot and table side by side
-    gridExtra::grid.arrange(p, table_grob, ncol = 2)
+    p_final <- gridExtra::grid.arrange(p, table_grob, ncol = 2)
+    
+    ggsave(plot = p_final, filename = paste0("plot_", name, "_all_session.png"), path = here::here("figures", "graph_calib", "mono_all_sessions"), create.dir = TRUE, width = 35, height = 15, units = "cm")
   }
   
   
@@ -101,18 +103,32 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file) {
       
       p <- ggplot(long_data, aes(x = µg, y = value)) +
         geom_point() +
-        theme_minimal() +
+        theme_light() +
         labs(title = paste("Plot for", name, "batch", cols_to_plot[i]), x = "µg", y = "Area") +
         geom_abline(slope = slope, intercept = 0, linetype = "dashed")
       
-
-      p2 <- plot(model_data$residuals~model_data$fitted.values)
-      p3 <- qqnorm(model_data$residuals)
+      p2 <- ggplot() +
+        geom_point(aes(x = model_data$fitted.values, y = model_data$residuals)) +
+        labs(title = "Residuals vs Fitted", x = "Fitted values", y = "Residuals") +
+        theme_light()
       
-      p_final <- cowplot::plot_grid(p, p2, p3, p3, labels = c('A', 'B', 'C', 'D'))
+      p3 <- ggplot() +
+        geom_qq(aes(sample = model_data$residuals)) +
+        geom_qq_line(aes(sample = model_data$residuals)) +
+        labs(title = "Normal Q-Q", x = "Theoretical Quantiles", y = "Sample Quantiles") +
+        theme_light()
+      
+      bottom_plot <- cowplot::plot_grid(p2, p3, ncol=2, labels = c('B', 'C'))
+      # Combinez les trois graphiques dans une seule fenêtre
+      p_final <- cowplot::plot_grid(p, bottom_plot, ncol = 1, labels = c('A', ''))
       print(p_final)
+      
+      ggsave(plot = p_final, filename = paste0("plot_", name, "_", cols_to_plot[i], ".png"), path = here::here("figures", "graph_calib", "mono_by_session", paste0(name)), create.dir = TRUE, width = 15, height = 10, units = "cm")
     }
   }
+  
+  return(table_calib_btw_session)
 }
+
 
 

@@ -118,6 +118,8 @@ plot_corr_Tin_Tout <- function(time, values_T_in, values_T_out, name, year){
 
 save_plot_ibuttons <- function (data, year, f){
   
+  raw <- data
+  
   # enlever les lignes pour lesquelles on n'a pas toutes les données 
   data <- data |> 
     dplyr::filter(
@@ -131,10 +133,13 @@ save_plot_ibuttons <- function (data, year, f){
   
   
   purrr::pmap(list( time = data$Time_T_in, values_T_in = data$values_T_in, values_T_out = data$values_T_out, values_H_in = data$values_H_in, values_H_out = data$values_H_out, name = data$ID , year = year), f)
-}
+  return(raw)
+  }
 
 
 save_plot_corr_T <- function (data, year, f){
+  
+  raw <- data
   
   # enlever les lignes pour lesquelles on n'a pas toutes les données 
   data <- data |> 
@@ -147,6 +152,7 @@ save_plot_corr_T <- function (data, year, f){
   
   
   purrr::pmap(list( time = data$Time_T_in, values_T_in = data$values_T_in, values_T_out = data$values_T_out, name = data$ID , year = year), f)
+  return(raw)
 }
 
 

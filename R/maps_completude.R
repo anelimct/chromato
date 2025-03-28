@@ -58,5 +58,7 @@ map_et_plot_completness <- function (completeness, WOODIV_shape){
   return(completeness)
 }
 
-
+ranking_species <- function(working_file){
+  data <- working_file |>  dplyr::rename( spcode.agg = to_aggregate_with ) |>  dplyr::mutate(Taxon = paste0(genus, " ", species)) |> dplyr::group_by(spcode.agg, Taxon) |> dplyr::summarise(nb_grid = dplyr::n_distinct(Idgrid)) |>  dplyr::ungroup()|> dplyr::mutate(rank = rank(-nb_grid))
+}
 
