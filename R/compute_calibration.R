@@ -1,17 +1,21 @@
 compare_calib_btw_reports <- function (calib_files, paradise_reports_list, paradise_reports_calib_list){
   #puisque les samples sont en .CDF et non D les renommer
   calib_files <- calib_files |> dplyr::mutate(new_name =stringr::str_replace(new_name, ".D", ".CDF") )
-   
+  
+  #liste de tous les noms des calib mono 
   calib_samples_mono <- unique(calib_files[stringr::str_detect( calib_files$new_name, "mono"), 1])
-
+  #Toutes les colonnes que je veux récupérer
   cols_to_include_mono <- c(calib_samples_mono,  "New_CAS_Name", "Hit 1: CAS" )
   
-  
+  #initialisationd d'un dataframe
   calib_btw_batch <- paradise_reports_list[[1]] |> dplyr::select("New_CAS_Name", "Hit 1: CAS") |> tibble::add_column(calib = as.character(NA)) 
   
   calib_btw_batch_mono <- calib_btw_batch[0,]
   
-  
+  #Pur les calib mono aire mesurées dans une paradise session aves que des chromato calib, 
+  #on ne garde que les lignes qui correspondent au mélange de mono utilisés
+  #garder que les colonnes qui nous interesse CaD , les colonnes calib, hit CAS, et Name CAS
+  #pivoter pour avoir le nom de la calib dans une colonne et les valeurs dans une colonne qui porte le nom de la paradise session
   calib_solo_mono <- paradise_reports_calib_list[["calib_mono.xlsx"]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "Limonene", "p-Cymene (8CI)" ))|>
     dplyr::select(tidyselect::all_of(cols_to_include_mono)) |> tidyr::pivot_longer(paste0(calib_samples_mono), names_to ="calib", values_to = paste0("calib_mono.xlsx"))
   
@@ -27,3 +31,88 @@ for (name in names(paradise_reports_list)) {
   
   return(  calib_btw_batch_mono)
 }
+
+
+
+
+plot_calib_btw_session <- function(table_calib_btw_session, calib_file) {
+  
+  
+  calib_file <- calib_file |> dplyr::select(new_name, µg) |>  dplyr::mutate(new_name =stringr::str_replace(new_name, ".D", ".CDF") ) |> dplyr::rename(calib = new_name ) 
+  cols_to_plot <- colnames(table_calib_btw_session)
+  cols_to_plot <- cols_to_plot[-c(1, 2, 3)]
+  
+  grouped_data <- dplyr::left_join(table_calib_btw_session, calib_file) |>  dplyr::group_by(New_CAS_Name)
+
+  # Loop through each group and create a plot and summary table
+  for (name in unique(grouped_data$New_CAS_Name)) {
+    # Filter data for the current group
+    compound_data <- grouped_data |>
+      dplyr::filter(New_CAS_Name == name)
+    
+    # Melt the data to long format for ggplot2
+    long_data <- tidyr::pivot_longer(compound_data, cols = all_of(cols_to_plot), names_to = "variable", values_to = "value")
+    
+    # Calculate model data
+    model_data <- long_data |>
+      dplyr::group_by(variable) |>
+      dplyr::summarise(
+        slope = coef(lm(value ~ 0 + µg))[1],
+        R2 = summary(lm(value ~ 0 + µg))$r.squared,
+        p_value = summary(lm(value ~ 0 + µg))$coefficients[1, 4]
+      )
+    
+    # Create a summary table
+    summary_table <- model_data |>
+      dplyr::select(variable, slope, p_value, R2)
+    
+    # Create the plot
+    p <- ggplot(long_data, aes(x = µg, y = value, color = variable)) +
+      geom_point() +  # Scatter plot
+      theme_minimal() +
+      labs(title = paste("Plot for", name), x = "µg", y = "Area") +
+      geom_abline(
+        data = model_data,
+        aes(slope = slope, intercept = 0, color = variable),
+        linetype = "dashed"
+      )
+    
+    # Convert the summary table to a tableGrob for display
+    table_grob <- gridExtra::tableGrob(summary_table, rows = NULL)
+    
+    # Arrange the plot and table side by side
+    gridExtra::grid.arrange(p, table_grob, ncol = 2)
+  }
+  
+  
+  grouped_data_2 <-grouped_data |>  dplyr::ungroup() |> dplyr::group_by(New_CAS_Name, calib)
+  for (name in unique(grouped_data$New_CAS_Name)) {
+    # Filtrer les données pour le groupe actuel
+    compound_data <- grouped_data |> dplyr::filter(New_CAS_Name == name)
+    
+    for (i in seq_along(cols_to_plot)) {
+      # Transformer en format long pour ggplot2
+      long_data <- tidyr::pivot_longer(compound_data, cols = all_of(cols_to_plot[i]), names_to = "variable", values_to = "value")
+      
+      # Calculer le modèle linéaire
+      model_data <- lm(value ~ 0 + µg, data = long_data)
+      slope <- model_data$coefficients[1]
+      
+      
+      p <- ggplot(long_data, aes(x = µg, y = value)) +
+        geom_point() +
+        theme_minimal() +
+        labs(title = paste("Plot for", name, "batch", cols_to_plot[i]), x = "µg", y = "Area") +
+        geom_abline(slope = slope, intercept = 0, linetype = "dashed")
+      
+
+      p2 <- plot(model_data$residuals~model_data$fitted.values)
+      p3 <- qqnorm(model_data$residuals)
+      
+      p_final <- cowplot::plot_grid(p, p2, p3, p3, labels = c('A', 'B', 'C', 'D'))
+      print(p_final)
+    }
+  }
+}
+
+

@@ -1,9 +1,9 @@
 boxplot_EF <- function (data, tree){
   
-  data <- data |> dplyr::group_by(Taxon) |> dplyr::filter( length(unique(Compound) ) >= 2) |> dplyr::ungroup()
+  data_iso_mono <- data |> dplyr::group_by(Taxon) |> dplyr::filter( length(unique(Compound) ) >= 2) |> dplyr::ungroup()
   
-  data_isoprene <- data |>  dplyr::filter(Compound == "isoprene")
-  data_mono <- data |>  dplyr::filter(Compound == "monoterpenes")
+  data_isoprene <- data_iso_mono |>  dplyr::filter(Compound == "isoprene")
+  data_mono <- data_iso_mono |>  dplyr::filter(Compound == "monoterpenes")
   
   taxon_order <- tree$tip.label
   

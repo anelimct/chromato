@@ -346,7 +346,7 @@ count_available <- function (data, minimum_nb_origin_pop){
 
   species_counts <- data |> 
     dplyr::group_by(Taxon, spcode.agg, Compound) |> 
-    dplyr::summarise(distinct_origins = dplyr::n_distinct(Origin_pop), .groups = 'drop')
+    dplyr::summarise(distinct_origins = dplyr::n_distinct(Origin_pop), nb_trees = sum(as.numeric(Individual_replicates), na.omit = TRUE), nb_entries = dplyr::n(), .groups = 'drop')
   
   # Filter species with at least 'minimum_nb_origin_pop' distinct Origin_pop for each compound
   available_species <- species_counts |>
@@ -356,7 +356,7 @@ count_available <- function (data, minimum_nb_origin_pop){
   
   # Pivot the data to have separate columns for isoprene and monoterpenes
   available_species <- available_species |>
-    tidyr::pivot_wider(names_from = Compound, values_from = distinct_origins, values_fill = list(distinct_origins = 0))
+    tidyr::pivot_wider(names_from = Compound, values_from = c(distinct_origins, nb_trees, nb_entries) , values_fill = list(distinct_origins = 0))
   
   
   return(available_species)

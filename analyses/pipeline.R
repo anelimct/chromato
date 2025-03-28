@@ -161,6 +161,8 @@ list(
   
   
   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list = paradise_reports_list, paradise_reports_calib_list = paradise_reports_calib_list)),
+  
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   

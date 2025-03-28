@@ -4,7 +4,7 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
   # Initialize the list to store data frames
   list_pardise_files <- list()
   
-  # Iterate over each file path
+  # Iterate over each file path to have the full path
   for (i in seq_along(files_path)) {
     file_path <- paste0(here::here("data", "paradise_reports"), "/", option,  files_path[i])
     
@@ -21,18 +21,18 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
 
     # Filter CAS_library and extract relevant information
     result <- data |>
-      dplyr::rowwise() |>
+      dplyr::rowwise() |> 
       dplyr::mutate(
         match = list(CAS_library |>
                        dplyr::filter(sapply(Merged_CAS_Numbers, function(x) `Hit 1: CAS` %in% x)))
-      ) |>
+      ) |> #creates a new column named match in the data frame. For each row, it filters the CAS_library data frame based on whether the Hit 1: CAS value is found in the Merged_CAS_Numbers list
       dplyr::ungroup() |>
       dplyr::mutate(
         New_CAS_Name = sapply(match, function(x) if (nrow(x) > 0) x$New_CAS_Name[1] else NA),
         RI = sapply(match, function(x) if (nrow(x) > 0) x$RI[1] else NA),
         nb_C_n = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n[1] else NA),
         nb_C_n_s = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n_s[1] else NA)
-      ) |>
+      ) |> #extract info in CAS lib for the matching row, prendre le premier match sinon NA
       dplyr::select(-match)
 
     # Store the result in the list
@@ -50,7 +50,7 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
 #' @param pradise_list, list containing data frames with paradise reports 
 #' @param calib_files , file with the firt colum being names of calib files
 #'
-#' @returns
+#' @returns Cette fonction prendre la liste des paradise reports et retourn le nom des tubes présents dans le report (sans.CDF ni .D)
 #' @export
 #'
 #' @examples
