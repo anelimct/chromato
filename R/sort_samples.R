@@ -100,7 +100,7 @@ summarize_field <- function(data) {
   data |> dplyr::filter(Taxon != "BLANC") |> 
     dplyr::group_by(spcode.agg, Taxon) |>
     dplyr::summarise(
-      distinct_origins = dplyr::n_distinct(paste(Latitude..WGS84., Longitude..WGS84., sep = "_")),
+      distinct_origins = dplyr::n_distinct(paste(stringr::str_sub(Latitude..WGS84., 1, 4), stringr::str_sub(Longitude..WGS84., 1, 4), sep = "_")),
       n_entries = dplyr::n()
     ) |>
     dplyr::ungroup()

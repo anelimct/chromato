@@ -98,7 +98,7 @@ list(
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
   ##Lire les articles BD_litt
   
-  tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_extraction_R_edit_v_stage"), full.names = TRUE), format = "file"), 
+  tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_extraction_R_edit_v_solo"), full.names = TRUE), format = "file"), 
   tar_target(DB_bvocs, {
     files <- lapply(articles, read_excel_articles)
     do.call(rbind, files)
@@ -179,15 +179,9 @@ list(
   }), 
   
   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = "spcode.agg") |>  dplyr::left_join(summary_field, by = "spcode.agg") |> 
-               process_summary_data())
-  
-  #tar_target(completeness <- compute_completeness(WOODIV_grid, working_file, summary_DB) ) 
-  # tar_target(map <-  map_et_plot_completness(completeness, WOODIV_shape))
-  
+               process_summary_data(working_file) |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree)), 
+  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
   
   #How important are species to sample to have max completness
-  
-  
-  
 
 )
