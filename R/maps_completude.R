@@ -22,7 +22,7 @@ compute_completeness <- function(WOODIV_grid, working_file, summary_all, minimum
   # Join the datasets to create WOODIV_data
   WOODIV_data <- WOODIV_grid |>
     merge(working_file, by = c("Idgrid" = "Idgrid")) |>
-    dplyr::left_join(summary_all, by = c("to_aggregate_with" = "spcode.agg"))
+    dplyr::left_join(summary_all, by = c("to_aggregate_with" = "gragg"))
   
   # Calculate completeness
   completeness <- WOODIV_data |>
@@ -89,22 +89,28 @@ map_et_plot_completness <- function (completeness, WOODIV_shape){
 }
 
 ranking_species <- function(working_file){
-  data <- working_file |>  dplyr::rename( spcode.agg = to_aggregate_with ) |>  dplyr::mutate(Taxon = paste0(genus, " ", species)) |> dplyr::group_by(spcode.agg, Taxon) |> dplyr::summarise(nb_grid = dplyr::n_distinct(Idgrid)) |>  dplyr::ungroup()|> dplyr::mutate(rank = rank(-nb_grid))
+  data <- working_file |>  dplyr::rename( gragg = to_aggregate_with ) |> dplyr::mutate( gragg = stringr::str_replace(gragg,"\\.", "_" ) )|>  dplyr::mutate(Taxon = paste0(genus, " ", species)) |> dplyr::group_by(gragg, Taxon) |> dplyr::summarise(nb_grid = dplyr::n_distinct(Idgrid), countries = list(unique(country))) |> 
+    tidyr::unnest(countries) |>  dplyr::mutate(value = TRUE) |> 
+    tidyr::pivot_wider(names_from = countries, values_from = value, values_fill = list(value = FALSE)) |> 
+    dplyr::ungroup()|> dplyr::mutate(rank = rank(-nb_grid))
 }
 
 
 plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
   # Ordonner les données par relative_grid
   data_ordered <- data |>  
-    dplyr::distinct_at("spcode.agg", .keep_all = T) |> 
+    dplyr::distinct_at("gragg", .keep_all = T) |> 
     dplyr::arrange(relative_grid) |> 
     dplyr::mutate(Taxon.x = factor(Taxon.x, levels = unique(Taxon.x))) |> 
     dplyr::mutate(!!column_to_plot := as.factor(.data[[column_to_plot]])) |> 
     dplyr::filter(relative_grid >= as.numeric(tronquer_min))
   
+  num_levels <- length(unique(data_ordered[[column_to_plot]]))
+  colors <- c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a")
+  
   ggplot(data_ordered, aes(x = relative_grid, y = Taxon.x, fill = .data[[column_to_plot]])) +
     geom_bar(stat = "identity") +
-    scale_fill_manual(values = c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334"  )) +
+    scale_fill_manual(values = colors[1:num_levels]) +
     labs(x = "Présence (%)", y = "Species Name", fill = "Number of population sampled", title = main_lab) +
     theme_minimal()
   
@@ -133,7 +139,7 @@ plot_tree_effort_ech <- function ( data, tree){
     scale_color_manual(values = c("white", "#f0b4c1", "#e48da1", "#d2205f", "#a10f3b", "#73054b", "#500334"))
   
   p_mono <- p + ggtree::geom_tippoint(aes(color= all_distinct_origins_monoterpenes)) +
-    scale_color_manual(values = c("white", "#f0b4c1", "#e48da1", "#d2205f", "#a10f3b", "#73054b", "#500334"))
+    scale_color_manual(values = c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a"))
   
   ggsave("chronogram_iso.png", plot = p_iso, path = paste0(here::here ("figures", "completness", "effort_echantillonnage")) , width = 3048, height = 2095, create.dir = T, limitsize = FALSE, units = "px", bg = "white")
   ggsave("chronogram_monoterpenes.png", plot = p_mono, path = paste0(here::here ("figures", "completness", "effort_echantillonnage")) , width = 3048, height = 2095, create.dir = T, limitsize = FALSE, units = "px", bg = "white")

@@ -98,7 +98,7 @@ summarize_lost_samples <- function(data, T_max, µ_max_T) {
 
 summarize_field <- function(data) {
   data |> dplyr::filter(Taxon != "BLANC") |> 
-    dplyr::group_by(spcode.agg, Taxon) |>
+    dplyr::group_by(gragg, Taxon) |>
     dplyr::summarise(
       distinct_origins = dplyr::n_distinct(paste(stringr::str_sub(Latitude..WGS84., 1, 4), stringr::str_sub(Longitude..WGS84., 1, 4), sep = "_")),
       n_entries = dplyr::n()

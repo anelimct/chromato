@@ -11,15 +11,13 @@ read_excel_articles <- function(file) {
 species_aggregation <- function(data, species_woodiv, dataset){
   if (dataset == "litt"){
     data <- data |> 
-      dplyr::left_join(species_woodiv %>% dplyr::select(genus_species_subspecies, to_aggregate_with),
-                       by = c('Taxon_in_ref' = 'genus_species_subspecies')) |> 
-      dplyr::rename(spcode.agg = to_aggregate_with)
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_",  " ") ) ,
+                       by = c('Taxon_in_ref' = 'full_scientific_name'))
     
   } else {
     data <- data |> 
-      dplyr::left_join(species_woodiv %>% dplyr::select(genus_species_subspecies, to_aggregate_with),
-                       by = c('Taxon' = 'genus_species_subspecies')) |> 
-      dplyr::rename(spcode.agg = to_aggregate_with)
+      dplyr::left_join(species_woodiv %>% dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ") ),
+                       by = c('Taxon' = 'full_scientific_name'))
   }
   
 }
@@ -100,17 +98,17 @@ convert_temperature <- function(data) {
 select_std_or_standardisable <- function(data, sp_storing) {
   
   data <- data |> 
-    dplyr::left_join(sp_storing, by = c('spcode.agg' = 'spcode' )) |>  dplyr::mutate(Taxon = stringr::str_replace(Taxon, " ", "_"))
+    dplyr::left_join(sp_storing, by = c('gragg' = 'gragg' )) |>  dplyr::mutate(Taxon = stringr::str_replace(Taxon, " ", "_"))
   ## verifier que sp storing a toutes les infos
   
   # Identifier les spcode.agg qui ne sont pas dans sp_storing
   missing_spcodes <- data |>
-    dplyr::anti_join(sp_storing, by = c('spcode.agg' = 'spcode')) |>
-    dplyr::distinct(spcode.agg)
+    dplyr::anti_join(sp_storing, by = c('gragg' = 'gragg')) |>
+    dplyr::distinct(gragg)
   
   # Vérifier s'il y a des spcode.agg manquants et afficher un message
   if (nrow(missing_spcodes) > 0) {
-    cat("Storing species file must be updated. The following spcode.agg are missing:\n")
+    cat("Storing species file must be updated. The following spcode.agg here gragg are missing:\n")
     print(missing_spcodes)
   }
     
@@ -196,8 +194,8 @@ create_venn_diagram <- function(data) {
   isoprene <- dplyr::filter(data, Compound %in% c("isoprene"))
   
   # Remove NA values from spcode
-  monoterpenes <- na.omit(monoterpenes$spcode.agg)
-  isoprene <- na.omit(isoprene$spcode.agg)
+  monoterpenes <- na.omit(monoterpenes$gragg)
+  isoprene <- na.omit(isoprene$gragg)
   
   # Get unique species for each category
   species_monoterpenes <- unique(monoterpenes)
@@ -353,12 +351,12 @@ count_available <- function (data, minimum_nb_origin_pop){
   #espèces =Taxon pour les quelles 3 records = 3 distinct Origin_pop pour compound =  isoprene et 3 records pour monoterpenes
 
   species_counts <- data |> 
-    dplyr::group_by(Taxon, spcode.agg, Compound) |> 
+    dplyr::group_by(Taxon, gragg, Compound) |> 
     dplyr::summarise(distinct_origins = dplyr::n_distinct(Origin_pop), nb_trees = sum(as.numeric(Individual_replicates), na.omit = TRUE), nb_entries = dplyr::n(), .groups = 'drop')
   
   # Filter species with at least 'minimum_nb_origin_pop' distinct Origin_pop for each compound
   available_species <- species_counts |>
-    dplyr::group_by(Taxon, spcode.agg) |>
+    dplyr::group_by(Taxon, gragg) |>
     dplyr::filter(all(distinct_origins >= minimum_nb_origin_pop)) |>
     dplyr::ungroup()
   

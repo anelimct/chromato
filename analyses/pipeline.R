@@ -73,7 +73,7 @@ list(
   tar_target(storing_species_file, here::here("data", "splist_storing_AS.csv"), format = "file"), 
   tar_target(storing_species, utils::read.csv(storing_species_file, sep = ";")),
   
-  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_Species.csv"), format = "file"), 
+  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
@@ -176,11 +176,11 @@ list(
   tar_target(working_file, {
     load(paste0(here::here("data", "WOODIV"), "/working_file.rdata"))
     working.file
-  }), 
+  }),
   
-  tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = "spcode.agg") |>  dplyr::left_join(summary_field, by = "spcode.agg") |> 
-               process_summary_data(working_file) |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree)), 
-  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
+  tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
+               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree)) 
+ # tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
   
   #How important are species to sample to have max completness
 
