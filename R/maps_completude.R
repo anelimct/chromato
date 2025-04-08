@@ -146,3 +146,23 @@ plot_tree_effort_ech <- function ( data, tree){
   
   return(data)
 }
+
+tidy_summary_all <- function (data){
+  data_tidy <- data %>%
+    # Sélectionner les colonnes à conserver et réorganiser
+    dplyr::select(
+      gragg, Taxon.x, nb_grid, rank,
+      all_distinct_origins_isoprene, all_distinct_origins_monoterpenes,
+      all_nb_trees_isoprene, all_nb_trees_monoterpenes,
+      relative_grid,
+      # Ajouter les colonnes des pays à la fin
+      Portugal, Spain, France, Italy, Corsica, Sardinia, Croatia,
+      Slovenia, Sicily, Montenegro, Albania, Macedonia, Greece,
+      Bosnia, Crete, Cyprus, Bulgaria, Balearic, Malta, Kosovo, Gibraltar
+    ) |> dplyr::arrange(dplyr::desc(relative_grid))
+  
+  file_path <- file.path(here::here("outputs"), "summary_all_bvocs_countries.xlsx")
+  openxlsx::write.xlsx(data_tidy, file = file_path )
+  
+  return(data)
+}

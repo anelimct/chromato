@@ -79,9 +79,13 @@ list(
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
   
   #liste des paradise reports
-  
+   #mono
   tar_target( paradise_reports_files, list.files(here::here("data", "paradise_reports"), pattern = "\\.xlsx$")),
   tar_target( paradise_reports_list , read_paradise_4( paradise_reports_files, library_CAS_RI)),
+  
+  #iso
+  tar_target( paradise_reports_iso_files, list.files(here::here("data", "paradise_reports", "iso"), pattern = "\\.xlsx$")),
+  tar_target( paradise_reports_iso_list , read_paradise_4( paradise_reports_iso_files, library_CAS_RI, option = "iso/")),
   
   #liste des paradise reports calibrations
   
@@ -159,7 +163,9 @@ list(
   
   
   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
-  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list) |>   plot_calib_btw_session( calib_quanti)),
+  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono")),
+  
+  tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso")),
   
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
@@ -179,8 +185,9 @@ list(
   }),
   
   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
-               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree)) 
- # tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
+               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |> 
+               tidy_summary_all()), 
+  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
   
   #How important are species to sample to have max completness
 
