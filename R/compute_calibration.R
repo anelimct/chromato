@@ -59,7 +59,7 @@ if (type == "mono") {
 
 
 
-plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c("iso", "mono")) {
+plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c("iso", "mono"), library_CAS_RI) {
   type <- match.arg(type)
   
   calib_file <- calib_file |>
@@ -70,6 +70,14 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c
   cols_to_plot <- colnames(table_calib_btw_session)
   cols_to_plot <- cols_to_plot[-c(1, 2, 3)]
   
+  summary_table_all <- data.frame(
+    session = character(),
+    slope = numeric(),
+    p_value = numeric(),
+    R2 = numeric(),
+    New_CAS_Name = character()
+    )
+  
   grouped_data <- dplyr::left_join(table_calib_btw_session, calib_file) |>
     dplyr::group_by(New_CAS_Name)
   
@@ -78,6 +86,7 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c
     # Filter data for the current group
     compound_data <- grouped_data |>
       dplyr::filter(New_CAS_Name == name)
+    
     
     # Melt the data to long format for ggplot2
     long_data <- tidyr::pivot_longer(compound_data, cols = all_of(cols_to_plot), names_to = "session", values_to = "value")
@@ -94,6 +103,10 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c
     # Create a summary table
     summary_table <- model_data |>
       dplyr::select(session, slope, p_value, R2)
+    
+    summary_table_longer <- summary_table |> dplyr::mutate(New_CAS_Name = name)
+    
+    summary_table_all <- rbind(summary_table_all , summary_table_longer ) 
     
     # Create the plot
     p <- ggplot(long_data, aes(x = µg, y = value, color = session)) +
@@ -158,7 +171,10 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_file, type = c
     }
   }
   
-  return(table_calib_btw_session)
+  
+  summary_table_all<- dplyr::left_join(summary_table_all, library_CAS_RI) |>  
+    dplyr::select("session", "slope", "p_value", "R2", "New_CAS_Name" , "New_CAS_Number" )
+  return(summary_table_all)
 }
 
 
