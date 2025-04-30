@@ -6,13 +6,13 @@
 process_summary_data <- function(summary_data, working_file) {
   final_data <- summary_data |>
     dplyr::mutate(
-      all_distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins, 0),
-      all_distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins, 0),
-      all_nb_trees_isoprene = dplyr::coalesce(nb_trees_isoprene, 0) + dplyr::coalesce(n_entries, 0),
-      all_nb_trees_monoterpenes = dplyr::coalesce(nb_trees_monoterpenes, 0) + dplyr::coalesce(n_entries, 0),
-      all_nb_entries_isoprene = dplyr::coalesce(nb_entries_isoprene, 0) + dplyr::coalesce(n_entries, 0),
-      all_nb_entries_monoterpenes = dplyr::coalesce(nb_entries_monoterpenes, 0) + dplyr::coalesce(n_entries, 0), 
-      relative_grid = (nb_grid / length(unique(working_file$Idgrid)))*100
+      all_distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins_field_iso, 0),
+      all_distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins_field_mono, 0),
+      min_origins_all = min(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes), 
+      min_origins_field = min(distinct_origins_field_iso, distinct_origins_field_mono ),
+      all_nb_entries_isoprene = dplyr::coalesce(nb_entries_isoprene, 0) + dplyr::coalesce(n_entries_iso, 0),
+      all_nb_entries_monoterpenes = dplyr::coalesce(nb_entries_monoterpenes, 0) + dplyr::coalesce(n_entries_mono, 0), 
+      relative_grid = (nb_grid / length(unique(working_file$idgrid)))*100
     )
   return(final_data)
 }
@@ -21,12 +21,12 @@ process_summary_data <- function(summary_data, working_file) {
 compute_completeness <- function(WOODIV_grid, working_file, summary_all, minimum_pop) {
   # Join the datasets to create WOODIV_data
   WOODIV_data <- WOODIV_grid |>
-    merge(working_file, by = c("Idgrid" = "Idgrid")) |>
+    merge(working_file, by = c("idgrid" = "idgrid")) |>
     dplyr::left_join(summary_all, by = c("to_aggregate_with" = "gragg"))
   
   # Calculate completeness
   completeness <- WOODIV_data |>
-    dplyr::group_by(Idgrid, geometry) |>
+    dplyr::group_by(idgrid, geometry) |>
     dplyr::summarise(
       total_species = dplyr::n_distinct(to_aggregate_with),
       bvocs_completeness_litt = dplyr::n_distinct(to_aggregate_with[!is.na(distinct_origins_isoprene) & !is.na(distinct_origins_monoterpenes) & distinct_origins_isoprene >= as.numeric(minimum_pop) & distinct_origins_monoterpenes >= as.numeric(minimum_pop)], na.rm = TRUE) / total_species * 100,
@@ -153,8 +153,7 @@ tidy_summary_all <- function (data){
     dplyr::select(
       gragg, Taxon.x, nb_grid, rank,
       all_distinct_origins_isoprene, all_distinct_origins_monoterpenes,
-      all_nb_trees_isoprene, all_nb_trees_monoterpenes,
-      relative_grid,
+      relative_grid, min_origins_all, min_origins_field,
       # Ajouter les colonnes des pays à la fin
       Portugal, Spain, France, Italy, Corsica, Sardinia, Croatia,
       Slovenia, Sicily, Montenegro, Albania, Macedonia, Greece,

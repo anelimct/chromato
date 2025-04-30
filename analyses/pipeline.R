@@ -131,13 +131,14 @@ list(
   tar_target(chronologie_2023, chronologie(subset_2023)), 
   tar_target(chronologie_2024, chronologie(subset_2024)), 
   
-  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list, calib_quanti ) |> paired_samples()),
+  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
   
 
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed")),#43 Tmax, mean 42
-  tar_target(valid_samples,  filter_out_samples(bvocs_samples, 43, 42, type = "keep") |> species_aggregation( woodiv_species, "field")),
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
+  tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
+  tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
   
-  tar_target(summary_field, summarize_field (valid_samples)),
+  tar_target(summary_field, summarize_field (valid_samples_iso, valid_samples_mono)),
   
 
   
@@ -167,6 +168,15 @@ list(
   
   tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI)),
   
+  tar_target( table_blanks_list, create_list_dataframes_blanks(bvocs_samples) |> sort_list_blanks_tables()),
+  
+  tar_target(paradise_grouped_blanks_iso, paradise_reports_grouped_blanks(paradise_reports_iso_list, table_blanks_list, iso = TRUE)),
+  
+  tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, paradise_grouped_blanks_iso, calib_quanti)), 
+  
+  tar_target(paradise_reports_iso_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
+  
+  tar_target(paradise_reports_iso_ER_list, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti)), 
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   
@@ -174,14 +184,13 @@ list(
   ##SPATIAL maps
   
   tar_target(WOODIV_grid, {
-    sf::st_read(paste0(here::here("data", "WOODIV", "SPATIAL", "WOODIV_grid"), "/WOODIV_grid.shp"))
+    sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Grid_epsg3035"), "/WOODIV_v2_Grid_epsg3035.shp"))
   }),
   tar_target(WOODIV_shape, {
-    sf::st_read(paste0(here::here("data", "WOODIV", "SPATIAL", "WOODIV_shape"), "/WOODIV_shape.shp"))
+    sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Shape_epsg3035"), "/WOODIV_v2_Shape_epsg3035.shp"))
   }),
   tar_target(working_file, {
-    load(paste0(here::here("data", "WOODIV"), "/working_file.rdata"))
-    working.file
+    utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
   }),
   
   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 

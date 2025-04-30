@@ -1,14 +1,15 @@
-var_paradise <- function(bvocs, paradise_reports_list, calib_files){
+var_paradise <- function(bvocs, paradise_reports_list, paradise_reports_iso_list, calib_files){
   #A Named list of samples names by batch
   samples_list <- samples_paradise(paradise_reports_list, calib_files) |> unlist() 
+  samples_list_iso <- samples_paradise(paradise_reports_iso_list, calib_files) |> unlist()
   
-  bvocs <- bvocs |> dplyr::mutate( paradise = ifelse(ID %in% samples_list, T, F))
+  bvocs <- bvocs |> dplyr::mutate( paradise_mono = ifelse(ID %in% samples_list, T, F))|> dplyr::mutate( paradise_iso = ifelse(ID %in% samples_list_iso, T, F))
   
 }
 
 # selectionner tous les samples qui sont perdu ou erreur 
 
-filter_out_samples <- function(data, T_max, µ_max_T, type){
+filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
   # selectionner tous les samples qui sont perdu ou erreur 
   #selectionner tous les samples pour les quelques on a perdu les ibutton values in 
   #tous les samples qui on une moyenne de température supérieur à 40 degres (faire une fonction avec un paramètre de,température à ne pas dépasser pour la moyenne ou pour les valeurs extremes)
@@ -17,15 +18,28 @@ filter_out_samples <- function(data, T_max, µ_max_T, type){
                 "PAR.milieu.2",       "PAR.fin.1",          "PAR.fin.2")
   blancs <- data |> dplyr::filter(Taxon == "BLANC") |>  dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |>  dplyr::mutate(issue = FALSE)
   data <- data |> dplyr::filter(Taxon != "BLANC") |> dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE))
+  if(compound == "iso"){
+    data <- data |> 
+      dplyr::mutate( issue = dplyr::if_else(
+        Etat %in% c("perdu", "Perdu", "Erreur") |
+          purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
+          purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
+          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
+          paradise_iso ==FALSE, TRUE, FALSE
+      ))
+    
+  } else {
+    data <- data |> 
+      dplyr::mutate( issue = dplyr::if_else(
+        Etat %in% c("perdu", "Perdu", "Erreur") |
+          purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
+          purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
+          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
+          paradise_mono ==FALSE, TRUE, FALSE
+      ))
+  }
+  
 
-  data <- data |> 
-    dplyr::mutate( issue = dplyr::if_else(
-    Etat %in% c("perdu", "Perdu", "Erreur") |
-                                  purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
-                                  purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
-                                  purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
-                                  paradise==FALSE, TRUE, FALSE
-                                ))
   
   if(type == "failed"){
     data <- data |> dplyr::group_by(ID_pairs) |> 
@@ -96,14 +110,24 @@ summarize_lost_samples <- function(data, T_max, µ_max_T) {
   return(summary_table)
 }
 
-summarize_field <- function(data) {
-  data |> dplyr::filter(Taxon != "BLANC") |> 
+summarize_field <- function(data_iso, data_mono) {
+  data_iso <-  data_iso |> dplyr::filter(Taxon != "BLANC") |> 
     dplyr::group_by(gragg, Taxon) |>
     dplyr::summarise(
-      distinct_origins = dplyr::n_distinct(paste(stringr::str_sub(Latitude..WGS84., 1, 4), stringr::str_sub(Longitude..WGS84., 1, 4), sep = "_")),
-      n_entries = dplyr::n()
-    ) |>
+      distinct_origins_field_iso = dplyr::n_distinct(paste(stringr::str_sub(Latitude..WGS84., 1, 4), stringr::str_sub(Longitude..WGS84., 1, 4), sep = "_")), 
+      n_entries_iso = dplyr::n()
+      ) |>
     dplyr::ungroup()
+  
+  data_mono <- data_mono |> dplyr::filter(Taxon != "BLANC") |> 
+    dplyr::group_by(gragg, Taxon) |>
+    dplyr::summarise(
+      distinct_origins_field_mono = dplyr::n_distinct(paste(stringr::str_sub(Latitude..WGS84., 1, 4), stringr::str_sub(Longitude..WGS84., 1, 4), sep = "_")),
+      n_entries_mono = dplyr::n()) |>
+    dplyr::ungroup()
+  
+  data <-  dplyr::left_join(data_mono, data_iso)
 }
+
 
   
