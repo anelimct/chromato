@@ -8,12 +8,9 @@ process_summary_data <- function(summary_data, working_file) {
     dplyr::mutate(
       all_distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins_field_iso, 0),
       all_distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins_field_mono, 0),
-      min_origins_all = min(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes), 
-      min_origins_field = min(distinct_origins_field_iso, distinct_origins_field_mono ),
-      all_nb_entries_isoprene = dplyr::coalesce(nb_entries_isoprene, 0) + dplyr::coalesce(n_entries_iso, 0),
-      all_nb_entries_monoterpenes = dplyr::coalesce(nb_entries_monoterpenes, 0) + dplyr::coalesce(n_entries_mono, 0), 
       relative_grid = (nb_grid / length(unique(working_file$idgrid)))*100
-    )
+    )|> dplyr::mutate(min_origins_all = pmin(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes ), min_origins_field = pmin(distinct_origins_field_mono, distinct_origins_field_iso), min_origins_litt = pmin(distinct_origins_isoprene, distinct_origins_monoterpenes)) |>  
+    tidyr::replace_na( list(min_origins_field = 0)) |>  tidyr::replace_na( list(min_origins_litt = 0))
   return(final_data)
 }
 
@@ -22,16 +19,15 @@ compute_completeness <- function(WOODIV_grid, working_file, summary_all, minimum
   # Join the datasets to create WOODIV_data
   WOODIV_data <- WOODIV_grid |>
     merge(working_file, by = c("idgrid" = "idgrid")) |>
-    dplyr::left_join(summary_all, by = c("to_aggregate_with" = "gragg"))
+    dplyr::left_join(summary_all, by = c("gragg" = "gragg"))
   
   # Calculate completeness
   completeness <- WOODIV_data |>
     dplyr::group_by(idgrid, geometry) |>
     dplyr::summarise(
-      total_species = dplyr::n_distinct(to_aggregate_with),
-      bvocs_completeness_litt = dplyr::n_distinct(to_aggregate_with[!is.na(distinct_origins_isoprene) & !is.na(distinct_origins_monoterpenes) & distinct_origins_isoprene >= as.numeric(minimum_pop) & distinct_origins_monoterpenes >= as.numeric(minimum_pop)], na.rm = TRUE) / total_species * 100,
-      bvocs_completeness_all = dplyr::n_distinct(to_aggregate_with[!is.na(all_distinct_origins_isoprene) & !is.na(all_distinct_origins_monoterpenes) & all_distinct_origins_isoprene >= as.numeric(minimum_pop) & all_distinct_origins_monoterpenes >= as.numeric(minimum_pop)], na.rm = TRUE) / total_species * 100
-    ) |>
+      total_species = dplyr::n_distinct(gragg),
+      bvocs_completeness_litt = dplyr::n_distinct(gragg[!is.na(distinct_origins_isoprene) & !is.na(distinct_origins_monoterpenes) & distinct_origins_isoprene >= as.numeric(minimum_pop) & distinct_origins_monoterpenes >= as.numeric(minimum_pop)], na.rm = TRUE) / total_species * 100,
+      bvocs_completeness_all = dplyr::n_distinct(gragg[!is.na(all_distinct_origins_isoprene) & !is.na(all_distinct_origins_monoterpenes) & all_distinct_origins_isoprene >= as.numeric(minimum_pop) & all_distinct_origins_monoterpenes >= as.numeric(minimum_pop)], na.rm = TRUE) / total_species * 100) |>
     dplyr::ungroup()
   
   return(completeness)
@@ -89,9 +85,7 @@ map_et_plot_completness <- function (completeness, WOODIV_shape){
 }
 
 ranking_species <- function(working_file){
-  data <- working_file |>  dplyr::rename( gragg = to_aggregate_with ) |> dplyr::mutate( gragg = stringr::str_replace(gragg,"\\.", "_" ) )|>  dplyr::mutate(Taxon = paste0(genus, " ", species)) |> dplyr::group_by(gragg, Taxon) |> dplyr::summarise(nb_grid = dplyr::n_distinct(Idgrid), countries = list(unique(country))) |> 
-    tidyr::unnest(countries) |>  dplyr::mutate(value = TRUE) |> 
-    tidyr::pivot_wider(names_from = countries, values_from = value, values_fill = list(value = FALSE)) |> 
+  data <- working_file |>   dplyr::group_by(gragg) |> dplyr::summarise(nb_grid = dplyr::n_distinct(idgrid)) |> 
     dplyr::ungroup()|> dplyr::mutate(rank = rank(-nb_grid))
 }
 
@@ -101,14 +95,14 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
   data_ordered <- data |>  
     dplyr::distinct_at("gragg", .keep_all = T) |> 
     dplyr::arrange(relative_grid) |> 
-    dplyr::mutate(Taxon.x = factor(Taxon.x, levels = unique(Taxon.x))) |> 
+    dplyr::mutate(gragg = factor(gragg , levels = unique(gragg ))) |> 
     dplyr::mutate(!!column_to_plot := as.factor(.data[[column_to_plot]])) |> 
     dplyr::filter(relative_grid >= as.numeric(tronquer_min))
   
   num_levels <- length(unique(data_ordered[[column_to_plot]]))
   colors <- c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a")
   
-  ggplot(data_ordered, aes(x = relative_grid, y = Taxon.x, fill = .data[[column_to_plot]])) +
+  ggplot(data_ordered, aes(x = relative_grid, y = gragg, fill = .data[[column_to_plot]])) +
     geom_bar(stat = "identity") +
     scale_fill_manual(values = colors[1:num_levels]) +
     labs(x = "Présence (%)", y = "Species Name", fill = "Number of population sampled", title = main_lab) +
@@ -118,6 +112,32 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
   
   return(data)
 }
+
+plot_hist_ranking_cumul <- function(data, planned) {
+  
+  # Join data and replace NA values
+  data_longer <- dplyr::left_join(data, planned, by = "gragg") |>tidyr::replace_na(list(TS_2025 = 0)) |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt, TS_2025),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 11)
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_field", "TS_2025", "min_origins_litt"))
+  data_longer <- data_longer |> dplyr::arrange(relative_grid, type) |> dplyr::group_by(gragg) |> dplyr::mutate(lab_ypos = cumsum(n_pop) - 0.5 * n_pop) |>  dplyr::ungroup()
+  
+  
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_litt", "TS_2025", "min_origins_field"))
+  
+  
+  # Create the plot
+  p <- ggplot(data_longer, aes(x = reorder(gragg, relative_grid, decreasing = FALSE), y = n_pop)) +geom_col(aes(fill = type), width = 0.7) + geom_text(data = dplyr::filter(data_longer, n_pop != 0) |>  dplyr::arrange(relative_grid, type) ,
+              aes(y = lab_ypos, label = n_pop, group = type), color = "white", fontface = "bold", size = 3) +
+    coord_flip() + scale_fill_manual(values = wesanderson::wes_palette("Moonrise3", 3), labels = c("min_origins_field" = "Terrain fait 2023/2024", "TS_2025" = "Terrain prévu 2025", "min_origins_litt" = "Données littérature"))
+  
+  # Save the plot
+  ggsave("cumul_min_ech.png", plot = last_plot(),path = here::here("figures", "completness", "effort_echantillonnage"), width = 3048, height = 2095, create.dir = TRUE, limitsize = FALSE, units = "px", bg = "white")
+  
+  return(data)
+}
+
+
+
+
 
 plot_tree_effort_ech <- function ( data, tree){
   data_2 <- data |> 
@@ -148,19 +168,15 @@ plot_tree_effort_ech <- function ( data, tree){
 }
 
 tidy_summary_all <- function (data){
-  data_tidy <- data %>%
+  data_tidy <- data |> 
     # Sélectionner les colonnes à conserver et réorganiser
     dplyr::select(
       gragg, Taxon.x, nb_grid, rank,
       all_distinct_origins_isoprene, all_distinct_origins_monoterpenes,
       relative_grid, min_origins_all, min_origins_field,
-      # Ajouter les colonnes des pays à la fin
-      Portugal, Spain, France, Italy, Corsica, Sardinia, Croatia,
-      Slovenia, Sicily, Montenegro, Albania, Macedonia, Greece,
-      Bosnia, Crete, Cyprus, Bulgaria, Balearic, Malta, Kosovo, Gibraltar
     ) |> dplyr::arrange(dplyr::desc(relative_grid))
   
-  file_path <- file.path(here::here("outputs"), "summary_all_bvocs_countries.xlsx")
+  file_path <- file.path(here::here("outputs"), "summary_all_bvocs.xlsx")
   openxlsx::write.xlsx(data_tidy, file = file_path )
   
   return(data)
