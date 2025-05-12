@@ -76,6 +76,9 @@ list(
   tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
+  tar_target(terrain_2025_file, here::here("data", "terrain_2025.csv"), format = "file"), 
+  tar_target(terrain_2025, utils::read.csv(terrain_2025_file, sep =";")),
+  
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
   
   #liste des paradise reports
@@ -195,7 +198,7 @@ list(
  
   
   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
-               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) 
+               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul (terrain_2025) 
              |> tidy_summary_all()),
               
   tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))

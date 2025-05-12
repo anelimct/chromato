@@ -9,7 +9,8 @@ process_summary_data <- function(summary_data, working_file) {
       all_distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins_field_iso, 0),
       all_distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins_field_mono, 0),
       relative_grid = (nb_grid / length(unique(working_file$idgrid)))*100
-    )|> dplyr::mutate(min_origins_all = pmin(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes ), min_origins_field = pmin(distinct_origins_field_mono, distinct_origins_field_iso))
+    )|> dplyr::mutate(min_origins_all = pmin(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes ), min_origins_field = pmin(distinct_origins_field_mono, distinct_origins_field_iso), min_origins_litt = pmin(distinct_origins_isoprene, distinct_origins_monoterpenes)) |>  
+    tidyr::replace_na( list(min_origins_field = 0)) |>  tidyr::replace_na( list(min_origins_litt = 0))
   return(final_data)
 }
 
@@ -111,6 +112,32 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
   
   return(data)
 }
+
+plot_hist_ranking_cumul <- function(data, planned) {
+  
+  # Join data and replace NA values
+  data_longer <- dplyr::left_join(data, planned, by = "gragg") |>tidyr::replace_na(list(TS_2025 = 0)) |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt, TS_2025),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 11)
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_field", "TS_2025", "min_origins_litt"))
+  data_longer <- data_longer |> dplyr::arrange(relative_grid, type) |> dplyr::group_by(gragg) |> dplyr::mutate(lab_ypos = cumsum(n_pop) - 0.5 * n_pop) |>  dplyr::ungroup()
+  
+  
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_litt", "TS_2025", "min_origins_field"))
+  
+  
+  # Create the plot
+  p <- ggplot(data_longer, aes(x = reorder(gragg, relative_grid, decreasing = FALSE), y = n_pop)) +geom_col(aes(fill = type), width = 0.7) + geom_text(data = dplyr::filter(data_longer, n_pop != 0) |>  dplyr::arrange(relative_grid, type) ,
+              aes(y = lab_ypos, label = n_pop, group = type), color = "white", fontface = "bold", size = 3) +
+    coord_flip() + scale_fill_manual(values = wesanderson::wes_palette("Moonrise3", 3), labels = c("min_origins_field" = "Terrain fait 2023/2024", "TS_2025" = "Terrain prévu 2025", "min_origins_litt" = "Données littérature"))
+  
+  # Save the plot
+  ggsave("cumul_min_ech.png", plot = last_plot(),path = here::here("figures", "completness", "effort_echantillonnage"), width = 3048, height = 2095, create.dir = TRUE, limitsize = FALSE, units = "px", bg = "white")
+  
+  return(data)
+}
+
+
+
+
 
 plot_tree_effort_ech <- function ( data, tree){
   data_2 <- data |> 
