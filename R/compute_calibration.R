@@ -31,7 +31,8 @@ if (type == "mono") {
   
   for (name in names(paradise_reports_list)) {
     data <- paradise_reports_list[[name]] |> dplyr::filter(New_CAS_Name %in% c("(±)-α-Pinene", "β-Pinene", "D-Limonene", "p-Cymene" ))|>
-      dplyr::select(tidyselect::all_of(cols_to_include_mono)) |> tidyr::pivot_longer(paste0(calib_samples_mono), names_to ="calib", values_to = paste0(name))
+      dplyr::select(tidyselect::any_of(cols_to_include_mono)) |> 
+    tidyr::pivot_longer( cols = tidyselect::contains("mono"), names_to = "calib", values_to = name)
     
     
     calib_btw_batch_mono <- dplyr::full_join(calib_btw_batch_mono, data, by = c("calib", "New_CAS_Name",  "Hit 1: CAS" ))
@@ -43,7 +44,7 @@ if (type == "mono") {
   
   for (name in names(paradise_reports_list)) {
     data <- paradise_reports_list[[name]] |> dplyr::filter(New_CAS_Name %in% c("Isoprene" ))|>
-      dplyr::select(tidyselect::all_of(cols_to_include_iso)) |> tidyr::pivot_longer(paste0(calib_samples_iso), names_to ="calib", values_to = paste0(name))
+      dplyr::select(tidyselect::any_of(cols_to_include_iso)) |>  tidyr::pivot_longer( cols = tidyselect::contains("iso"), names_to = "calib", values_to = name)
     
     
     calib_btw_batch_iso <- dplyr::full_join(calib_btw_batch_iso, data, by = c("calib", "New_CAS_Name",  "Hit 1: CAS" ))

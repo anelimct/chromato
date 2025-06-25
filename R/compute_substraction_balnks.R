@@ -188,6 +188,8 @@ subtract_blanks_from_samples <- function(paradise_reports_list, grouped_blanks_l
 }
 
 
+
+
 area_to_quanti <- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
   # Get the list of samples to process
   samples_list <- samples_paradise(paradise_reports_sbtr_blanks_list, calib_quanti)
@@ -218,11 +220,14 @@ area_to_quanti <- function(paradise_reports_sbtr_blanks_list, calib_quanti, tabl
       
       # Check if a matching calibration slope was found
       if (nrow(matching_calib) > 0) {
-        matching_calib_value <- matching_calib[1]
+        matching_calib_value <- matching_calib[[1]]
         
         # Compute quanti from calibration for the corresponding samples
         for (sample in samples) {
-          paradise_report[i, sample] <- paradise_report[i, sample] / matching_calib_value
+          
+          sample_value <- paradise_report[[sample]][i]
+          
+          paradise_report[[sample]][i] <- sample_value / matching_calib_value
         }
       }
     }
@@ -267,6 +272,8 @@ compute_ER <- function(paradise_reports_quanti_list, bvocs_samples, calib_quanti
         if (nrow(matching_row) > 0) {
           # Get the Leaves_DM value
           leaves_dm <- matching_row$Leaves_DM * 10^-3
+          sampling_duration <- matching_row$Durée/60  # in hour
+          
           
           # Transform the value using the given formula
           paradise_report[i, sample] <- paradise_report[i, sample] * 60 / leaves_dm * 0.25 * 6
@@ -281,4 +288,37 @@ compute_ER <- function(paradise_reports_quanti_list, bvocs_samples, calib_quanti
   return(ER_reports_list)
 }
 
+
+mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x = 645000) {
+  marked_er <- list()
+  
+  for (name in names(er_list)) {
+    # Obtenir les données ER et les données brutes correspondantes
+    er_data <- er_list[[name]]
+    raw_data <- paradise_reports_list[[name]]
+    
+    # Identifier les colonnes d'échantillons (.CDF)
+    sample_cols <- grep("\\.CDF$", names(raw_data), value = TRUE)
+    
+    # Vérifier la correspondance des dimensions
+    if (!identical(dim(er_data), dim(raw_data))) {
+      stop("Les dimensions des données ER et brutes ne correspondent pas pour ", name)
+    }
+    
+    # Créer une copie pour modification
+    marked_data <- er_data
+    
+    # Appliquer les seuils
+    for (col in sample_cols) {
+      # Remplacer les valeurs ER selon les seuils des données brutes
+      marked_data[[col]] <- ifelse(raw_data[[col]] < lod_3x, "nd",
+                                   ifelse(raw_data[[col]] < lod_10x, "tr", 
+                                          marked_data[[col]]))
+    }
+    
+    marked_er[[name]] <- marked_data
+  }
+  
+  return(marked_er)
+}
 

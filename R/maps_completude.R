@@ -116,8 +116,13 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
 plot_hist_ranking_cumul <- function(data, planned) {
   
   # Join data and replace NA values
-  data_longer <- dplyr::left_join(data, planned, by = "gragg") |>tidyr::replace_na(list(TS_2025 = 0)) |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt, TS_2025),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 11)
+  data <- dplyr::left_join(data, planned, by = "gragg")|>tidyr::replace_na(list(TS_2025 = 0))
+  
+  data_longer  <- data  |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt, TS_2025),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 13)
   data_longer$type <- factor(data_longer$type, levels = c("min_origins_field", "TS_2025", "min_origins_litt"))
+  ## line to remove
+  data_longer$n_pop[data_longer$gragg == "FANG" & data_longer$type == "min_origins_field"] <- data_longer$n_pop[data_longer$gragg == "FANG" & data_longer$type == "min_origins_field"] + 1
+  
   data_longer <- data_longer |> dplyr::arrange(relative_grid, type) |> dplyr::group_by(gragg) |> dplyr::mutate(lab_ypos = cumsum(n_pop) - 0.5 * n_pop) |>  dplyr::ungroup()
   
   
@@ -167,17 +172,45 @@ plot_tree_effort_ech <- function ( data, tree){
   return(data)
 }
 
-tidy_summary_all <- function (data){
+tidy_summary_all <- function (data, woodiv_species){
+  
+  
+  species <- woodiv_species |> dplyr::group_by(gragg) |> 
+   dplyr::slice(1) |> dplyr::select(gragg, full_scientific_name) |>   # This keeps the first occurrence of each gragg group
+    dplyr::ungroup()
+
+    
   data_tidy <- data |> 
     # Sélectionner les colonnes à conserver et réorganiser
     dplyr::select(
-      gragg, Taxon.x, nb_grid, rank,
-      all_distinct_origins_isoprene, all_distinct_origins_monoterpenes,
-      relative_grid, min_origins_all, min_origins_field,
-    ) |> dplyr::arrange(dplyr::desc(relative_grid))
-  
+      gragg, relative_grid,
+      all_distinct_origins_isoprene, all_distinct_origins_monoterpenes, min_origins_all, min_origins_field, TS_2025
+    ) |>
+    # Rename the columns
+    dplyr::rename(
+      prct_grid = relative_grid,
+      n_iso = all_distinct_origins_isoprene,
+      n_mono = all_distinct_origins_monoterpenes,
+      n_min = min_origins_all,
+      previous_field = min_origins_field,
+      planned_2025 = TS_2025
+    ) |> dplyr::mutate( target_end_2025 = n_min + planned_2025) |> 
+    dplyr::arrange(dplyr::desc(prct_grid)) |>  dplyr::left_join(species, by = "gragg")
+    
+    missing <- dplyr::filter(data_tidy, target_end_2025<3 )
+    
+    p <- ggplot(missing, aes(x = prct_grid, y = ..count..)) +
+      geom_histogram(binwidth = 1, fill = "blue", alpha = 0.7) +  # Histogram with specified bin width
+      labs(title = "Histogram of prct_grid for gragg with target_end_2025 < 3",
+           x = "prct_grid",
+           y = "Frequency (Sum of gragg)") +
+      theme_minimal()
+    
+    ggsave("density_prct_under_3.png", plot = last_plot(),path = here::here("figures", "completness", "effort_echantillonnage"), width = 3048, height = 2095, create.dir = TRUE, limitsize = FALSE, units = "px", bg = "white")
+    
+    
   file_path <- file.path(here::here("outputs"), "summary_all_bvocs.xlsx")
-  openxlsx::write.xlsx(data_tidy, file = file_path )
+  #openxlsx::write.xlsx(data_tidy, file = file_path )
   
   return(data)
 }

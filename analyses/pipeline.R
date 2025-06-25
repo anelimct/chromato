@@ -102,7 +102,7 @@ list(
   tar_target(ibutton_table_H, make_ibuttons_table(ibuttons_files, "H")),
   tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples_raw, ibutton_table_T, "T")),
   tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples_raw, ibutton_table_H, "H")), 
-  tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H)),
+  tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H) |>  create_new_par_column() ) ,
   ##Lire les articles BD_litt
   
   tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_extraction_R_edit_v_solo"), full.names = TRUE), format = "file"), 
@@ -123,10 +123,11 @@ list(
   
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
              
-  ## Trier les chromato, subset is done on desorption date
+  ## Trier les chromato, subset is done on desorption date ? or sample date ? 
   
   tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes) |> save_plot_ibuttons ("2023", plot_in_out) |> save_plot_corr_T ("2023", plot_corr_Tin_Tout)),
   tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
+  tar_target(subset_2025, subset_year(bvocs_samples_ibuttons_values, "2025", renamed_alcanes) |>  save_plot_ibuttons( "2025", plot_in_out) |> save_plot_corr_T ( "2025", plot_corr_Tin_Tout) ),
   
   tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
   tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
@@ -172,14 +173,24 @@ list(
   tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI)),
   
   tar_target( table_blanks_list, create_list_dataframes_blanks(bvocs_samples) |> sort_list_blanks_tables()),
-  
+  ##ISOPRENE
   tar_target(paradise_grouped_blanks_iso, paradise_reports_grouped_blanks(paradise_reports_iso_list, table_blanks_list, iso = TRUE)),
   
   tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, paradise_grouped_blanks_iso, calib_quanti)), 
   
   tar_target(paradise_reports_iso_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
   
-  tar_target(paradise_reports_iso_ER_list, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti)), 
+  tar_target(paradise_reports_iso_ER_list, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000)), 
+  
+  
+  ##MONO/SESQUI
+  tar_target(paradise_grouped_blanks_mono, paradise_reports_grouped_blanks(paradise_reports_list, table_blanks_list, iso = F)),
+  
+  tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, paradise_grouped_blanks_mono, calib_quanti)), 
+  
+  tar_target(paradise_reports_mono_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
+  
+  tar_target(paradise_reports_mono_ER_list, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)), 
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   
@@ -199,7 +210,7 @@ list(
   
   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
                process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul (terrain_2025) 
-             |> tidy_summary_all()),
+             |> tidy_summary_all(woodiv_species)),
               
   tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
   
