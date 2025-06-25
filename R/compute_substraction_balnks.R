@@ -88,7 +88,7 @@ paradise_reports_grouped_blanks <- function(paradise_reports_list, blanks_tables
   
   list_blanks_grp_batch <- list()
   
-  cols_to_include <- c( "Compound Name","Match Quality",  "Est. Retention Time (min)", "New_CAS_Name", "calib_based_on")
+  cols_to_include <- c( "Compound Name","Match Quality",  "Est. Retention Time (min)", "New_CAS_Name", "calib_based_on", "smiles")
   
   for (name in names(blanks_tables_list)){
     table_blanks <- blanks_tables_list[[name]]
@@ -321,4 +321,115 @@ mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x
   
   return(marked_er)
 }
+
+
+
+sum_terpenoids <- function(df) {
+  # Ensure we have required columns
+  if (!all(c("superclass", "superclass2") %in% colnames(df))) {
+    stop("Dataframe must contain 'superclass' and 'superclass2' columns")
+  }
+  
+  # Process the dataframe
+  result <- df  |>
+    # Select relevant columns
+    dplyr::select(`compound name`, superclass, superclass2, matches("\\.CDF$"))  |>
+    dplyr::select(-matches("^B_"), -contains("calib")) |> 
+    # Pivot to long format (samples as rows)
+    tidyr::pivot_longer(
+      cols = -c(`compound name`, superclass, superclass2),
+      names_to = "Sample",
+      values_to = "Value"
+    )  |>
+    # Convert values to numeric (handle 'nd'/'tr')
+    dplyr::mutate(
+      Sample = stringr::str_to_upper(Sample),
+      Value = case_when(
+        Value %in% c("nd", "tr") ~ 0,
+        TRUE ~ as.numeric(Value)
+      )
+    )  |>
+    # Classify `compound name`s
+    dplyr::mutate(
+      Terpenoid_Type = case_when(
+        superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids" ~ "Monoterpenoids",
+        superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids" ~ "Sesquiterpenoids",
+        TRUE ~ "Other"
+      )
+    )  |>
+    # Filter and sum by type
+    dplyr::filter(Terpenoid_Type != "Other")  |>
+    dplyr::group_by(Sample, Terpenoid_Type)  |>
+    summarise(Total = sum(Value, na.rm = TRUE), .groups = "drop")  |>
+    dplyr::ungroup() |> 
+    dplyr::group_by(Sample) |> 
+    # Pivot back to wide format
+    tidyr::pivot_wider(
+      names_from = Terpenoid_Type,
+      values_from = Total
+    )  |>
+    dplyr::ungroup() 
+  
+  if (!"Monoterpenoids" %in% names(result)) result$Monoterpenoids <- 0
+  if (!"Sesquiterpenoids" %in% names(result)) result$Sesquiterpenoids <- 0
+  
+    result<- result |>
+    dplyr::select(Sample, Monoterpenoids, Sesquiterpenoids)
+  
+  return(result)
+}
+
+
+sum_terpenoids_across_reports <- function(reports_list) {
+  # Process each dataframe in the list
+  lapply(reports_list, function(df) {
+    # Create superclass2 if missing
+    if (!"superclass2" %in% colnames(df)) df$superclass2 <- NA
+    
+    # Apply your existing sum_terpenoids function
+    sum_terpenoids(df)
+  }) %>% 
+    dplyr::bind_rows(.id = "Session")  # Combine results with session names
+}
+
+sum_isoprene <- function(reports_list) {
+  # Internal conversion function
+  convert_nd_tr <- function(x) {
+    if (is.character(x)) {
+      x[x %in% c("nd", "tr")] <- "0"
+    }
+    as.numeric(x)
+  }
+  
+  # Main processing function
+  process_df <- function(df) {
+    # Get sample columns (ending with .CDF, excluding blanks/calibrations)
+    sample_cols <- grep("\\.CDF$", names(df), value = TRUE)
+    sample_cols <- sample_cols[!grepl("^B_|calib", sample_cols)]
+    
+    # Convert values and filter isoprene
+    df %>%
+      # Convert nd/tr to 0 and make numeric
+      mutate(across(all_of(sample_cols), convert_nd_tr)) %>%
+      # Filter isoprene compounds
+      filter(New_CAS_Name %in% c("Isoprene", "78-79-5")) %>%
+      # Select and reshape data
+      select(all_of(sample_cols)) %>%
+      pivot_longer(
+        cols = everything(),
+        names_to = "Sample",
+        values_to = "Isoprene"
+      ) %>%
+      mutate(Sample = toupper(Sample))
+  }
+  
+  # Apply to all dataframes in list
+  map_dfr(names(reports_list), ~ {
+    process_df(reports_list[[.x]]) %>% 
+      mutate(Session = .x) %>%
+      select(Session, Sample, Isoprene)
+  })
+}
+
+
 
