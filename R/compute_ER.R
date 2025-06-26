@@ -152,14 +152,14 @@ sum_terpenoids <- function(df) {
     # Convert values to numeric (handle 'nd'/'tr')
     dplyr::mutate(
       Sample = stringr::str_to_upper(Sample),
-      Value = case_when(
+      Value = dplyr::case_when(
         Value %in% c("nd", "tr") ~ 0,
         TRUE ~ as.numeric(Value)
       )
     )  |>
     # Classify `compound name`s
     dplyr::mutate(
-      Terpenoid_Type = case_when(
+      Terpenoid_Type = dplyr::case_when(
         superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids" ~ "Monoterpenoids",
         superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids" ~ "Sesquiterpenoids",
         TRUE ~ "Other"
@@ -168,7 +168,7 @@ sum_terpenoids <- function(df) {
     # Filter and sum by type
     dplyr::filter(Terpenoid_Type != "Other")  |>
     dplyr::group_by(Sample, Terpenoid_Type)  |>
-    summarise(Total = sum(Value, na.rm = TRUE), .groups = "drop")  |>
+    dplyr::summarise(Total = sum(Value, na.rm = TRUE), .groups = "drop")  |>
     dplyr::ungroup() |> 
     dplyr::group_by(Sample) |> 
     # Pivot back to wide format
@@ -200,7 +200,7 @@ sum_terpenoids_across_reports <- function(reports_list) {
     dplyr::bind_rows(.id = "Session")  # Combine results with session names
 }
 
-sum_isoprene <- function(reports_list) {
+sum_isoprene_across_reports <- function(reports_list) {
   # Internal conversion function
   convert_nd_tr <- function(x) {
     if (is.character(x)) {
@@ -218,23 +218,23 @@ sum_isoprene <- function(reports_list) {
     # Convert values and filter isoprene
     df %>%
       # Convert nd/tr to 0 and make numeric
-      mutate(across(all_of(sample_cols), convert_nd_tr)) %>%
+      dplyr::mutate(across(all_of(sample_cols), convert_nd_tr)) %>%
       # Filter isoprene compounds
-      filter(New_CAS_Name %in% c("Isoprene", "78-79-5")) %>%
+      dplyr::filter(New_CAS_Name %in% c("Isoprene", "78-79-5")) %>%
       # Select and reshape data
-      select(all_of(sample_cols)) %>%
-      pivot_longer(
+      dplyr::select(all_of(sample_cols)) %>%
+      tidyr::pivot_longer(
         cols = everything(),
         names_to = "Sample",
         values_to = "Isoprene"
       ) %>%
-      mutate(Sample = toupper(Sample))
+      dplyr::mutate(Sample = toupper(Sample))
   }
   
   # Apply to all dataframes in list
-  map_dfr(names(reports_list), ~ {
+  purrr::map_dfr(names(reports_list), ~ {
     process_df(reports_list[[.x]]) %>% 
-      mutate(Session = .x) %>%
-      select(Session, Sample, Isoprene)
+      dplyr::mutate(Session = .x) %>%
+      dplyr::select(Session, Sample, Isoprene)
   })
 }

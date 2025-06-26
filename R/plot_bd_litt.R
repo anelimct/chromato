@@ -1,4 +1,4 @@
-boxplot_EF <- function (data, tree){
+boxplot_EF <- function (data_litt, tree){
   
   data_iso_mono <- data |> dplyr::group_by(Taxon) |> dplyr::filter( length(unique(Compound) ) >= 2) |> dplyr::ungroup()
   
