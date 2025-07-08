@@ -119,7 +119,7 @@ list(
                  Origin_pop = paste(Origin_city, Origin_locality, sep = " "),
                  Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
-  tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree)),
+  tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree, field_EF)),
   
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
              
@@ -190,7 +190,9 @@ list(
   
   tar_target(paradise_reports_mono_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
   
-  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000) |>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
+  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
+  
+  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso)),
   
   tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   
