@@ -1,6 +1,6 @@
 
 read_excel_articles <- function(file) {
-  readxl::read_xlsx(file, sheet = 2) 
+  readxl::read_xlsx(file, sheet = 1) 
 }
 
 
@@ -10,8 +10,19 @@ read_excel_articles <- function(file) {
 
 species_aggregation <- function(data, species_woodiv, dataset){
   if (dataset == "litt"){
+    
+    species_woodiv <- species_woodiv |> 
+      dplyr::group_by(gragg) |> 
+      dplyr::mutate(
+        taxon = dplyr::first(full_scientific_name),
+        Taxon = stringr::str_replace_all(taxon, "_", " ")
+      ) |> 
+      dplyr::ungroup() 
+    
+    
+    
     data <- data |> 
-      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_",  " ") ) ,
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg, Taxon) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_",  " ") ) ,
                        by = c('Taxon_in_ref' = 'full_scientific_name'))
     
   } else {
@@ -136,6 +147,35 @@ select_std_or_standardisable <- function(data, sp_storing) {
   data_combined <- rbind(data_std, data)
     
 } 
+
+
+
+select_std_or_standardisable_2 <- function(data) {
+  
+  data_std <- data |> dplyr::filter(Standardized == "true")|> dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") 
+  
+  data<- data |> dplyr::filter(Standardized == "false") 
+  
+  data <- data |> dplyr::filter(
+      
+ Compound == "monoterpenes" &  ((Temperature != "NA" & PAR != "NA") | 
+                                                          
+                                                          (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+                                                          (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+                                                          (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA")) |
+      
+      Compound == "isoprene" & 
+      ((Temperature != "NA" & PAR != "NA") | 
+         (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+         (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+         (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA"))) 
+  
+  data_combined <- rbind(data_std, data)
+  
+} 
+
+
+
 
 
 select_months <- function(data, start_month, end_month) {
@@ -340,7 +380,7 @@ standardisation <- function(data){
   
   data |>  dplyr:: mutate(EF = dplyr::case_when(
     Standardized == "true" & !is.na(Emission) ~ Emission,
-    Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
+    #Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
     TRUE ~ ES_iso_G93
   )) 
   

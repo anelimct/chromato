@@ -100,7 +100,7 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
     dplyr::filter(relative_grid >= as.numeric(tronquer_min))
   
   num_levels <- length(unique(data_ordered[[column_to_plot]]))
-  colors <- c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a")
+  colors <- c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a", "black")
   
   ggplot(data_ordered, aes(x = relative_grid, y = gragg, fill = .data[[column_to_plot]])) +
     geom_bar(stat = "identity") +
@@ -161,10 +161,10 @@ plot_tree_effort_ech <- function ( data, tree){
   
   p <- ggtree::`%<+%`( p_tree, data_2) 
   p_iso <- p + ggtree::geom_tippoint(aes(color= all_distinct_origins_isoprene)) +
-    scale_color_manual(values = c("white", "#f0b4c1", "#e48da1", "#d2205f", "#a10f3b", "#73054b", "#500334"))
+    scale_color_manual(values = c("white", "#f0b4c1", "#e48da1", "#d2205f", "#a10f3b", "#73054b", "#500334", "#33001a"))
   
   p_mono <- p + ggtree::geom_tippoint(aes(color= all_distinct_origins_monoterpenes)) +
-    scale_color_manual(values = c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a"))
+    scale_color_manual(values = c("white", "#f0b4c1","#e48da1", "#d2205f", "#a10f3b","#73054b", "#500334", "#33001a", "black"))
   
   ggsave("chronogram_iso.png", plot = p_iso, path = paste0(here::here ("figures", "completness", "effort_echantillonnage")) , width = 3048, height = 2095, create.dir = T, limitsize = FALSE, units = "px", bg = "white")
   ggsave("chronogram_monoterpenes.png", plot = p_mono, path = paste0(here::here ("figures", "completness", "effort_echantillonnage")) , width = 3048, height = 2095, create.dir = T, limitsize = FALSE, units = "px", bg = "white")

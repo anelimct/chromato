@@ -17,7 +17,7 @@ boxplot_EF <- function (data, tree, field){
     geom_jitter(width = 0.2, alpha = 0.5, aes(color = Taxon)) +
     theme_minimal() +
     labs(title = "EF distribution per species for Isoprene",
-         x = "EF",
+         x = "EF µg·g⁻¹·h⁻¹",
          y = "Species") +
     theme(legend.position = "none",  axis.text.y = element_text(angle = 20, hjust = 1, size = 6))
   
@@ -28,7 +28,7 @@ boxplot_EF <- function (data, tree, field){
     geom_jitter(width = 0.2, alpha = 0.5, aes(color = Taxon)) +
     theme_minimal() +
     labs(title = "EF distribution per species for Monoterpenes",
-         x = "EF",
+         x = "EF µg·g⁻¹·h⁻¹",
          y = "Species") +
     theme(legend.position = "none",  axis.text.y = element_text(angle = 20, hjust = 1, size = 6))
   
@@ -62,7 +62,7 @@ boxplot_EF <- function (data, tree, field){
     scale_color_manual(values = c("field" = "#b51963", "literature" = "#e3b2c1")) +
     theme_minimal() +
     labs(title = "EF distribution (field data highlighted) for monoterpenes",
-         x = "EF",
+         x = "EF µg·g⁻¹·h⁻",
          y = "Species") +
     theme(legend.position = "top",
           axis.text.y = element_text(angle = 20, hjust = 1, size = 6))

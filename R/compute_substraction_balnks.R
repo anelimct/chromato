@@ -3,7 +3,7 @@ create_list_dataframes_blanks <- function(bvocs_samples){
   
   list_blanks_tables <- list()
   
-  bvocs_samples<-  bvocs_samples |> dplyr::filter(!batch %in% c(NA, "NA"))  |> 
+  bvocs_samples<-  bvocs_samples |> dplyr::filter(!batch %in% c(NA, "wNA_NA", "NA"))  |> 
     dplyr::group_by(batch) |>dplyr::rename(list_ID_blank = `list(ID_blank)`) |>
     dplyr::mutate(group_blanks = sapply(list_ID_blank, function(x) {
       unique(sapply(unlist(x), function(y) {

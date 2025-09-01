@@ -105,13 +105,13 @@ list(
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H) |>  create_new_par_column() ) ,
   ##Lire les articles BD_litt
   
-  tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_extraction_R_edit_v_solo"), full.names = TRUE), format = "file"), 
+  tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_shiny"), full.names = TRUE), format = "file"), 
   tar_target(DB_bvocs, {
     files <- lapply(articles, read_excel_articles)
     do.call(rbind, files)
   } |> species_aggregation(woodiv_species, "litt")|> select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) ),
   
-  tar_target(DB_bvocs_filtered, select_std_or_standardisable(DB_bvocs, storing_species)  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
+  tar_target(DB_bvocs_filtered, select_std_or_standardisable_2(DB_bvocs)  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
                dplyr::mutate(
                  Country = clean_country(Country),
                  Origin_city = clean_city_locality(Origin_city),
@@ -129,11 +129,14 @@ list(
   tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
   tar_target(subset_2025, subset_year(bvocs_samples_ibuttons_values, "2025", renamed_alcanes) |>  save_plot_ibuttons( "2025", plot_in_out) |> save_plot_corr_T ( "2025", plot_corr_Tin_Tout) ),
   
-  tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
-  tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
+  #tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
+  #tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
+  #tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
   
-  tar_target(chronologie_2023, chronologie(subset_2023)), 
-  tar_target(chronologie_2024, chronologie(subset_2024)), 
+  #tar_target(chronologie_2023, chronologie(subset_2023)), 
+  #tar_target(chronologie_2024, chronologie(subset_2024)), 
+  #tar_target(chronologie_2025, chronologie(subset_2025)),
+  #tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
   
@@ -149,6 +152,7 @@ list(
   ##Ranger les chromato par batch avec leurs alcanes correspondants
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
   tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
+  tar_target(create_files_batch_2025, organize_gc_files_by_batch(subset_2025, "2025" )),
  
   ## Library CAS
 
@@ -194,7 +198,7 @@ list(
   
   tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso)),
   
-  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+
   
   
   ##SPATIAL maps
