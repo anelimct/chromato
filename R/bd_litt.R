@@ -19,15 +19,42 @@ species_aggregation <- function(data, species_woodiv, dataset){
       ) |> 
       dplyr::ungroup() 
     
+    #problematic subspecies that fuck up the joint
+    name_mapping <- tibble::tribble(
+      ~Taxon_in_ref, ~corrected_name,
+      "Quercus macrolepis", "Quercus ithaburensis macrolepis",
+      "Quercus ilex subsp. ilex",  "Quercus ilex ilex",
+      "Quercus ilex subsp. rotundifolia", "Quercus ilex rotundifolia", 
+      "Quercus rotundifolia", "Quercus ilex rotundifolia"
+      # Add other problematic mappings here
+    )
     
     
+    data <- data |> dplyr::filter(!is.na(Taxon_in_ref )) |> 
+      dplyr::left_join(name_mapping, by = "Taxon_in_ref") |>
+      dplyr::mutate(
+        match_name = dplyr::coalesce(corrected_name, Taxon_in_ref)
+      ) |>
+      dplyr::left_join(
+        species_woodiv |>
+          dplyr::select(full_scientific_name, spagg, gragg, Taxon) |>
+          dplyr::mutate(full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ")),
+        by = c('match_name' = 'full_scientific_name')
+      ) |>
+      dplyr::select(-corrected_name, -match_name) |> dplyr::mutate(
+        Taxon = stringr::str_replace_all(Taxon, " ", "_"))
+    
+  } 
+  else if (dataset == "field_"){
     data <- data |> 
-      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg, Taxon) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_",  " ") ) ,
-                       by = c('Taxon_in_ref' = 'full_scientific_name'))
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg),
+                       by = c('Taxon' = 'full_scientific_name'))
     
-  } else {
+  }
+  
+  else {
     data <- data |> 
-      dplyr::left_join(species_woodiv %>% dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ") ),
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ") ),
                        by = c('Taxon' = 'full_scientific_name'))
   }
   

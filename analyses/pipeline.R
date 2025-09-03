@@ -79,7 +79,7 @@ list(
   tar_target(terrain_2025_file, here::here("data", "terrain_2025.csv"), format = "file"), 
   tar_target(terrain_2025, utils::read.csv(terrain_2025_file, sep =";")),
   
-  tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV") , "/INTEGRADIV_phylogeny_trees.tre" ))), 
+  tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))), 
   
   #liste des paradise reports
    #mono
@@ -196,7 +196,7 @@ list(
   
   tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
   
-  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso)),
+  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_")),
   
 
   

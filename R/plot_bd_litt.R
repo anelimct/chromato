@@ -1,20 +1,20 @@
 boxplot_EF <- function (data, tree, field){
   
-  data_select <- data |>  dplyr::select(Taxon, EF, Compound) |> dplyr::mutate(source = "literature") |> rbind(field)
+  data_select <- data |>  dplyr::select(Taxon, spagg, gragg, EF, Compound) |> dplyr::mutate(source = "literature") |> rbind(field)
   
   data_iso_mono <- data_select|> dplyr::group_by(Taxon) |> dplyr::filter( length(unique(Compound) ) >= 2) |> dplyr::ungroup()
-  
+  ## voir pour quelles espèces on n'a pas les deux coumponds
   data_isoprene <- data_iso_mono |>  dplyr::filter(Compound == "isoprene")
   data_mono <- data_iso_mono |>  dplyr::filter(Compound == "monoterpenes")
   
-  taxon_order <- tree$tip.label
+  gragg_order <- tree$tip.label
   
-  data_isoprene$Taxon <- factor(data_isoprene$Taxon, levels = taxon_order)
-  data_mono$Taxon <- factor(data_mono$Taxon, levels = taxon_order)
+  data_isoprene$gragg <- factor(data_isoprene$gragg, levels = gragg_order)
+  data_mono$gragg <- factor(data_mono$gragg, levels = gragg_order)
   
-  p_isoprene <- ggplot(data_isoprene, aes(x = EF, y = Taxon, color = Taxon)) +
+  p_isoprene <- ggplot(data_isoprene, aes(x = EF, y = gragg, color = gragg)) +
     geom_boxplot() +
-    geom_jitter(width = 0.2, alpha = 0.5, aes(color = Taxon)) +
+    geom_jitter(width = 0.2, alpha = 0.5, aes(color = gragg)) +
     theme_minimal() +
     labs(title = "EF distribution per species for Isoprene",
          x = "EF µg·g⁻¹·h⁻¹",
@@ -23,9 +23,9 @@ boxplot_EF <- function (data, tree, field){
   
   ggsave(filename = file.path(here::here("figures"), "isoprene_plot.png"), plot = p_isoprene, width = 10, height = 6)
   
-  p_mono <- ggplot(data_mono , aes(x = EF, y = Taxon, color = Taxon)) +
+  p_mono <- ggplot(data_mono , aes(x = EF, y = gragg, color = gragg)) +
     geom_boxplot() +
-    geom_jitter(width = 0.2, alpha = 0.5, aes(color = Taxon)) +
+    geom_jitter(width = 0.2, alpha = 0.5, aes(color = gragg)) +
     theme_minimal() +
     labs(title = "EF distribution per species for Monoterpenes",
          x = "EF µg·g⁻¹·h⁻¹",
