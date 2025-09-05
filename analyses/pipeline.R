@@ -70,8 +70,6 @@ list(
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
   tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")),
   
-  tar_target(storing_species_file, here::here("data", "splist_storing_AS.csv"), format = "file"), 
-  tar_target(storing_species, utils::read.csv(storing_species_file, sep = ";")),
   
   tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
@@ -109,9 +107,9 @@ list(
   tar_target(DB_bvocs, {
     files <- lapply(articles, read_excel_articles)
     do.call(rbind, files)
-  } |> species_aggregation(woodiv_species, "litt")|> select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) ),
+  } |> species_aggregation(woodiv_species, "litt") ),
   
-  tar_target(DB_bvocs_filtered, select_std_or_standardisable_2(DB_bvocs)  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
+  tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
                dplyr::mutate(
                  Country = clean_country(Country),
                  Origin_city = clean_city_locality(Origin_city),
@@ -137,6 +135,7 @@ list(
   #tar_target(chronologie_2024, chronologie(subset_2024)), 
   #tar_target(chronologie_2025, chronologie(subset_2025)),
   #tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
   
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
   
@@ -182,7 +181,7 @@ list(
   
   tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, paradise_grouped_blanks_iso, calib_quanti)), 
   
-  tar_target(paradise_reports_iso_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
+  tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
   
   tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  sum_isoprene_across_reports()), 
   
@@ -192,7 +191,7 @@ list(
   
   tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, paradise_grouped_blanks_mono, calib_quanti)), 
   
-  tar_target(paradise_reports_mono_quanti_list, area_to_quanti(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
+  tar_target(paradise_reports_mono_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
   
   tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
   

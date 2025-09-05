@@ -6,7 +6,7 @@ get_compound_stats <- function(paradise_reports_mono_ER_list) {
     dplyr::select(New_CAS_Name, smiles, matches("\\.CDF$")) |>  # Sélectionne les colonnes .CDF
     dplyr::select(-starts_with("B_"), -contains("calib")) |>    # Exclut les blanks et calibrations
     tidyr::pivot_longer(
-      cols = -c(New_CAS_Name, smiles),
+      cols = -c(New_CAS_Name, smiles, inchikey),
       names_to = "Sample",
       values_to = "Value"
     ) |>

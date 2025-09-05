@@ -1,4 +1,4 @@
-area_to_quanti <- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
+area_to_quanti_iso <- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
   # Get the list of samples to process
   samples_list <- samples_paradise(paradise_reports_sbtr_blanks_list, calib_quanti)
   
@@ -46,6 +46,13 @@ area_to_quanti <- function(paradise_reports_sbtr_blanks_list, calib_quanti, tabl
   
   return(quanti_list)
 }
+
+
+
+
+
+
+
 
 
 

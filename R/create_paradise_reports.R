@@ -33,7 +33,8 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
         nb_C_n = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n[1] else NA),
         nb_C_n_s = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n_s[1] else NA), 
         calib_based_on = sapply(match, function(x) if (nrow(x) > 0) x$calib_based_on[1] else NA), 
-        smiles = sapply(match, function(x) if (nrow(x) > 0) x$`Canonical SMILES`[1] else NA)
+        smiles = sapply(match, function(x) if (nrow(x) > 0) x$`Canonical SMILES`[1] else NA), 
+        inchikey = sapply(match, function(x) if (nrow(x) > 0) x$inchikey[1] else NA) 
       ) |> #extract info in CAS lib for the matching row, prendre le premier match sinon NA
       dplyr::select(-match)
 
@@ -59,7 +60,7 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
 samples_paradise <- function(paradise_reports_list, calib_files){
   # dans le paradise report il y a une colonne pour chaque samples et donc il y a aussi des colonnes pour les calib que l'on veut ignorées
   calib_files <- stringr::str_replace(calib_files[,1], ".D", ".CDF")
-  columns_to_exclude <- c("Compound Name", "New_CAS_Name", "Match Quality", "Compound ID", "Interval ID", "Model Order" , "Component #", "Est. Retention Time (min)", "Comments", "Hit 1: Probability" , "Hit 1: CAS", calib_files, "RI",  "nb_C_n", "nb_C_n_s", "calib_based_on", "smiles" )
+  columns_to_exclude <- c("Compound Name", "New_CAS_Name", "Match Quality", "Compound ID", "Interval ID", "Model Order" , "Component #", "Est. Retention Time (min)", "Comments", "Hit 1: Probability" , "Hit 1: CAS", calib_files, "RI",  "nb_C_n", "nb_C_n_s", "calib_based_on", "smiles", "inchikey" )
   
   # Initialiser une liste pour stocker les noms de samples présents dans un paradise batch
   paradise_samples_list <- list()
