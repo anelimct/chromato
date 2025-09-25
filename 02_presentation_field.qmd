@@ -1,0 +1,34 @@
+---
+title: "02_presentation_field.qmd"
+format: html
+editor: visual
+---
+
+## Interactive map
+
+```{r}
+#| echo: false
+#| label: 'map_bvocs_samples'
+#| fig-cap: "Carte des différents prélévements sur les années 2023-2024-2025"
+targets::tar_load(bvocs_samples_raw)
+bvocs_samples_raw <- bvocs_samples_raw |> dplyr::filter(Taxon != "BLANC")
+
+north_point <- bvocs_samples_raw[which.max(bvocs_samples_raw$Latitude..WGS84.), ]
+south_point <- bvocs_samples_raw[which.min(bvocs_samples_raw$Latitude..WGS84.), ]
+east_point <- bvocs_samples_raw[which.max(bvocs_samples_raw$Longitude..WGS84.), ]
+west_point <- bvocs_samples_raw[which.min(bvocs_samples_raw$Longitude..WGS84.), ]
+
+bvocs_samples_raw <- bvocs_samples_raw |> 
+  dplyr::mutate(
+    point_color = dplyr::case_when(
+      ID == north_point$ID ~ "#1c79eb",
+      ID == south_point$ID ~ "#eb4d93",
+      ID == east_point$ID ~ "#f49dbe",
+      ID == west_point$ID ~ "#5ca70a",
+      TRUE ~ "gray"
+    ))
+    
+    
+    
+leaflet( data = bvocs_samples_raw) %>% addTiles() |>  addCircleMarkers(~Longitude..WGS84., ~Latitude..WGS84., popup = ~as.character(ID), color = ~point_color, fillOpacity = 0.7)
+```

@@ -58,7 +58,7 @@ list(
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
   tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes") |> dplyr::filter(exploitables == "oui") |> dplyr::mutate(dplyr::across(c("octane", "nonane", "decane", "undecane", "dodecane", 
                                                                                                                                             "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric)) |> imput_missing_alcanes() ) ,
-  
+  #Maintenant que les anciennes calib ont été renommées et que les calib 2025 on été nommées de manière standardisées il n'y a plus besoin de ces lignes
   #tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
   #tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
   #tar_target(renamed_calib, rename_GC_files(calib_samples, "calib")),
@@ -71,7 +71,7 @@ list(
   tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")),
   
   
-  tar_target(woodiv_species_file, here::here("data", "WOODIV", "WOODIV_v2_Species_code.csv"), format = "file"), 
+  tar_target(woodiv_species_file, here::here("data", "WOODIV_DB_release_v2", "SPECIES",  "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
   
   tar_target(terrain_2025_file, here::here("data", "terrain_2025.csv"), format = "file"), 
@@ -117,9 +117,9 @@ list(
                  Origin_pop = paste(Origin_city, Origin_locality, sep = " "),
                  Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
-  tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree, field_EF)),
+  #tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree, field_EF)),
   
-  tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
+  #tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
              
   ## Trier les chromato, subset is done on desorption date ? or sample date ? 
   
@@ -127,14 +127,14 @@ list(
   tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
   tar_target(subset_2025, subset_year(bvocs_samples_ibuttons_values, "2025", renamed_alcanes) |>  save_plot_ibuttons( "2025", plot_in_out) |> save_plot_corr_T ( "2025", plot_corr_Tin_Tout) ),
   
-  #tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
-  #tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
-  #tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
+  tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
+  tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
+  tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
   
   #tar_target(chronologie_2023, chronologie(subset_2023)), 
   #tar_target(chronologie_2024, chronologie(subset_2024)), 
   #tar_target(chronologie_2025, chronologie(subset_2025)),
-  #tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
   
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
@@ -163,62 +163,62 @@ list(
   ), 
   
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
-  tar_target(library_CAS_RI, update_lib(library_CAS, RI_th)),
+  tar_target(library_CAS_RI, update_lib(library_CAS, RI_th))
   
 
-  
-  ## working on paradise_files
-  
-  
-  tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
-  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono", library_CAS_RI)),
-  
-  tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI)),
-  
-  tar_target( table_blanks_list, create_list_dataframes_blanks(bvocs_samples) |> sort_list_blanks_tables()),
-  ##ISOPRENE
-  tar_target(paradise_grouped_blanks_iso, paradise_reports_grouped_blanks(paradise_reports_iso_list, table_blanks_list, iso = TRUE)),
-  
-  tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, paradise_grouped_blanks_iso, calib_quanti)), 
-  
-  tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
-  
-  tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  sum_isoprene_across_reports()), 
-  
-  
-  ##MONO/SESQUI
-  tar_target(paradise_grouped_blanks_mono, paradise_reports_grouped_blanks(paradise_reports_list, table_blanks_list, iso = F)),
-  
-  tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, paradise_grouped_blanks_mono, calib_quanti)), 
-  
-  tar_target(paradise_reports_mono_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
-  
-  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
-  
-  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_")),
-  
-
-  
-  
-  ##SPATIAL maps
-  tar_target(working_file, {
-    utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
-  }), 
-  tar_target(WOODIV_grid, {
-    WOODIV_grid <- sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Grid_epsg3035"), "/WOODIV_v2_Grid_epsg3035.shp"))
-    WOODIV_grid <- WOODIV_grid[WOODIV_grid$idgrid %in% unique(working_file$idgrid), ]
-  }),
-  tar_target(WOODIV_shape, {
-    sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Shape_epsg3035"), "/WOODIV_v2_Shape_epsg3035.shp"))
-  }),
- 
-  
-  tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
-               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul (terrain_2025) 
-             |> tidy_summary_all(woodiv_species)),
-              
-  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
-  
-  #How important are species to sample to have max completness
-
-)
+   
+#   ## working on paradise_files
+#   
+#   
+#   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+#   tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono", library_CAS_RI)),
+#   
+#   tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI)),
+#   
+#   tar_target( table_blanks_list, create_list_dataframes_blanks(bvocs_samples) |> sort_list_blanks_tables()),
+#   ##ISOPRENE
+#   tar_target(paradise_grouped_blanks_iso, paradise_reports_grouped_blanks(paradise_reports_iso_list, table_blanks_list, iso = TRUE)),
+#   
+#   tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, paradise_grouped_blanks_iso, calib_quanti)), 
+#   
+#   tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
+#   
+#   tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  sum_isoprene_across_reports()), 
+#   
+#   
+#   ##MONO/SESQUI
+#   tar_target(paradise_grouped_blanks_mono, paradise_reports_grouped_blanks(paradise_reports_list, table_blanks_list, iso = F)),
+#   
+#   tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, paradise_grouped_blanks_mono, calib_quanti)), 
+#   
+#   tar_target(paradise_reports_mono_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
+#   
+#   tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
+#   
+#   tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_")),
+#   
+# 
+#   
+#   
+#   ##SPATIAL maps
+#   tar_target(working_file, {
+#     utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
+#   }), 
+#   tar_target(WOODIV_grid, {
+#     WOODIV_grid <- sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Grid_epsg3035"), "/WOODIV_v2_Grid_epsg3035.shp"))
+#     WOODIV_grid <- WOODIV_grid[WOODIV_grid$idgrid %in% unique(working_file$idgrid), ]
+#   }),
+#   tar_target(WOODIV_shape, {
+#     sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Shape_epsg3035"), "/WOODIV_v2_Shape_epsg3035.shp"))
+#   }),
+#  
+#   
+#   tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |> 
+#                process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul (terrain_2025) 
+#              |> tidy_summary_all(woodiv_species)),
+#               
+#   tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
+#   
+#   #How important are species to sample to have max completness
+# 
+ )

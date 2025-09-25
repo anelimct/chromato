@@ -38,7 +38,7 @@ kableExtra::kbl(check_chromato_2024) |>
 ```{r}
 #| echo: false
 #| label: 'tbl-chromato_2025'
-#| fig-cap: "Table de présence dans le cloud des chromato pour l'année 2024"
+#| fig-cap: "Table de présence dans le cloud des chromato pour l'année 2025"
 targets::tar_load(check_chromato_2025)
 
 kableExtra::kbl(check_chromato_2025) |> 
@@ -50,6 +50,7 @@ En résumé pour les chromatos de 2023 il y a tous les tubes "composé C5" sauf 
 Pour l'année 2024 il manque : `r paste(unique(check_chromato_2024$missing_list), collapse = ", ")` 
 ```{r}
 #| echo: false
+#| eval: false
 #| layout-ncol: 2
 #| label: 'fig-chrono_chromato'
 #| fig-cap: "Date des batches de désorbtion pour l'année 2023 et 2024"
@@ -65,5 +66,5 @@ chronologie_2024
 ```
 
 
-Pour l'année 2024 il manque : `r paste(unique(check_chromato_2024$missing_list), collapse = ", ")`
+Pour l'année 2025 il manque : `r paste(unique(check_chromato_2025$missing_list), collapse = ", ")`
 
