@@ -53,16 +53,12 @@ tar_source()
 
 # Replace the target list below with your own:
 list(
- 
+  
   tar_target(alcanes_samples_file, here::here("data", "alcanes_samples.csv" ), format = "file"),
   tar_target(alcanes_samples,utils::read.csv(alcanes_samples_file, sep = ";")),
   tar_target(renamed_alcanes, rename_GC_files(alcanes_samples, "alcanes") |> dplyr::filter(exploitables == "oui") |> dplyr::mutate(dplyr::across(c("octane", "nonane", "decane", "undecane", "dodecane", 
-                                                                                                                                            "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric)) |> imput_missing_alcanes() ) ,
-  #Maintenant que les anciennes calib ont été renommées et que les calib 2025 on été nommées de manière standardisées il n'y a plus besoin de ces lignes
-  #tar_target(calib_samples_file, here::here("data", "calib_samples.csv" ), format = "file"),
-  #tar_target(calib_samples,utils::read.csv(calib_samples_file, sep = ";")),
-  #tar_target(renamed_calib, rename_GC_files(calib_samples, "calib")),
-  
+     
+                                                                                                                                                                                                                                                                                          "tridecane", "tetradecane", "pentadecane", "hexadecane"), as.numeric)) |> imput_missing_alcanes() ) ,
   tar_target(calib_quanti_file, here::here("data", "calib_quanti.csv" ), format = "file"),
   tar_target(calib_quanti,utils::read.csv(calib_quanti_file, sep = ";")),
   
@@ -71,11 +67,14 @@ list(
   tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")),
   
   
+  ##Ranger les chromato par batch 
+  tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
+  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
+  tar_target(create_files_batch_2025, organize_gc_files_by_batch(subset_2025, "2025" )),
+  
+  
   tar_target(woodiv_species_file, here::here("data", "WOODIV_DB_release_v2", "SPECIES",  "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
-  
-  tar_target(terrain_2025_file, here::here("data", "terrain_2025.csv"), format = "file"), 
-  tar_target(terrain_2025, utils::read.csv(terrain_2025_file, sep =";")),
   
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))), 
   
@@ -88,8 +87,7 @@ list(
   tar_target( paradise_reports_iso_files, list.files(here::here("data", "paradise_reports", "iso"), pattern = "\\.xlsx$")),
   tar_target( paradise_reports_iso_list , read_paradise_4( paradise_reports_iso_files, library_CAS_RI, option = "iso/")),
   
-  #liste des paradise reports calibrations
-  
+  #liste des paradise reports calibrations iso et mono, pour avoir à la fois tous les noms des fichiers CDF calib mais aussi la courbe de calibration a partir d'un batch sans samples = TRUE calibration curve to compare with batches calibration curves
   tar_target( paradise_reports_calib_files, list.files(here::here("data", "paradise_reports", "calib"), pattern = "\\.xlsx$")),
   tar_target( paradise_reports_calib_list , read_paradise_4( paradise_reports_calib_files, library_CAS_RI, option = "calib/")),
   
@@ -101,6 +99,32 @@ list(
   tar_target(bvocs_ibutton_values_T, export_ibuttons_data(bvocs_samples_raw, ibutton_table_T, "T")),
   tar_target(bvocs_ibutton_values_H, export_ibuttons_data(bvocs_samples_raw, ibutton_table_H, "H")), 
   tar_target(bvocs_samples_ibuttons_values, dplyr::left_join(bvocs_ibutton_values_T, bvocs_ibutton_values_H) |>  create_new_par_column() ) ,
+
+             
+  ## Trier les chromato, subset is done on desorption date ? or sample date ? 
+  
+  tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes) |> save_plot_ibuttons ("2023", plot_in_out) |> save_plot_corr_T ("2023", plot_corr_Tin_Tout)),
+  tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
+  tar_target(subset_2025, subset_year(bvocs_samples_ibuttons_values, "2025", renamed_alcanes) |>  save_plot_ibuttons( "2025", plot_in_out) |> save_plot_corr_T ( "2025", plot_corr_Tin_Tout) ),
+  
+  tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
+  tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
+  tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
+  
+  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
+  
+  ##All bvocs samples lines with values i buttons as a list, closest alcane, batch, if we can read or not the sample (col iso, col mono TRUE or FALSE)
+  tar_target(bvocs_samples, rbind(subset_2023, subset_2024, subset_2025) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
+  
+  ##Filter according to a set of conditions
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
+  tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
+  tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
+  
+  tar_target(summary_field, summarize_field (valid_samples_iso, valid_samples_mono)),
+  
+  
   ##Lire les articles BD_litt
   
   tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_shiny"), full.names = TRUE), format = "file"), 
@@ -120,39 +144,7 @@ list(
   #tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree, field_EF)),
   
   #tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
-             
-  ## Trier les chromato, subset is done on desorption date ? or sample date ? 
   
-  tar_target(subset_2023, subset_year(bvocs_samples_ibuttons_values, "2023", renamed_alcanes) |> save_plot_ibuttons ("2023", plot_in_out) |> save_plot_corr_T ("2023", plot_corr_Tin_Tout)),
-  tar_target(subset_2024, subset_year(bvocs_samples_ibuttons_values, "2024", renamed_alcanes) |>  save_plot_ibuttons( "2024", plot_in_out) |> save_plot_corr_T ( "2024", plot_corr_Tin_Tout) ), 
-  tar_target(subset_2025, subset_year(bvocs_samples_ibuttons_values, "2025", renamed_alcanes) |>  save_plot_ibuttons( "2025", plot_in_out) |> save_plot_corr_T ( "2025", plot_corr_Tin_Tout) ),
-  
-  tar_target(check_chromato_2024, chromato_file_check(subset_2024, "2024")), 
-  tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
-  tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
-  
-  #tar_target(chronologie_2023, chronologie(subset_2023)), 
-  #tar_target(chronologie_2024, chronologie(subset_2024)), 
-  #tar_target(chronologie_2025, chronologie(subset_2025)),
-  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
-  #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
-  
-  tar_target(bvocs_samples, rbind(subset_2023, subset_2024) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
-  
-
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
-  tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
-  tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
-  
-  tar_target(summary_field, summarize_field (valid_samples_iso, valid_samples_mono)),
-  
-
-  
-  ##Ranger les chromato par batch avec leurs alcanes correspondants
-  tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
-  tar_target(create_files_batch_2024, organize_gc_files_by_batch(subset_2024, "2024" )),
-  tar_target(create_files_batch_2025, organize_gc_files_by_batch(subset_2025, "2025" )),
- 
   ## Library CAS
 
   tar_target(RI_file, here::here("data", "library_cas_ri.xlsx" ), format = "file"),
@@ -163,17 +155,16 @@ list(
   ), 
   
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
-  tar_target(library_CAS_RI, update_lib(library_CAS, RI_th))
+  tar_target(library_CAS_RI, update_lib(library_CAS, RI_th)),
   
 
    
 #   ## working on paradise_files
 #   
 #   
-#   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
-#   tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono", library_CAS_RI)),
-#   
-#   tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso")|>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI)),
+#tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+  tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono", library_CAS_RI)),
+  tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso") |>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI))
 #   
 #   tar_target( table_blanks_list, create_list_dataframes_blanks(bvocs_samples) |> sort_list_blanks_tables()),
 #   ##ISOPRENE
