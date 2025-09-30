@@ -128,10 +128,35 @@ list(
   ##Lire les articles BD_litt
   
   tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_shiny"), full.names = TRUE), format = "file"), 
+  
   tar_target(DB_bvocs, {
-    files <- lapply(articles, read_excel_articles)
+    files <- list()
+    for(file in articles) {
+      df <- read_excel_articles(file)
+      files[[file]] <- df
+    }
+    
+    # Check consistency
+    col_counts <- sapply(files, ncol)
+    expected_cols <- names(files[[1]])  # Use first file as reference
+    
+    problematic <- c()
+    for(i in seq_along(files)) {
+      if(!identical(names(files[[i]]), expected_cols)) {
+        problematic <- c(problematic, articles[i])
+        cat("PROBLEM with:", articles[i], "\n")
+        cat(" Issue in columns:  ", paste(setdiff(names(files[[i]]), expected_cols ), collapse=", "), "\n")
+        cat("  Column count:", ncol(files[[i]]), "\n\n")
+      }
+    }
+    
+    if(length(problematic) > 0) {
+      stop("Column mismatch in files: ", paste(problematic, collapse=", "))
+    }
+    
     do.call(rbind, files)
-  } |> species_aggregation(woodiv_species, "litt") ),
+  } |> species_aggregation(woodiv_species, "litt") ), 
+
   
   tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
                dplyr::mutate(
@@ -162,7 +187,7 @@ list(
 #   ## working on paradise_files
 #   
 #   
-#tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
+  tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
   tar_target(table_calib_mono_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_list, paradise_reports_calib_list, "mono") |>   plot_calib_btw_session( calib_quanti, "mono", library_CAS_RI)),
   tar_target(table_calib_iso_btw_session, compare_calib_btw_reports(calib_quanti, paradise_reports_iso_list, paradise_reports_calib_list, "iso") |>   plot_calib_btw_session( calib_quanti, "iso", library_CAS_RI))
 #   
