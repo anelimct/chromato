@@ -194,19 +194,15 @@ list(
 #   ##ISOPRENE
 #   
   tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, bvocs_samples, calib_quanti)), 
-#   
-#   tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
-#   
-#   tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  sum_isoprene_across_reports()), 
+  tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)), 
+  tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  sum_isoprene_across_reports()), 
 #   
 #   
 #   ##MONO/SESQUI
-  tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, bvocs_samples, calib_quanti)) 
-#   tar_target(paradise_reports_mono_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)), 
-#   
-#   tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()), 
-#   
-#   tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_")),
+  tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, bvocs_samples, calib_quanti)),
+  tar_target(paradise_reports_mono_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)),
+  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()),
+  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_"))
 #   
 # 
 #   

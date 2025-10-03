@@ -1,3 +1,14 @@
+#' Title
+#'
+#' @param calib_quanti 
+#' @param paradise_reports_list 
+#' @param paradise_reports_calib_list 
+#' @param type 
+#'
+#' @returns un tableau avec les composés, la calib ou on les a trouvé et l'aire associée a cette calib pour ce composé
+#' @export
+#'
+#' @examples
 compare_calib_btw_reports <- function (calib_quanti, paradise_reports_list, paradise_reports_calib_list , type){
   
   #puisque les samples sont en .CDF et non D les renommer
