@@ -1,4 +1,14 @@
-area_to_quanti_iso <- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
+#' Title
+#'
+#' @param paradise_reports_sbtr_blanks_list, une liste de tableau content les aires des pics pour chaques molécules (lignes) par samples(colonnes), les aires sont "vraiment" lié a l'espèces car le sblancs ont été soustraits  
+#' @param calib_quanti, table with ng/µg of standards in a calib, une ligne par couples calib/standard = une calib est présente plusieurs fois puisqu'elle contient plusieurs standards sauf pour isoprene 
+#' @param table_calib_btw_session 
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+area_to_quanti_iso<- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
   # Get the list of samples to process
   samples_list <- samples_paradise(paradise_reports_sbtr_blanks_list, calib_quanti)
   
@@ -52,6 +62,72 @@ area_to_quanti_iso <- function(paradise_reports_sbtr_blanks_list, calib_quanti, 
 
 
 
+area_to_quanti_mono<- function(paradise_reports_sbtr_blanks_list, calib_quanti, table_calib_btw_session) {
+  # Get the list of samples to process
+  samples_list <- samples_paradise(paradise_reports_sbtr_blanks_list, calib_quanti)
+  
+  # Initialize a list to store the resulting data frames
+  quanti_list <- list()
+  
+  table_calib_btw_session <- dplyr::distinct(table_calib_btw_session)
+  
+  
+  for (name in names(paradise_reports_sbtr_blanks_list)) {
+    paradise_report <- paradise_reports_sbtr_blanks_list[[name]]|>  dplyr::rename(compound = New_CAS_Name) 
+    
+    # Get the calibration slope for the current session, one line for each standrad present
+    calib_slope <- table_calib_btw_session[table_calib_btw_session$session == name, ] |>  dplyr::distinct() |> 
+      dplyr::mutate(
+        fingerdist = stringr::str_c("fingerDisMat.", New_CAS_Name) |>
+          stringr::str_replace_all("[-|,]", ".")
+      )
+    
+    standards <- calib_slope$fingerdist
+    
+    dist <- as.data.frame(chemodiv::compDis(paradise_report)) |> 
+      dplyr::select(dplyr::all_of(standards))
+    dist$fingerdist <- apply(dist, 1, function(x) {
+      names(x)[which.min(x)]
+    })
+    
+    calib_based_on <- dplyr::left_join(dist, calib_slope, by = "fingerdist" ) |>  dplyr::select(New_CAS_Number) |>  dplyr::rename(calib_based_on = New_CAS_Number )
+    
+    paradise_report <- cbind(paradise_report, calib_based_on) 
+    # Get the list of samples for the current dataframe
+    samples <- samples_list[[name]]
+    
+    # Add ".CDF" to the end of each sample name
+    samples <- paste0(samples, ".CDF")
+    
+    # Iterate over each row of the paradise_report dataframe
+    for (i in 1:nrow(paradise_report)) {
+      # Get the New_CAS_Number for the current row
+      calib_based_on <- paradise_report$calib_based_on[i]
+      
+      # Find the corresponding row in calib_slope
+      matching_calib <- calib_slope[calib_slope$New_CAS_Number == calib_based_on, "slope"]
+      
+      # Check if a matching calibration slope was found
+      if (nrow(matching_calib) > 0) {
+        matching_calib_value <- matching_calib[[1]]
+        
+        # Compute quanti from calibration for the corresponding samples
+        for (sample in samples) {
+          
+          sample_value <- paradise_report[[sample]][i]
+          
+          paradise_report[[sample]][i] <- sample_value / matching_calib_value
+        }
+      }
+    }
+    
+    # Store the resulting data frame in the list
+    quanti_list[[name]] <- paradise_report
+  }
+  
+  return(quanti_list)
+  
+}
 
 
 
@@ -111,9 +187,18 @@ mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x
     # Obtenir les données ER et les données brutes correspondantes
     er_data <- er_list[[name]]
     raw_data <- paradise_reports_list[[name]]
+    cols_to_keep <-er_data |>  dplyr::select( dplyr::any_of( c("Compound Name", "Match Quality", "Compound ID", "Est. Retention Time (min)" , "Hit 1: Probability" , "Hit 1: CAS", "compound", "calib_based_on",              
+"smiles", "inchikey", "calib_based_on", "New_CAS_Name")))
     
     # Identifier les colonnes d'échantillons (.CDF)
     sample_cols <- grep("\\.CDF$", names(raw_data), value = TRUE)
+    
+    
+  
+    er_data <- er_data |>  dplyr::select(dplyr::all_of( sample_cols))
+    raw_data <- raw_data |>  dplyr::select(dplyr::all_of( sample_cols))
+    
+     
     
     # Vérifier la correspondance des dimensions
     if (!identical(dim(er_data), dim(raw_data))) {
@@ -129,8 +214,9 @@ mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x
       marked_data[[col]] <- ifelse(raw_data[[col]] < lod_3x, "nd",
                                    ifelse(raw_data[[col]] < lod_10x, "tr", 
                                           marked_data[[col]]))
+      
     }
-    
+    marked_data <- cbind(marked_data, cols_to_keep)
     marked_er[[name]] <- marked_data
   }
   
@@ -203,7 +289,7 @@ sum_terpenoids_across_reports <- function(reports_list) {
     
     # Apply your existing sum_terpenoids function
     sum_terpenoids(df)
-  }) %>% 
+  }) |>  
     dplyr::bind_rows(.id = "Session")  # Combine results with session names
 }
 
