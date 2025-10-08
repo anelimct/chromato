@@ -1,5 +1,5 @@
 
-plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_out, name, year){
+plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_out, list_PAR,  name, year){
   df <- data.frame(
   Time = as.POSIXct(unlist(time), format = "%Y-%m-%d %H:%M:%S", tz = "CET"),
   T_in = unlist(values_T_in),
@@ -11,7 +11,10 @@ plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_o
   
   t_title <- rlang::englue("Temperature for {name}")
   h_title <- rlang::englue("Humidity for {name}")
+  mean_par <- floor(mean(as.numeric(unlist(list_PAR))))
+  sd_par <- floor(sd(as.numeric(unlist(list_PAR))))
   
+ 
   
   gg_t <- ggplot(df |> dplyr::filter(variable %in% c("T_in", "T_out")),
                     aes(x = Time, y = value, color = variable)) +
@@ -22,7 +25,9 @@ plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_o
          color = "variable") +
     ylim(18, 55)+
     theme_minimal()+
-    ggtitle(t_title)
+    ggtitle(t_title)+
+    labs(caption = paste0("PAR µ ± sd: ", round(mean_par, 1), " ± ", round(sd_par, 1)))  + theme(
+      plot.title = element_text(size = 11))
   
   gg_h <- ggplot(df |> dplyr::filter(variable %in% c("H_in", "H_out")),
                     aes(x = Time, y = value, color = variable)) +
@@ -32,7 +37,8 @@ plot_in_out <- function(time, values_T_in, values_T_out, values_H_in, values_H_o
       y = "Humidité (%RH)",
       color = "variable") +
     theme_minimal()+
-    ggtitle(h_title)
+    ggtitle(h_title)+ labs( caption = " ")+ theme(
+      plot.title = element_text(size = 11))
   
   gg_final <- cowplot::plot_grid(gg_t, gg_h)
   plot_path <- stringr::str_glue("figures/graphs_ibuttons/{year}")
@@ -132,7 +138,7 @@ save_plot_ibuttons <- function (data, year, f){
     )
   
   
-  purrr::pmap(list( time = data$Time_T_in, values_T_in = data$values_T_in, values_T_out = data$values_T_out, values_H_in = data$values_H_in, values_H_out = data$values_H_out, name = data$ID , year = year), f)
+  purrr::pmap(list( time = data$Time_T_in, values_T_in = data$values_T_in, values_T_out = data$values_T_out, values_H_in = data$values_H_in, values_H_out = data$values_H_out, list_PAR = data$list_PAR, name = data$ID , year = year), f)
   return(raw)
   }
 

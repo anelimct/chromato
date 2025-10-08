@@ -15,7 +15,7 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
   #tous les samples qui on une moyenne de température supérieur à 40 degres (faire une fonction avec un paramètre de,température à ne pas dépasser pour la moyenne ou pour les valeurs extremes)
   #Tous les échantillons qui ne ce sont pas ouverts dans paradise
   cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
-                "PAR.milieu.2",       "PAR.fin.1",          "PAR.fin.2")
+                "PAR.milieu.2",  "PAR.milieu.3", "PAR.milieu.4",  "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1",     "PAR.fin.2")
   blancs <- data |> dplyr::filter(Taxon == "BLANC") |>  dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |>  dplyr::mutate(issue = FALSE)
   data <- data |> dplyr::filter(Taxon != "BLANC") |> dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE))
   if(compound == "iso"){
@@ -24,6 +24,7 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
         Etat %in% c("perdu", "Perdu", "Erreur") |
           purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
           purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
+          purrr::map_dbl(values_T_in, ~ mean(.x)) < 20 |
           purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
           paradise_iso ==FALSE, TRUE, FALSE
       ))

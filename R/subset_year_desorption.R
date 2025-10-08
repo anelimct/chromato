@@ -20,6 +20,19 @@ subset_year<- function(data, year, alcanes) {
       !startsWith(ID, "B_") ~ paste0("w", week(Date_desorption), "_", year(Date_desorption)),
       TRUE ~ NA_character_))
   
+  # Cacul la distance en km entre deux points
+  haversine_distance <- function(lat1, lon1, lat2, lon2) {
+    R <- 6371 # Earth radius in kilometers
+    dLat <- (lat2 - lat1) * pi / 180
+    dLon <- (lon2 - lon1) * pi / 180
+    lat1 <- lat1 * pi / 180
+    lat2 <- lat2 * pi / 180
+    
+    a <- sin(dLat/2)^2 + sin(dLon/2)^2 * cos(lat1) * cos(lat2)
+    c <- 2 * asin(sqrt(a))
+    return(R * c)
+  }
+  
   
   blanks <- data |> 
     dplyr::filter(startsWith(ID, "B_")) |> 

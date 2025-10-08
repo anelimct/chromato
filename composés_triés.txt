@@ -1,0 +1,238 @@
+(-)-alpha-pinene
+(-)-beta-pinene
+(-)-limonene
+(-)-spathulenol
+(-)e-caryophyllene
+(+)-alpha-pinene
+(+)-beta-phellandrene
+(+)-beta-pinene
+(+)-camphene
+(+)-delta-3-carene
+(+)-limonene
+(+)-longicyclene
+(+)-nopionone
+(+)-sabinene
+(3e)-4,8-dimethyl-1,3,7-nonatriene
+(e)-4,8-dimethyl-1,3 ,7-nonatriene
+(e)-4,8-dimethyl-1,3,7-nonatriene
+(e)-4,8-dimethylnona-1,3,7-triene
+(e)-beta-caryophyllene
+(e)-beta-ocimene
+(e)-caryophyllene
+(e)-ocimene
+(e)-sabinene hydrate
+(e)(e)-alpha-farnesene
+(e,e)-alpha-farnesene
+(z)-3-hexenol
+(z)-3-hexenyl acetate
+(z)-beta-farnesene
+(z)(e)-alpha-farnesene
+(z,e)-alpha-farnesene
+1-octanol
+1,8-cineol
+1,8-cineole
+14-hydroxy--caryophyllene acetate
+2- methyl-3-buten-2-ol
+2-(1.1-dimethylethyl)-cyclohexanol
+2-carene
+2-methyl-1-propene
+2-methyl-3-buten-1-ol
+2-methyl-6-methylene-1.7-octadien-3-one
+2-tert-butylcyclohexanone
+2,6-dimethyl-1,3,5,7 -octatetraene, e
+3-carene
+3-delta-carene
+3-methyl-3-buten-1-ol
+3-methyl-3buten-1-yl acetate
+3-thujene
+3,7-guaiadiene
+311-carene
+4-carene
+4-delta-carene∗
+4-terpineol
+4,8-dimethy1-nona-1,3,7-triene
+4,8-dimethyl-1,3(e), 7-nontariene
+6-hydroxy--caryophyllene
+6-methyl-5-heptene-2-one
+6-metil-5 metil eptane
+a+g-terpineol
+acetone
+aldehydes
+allo-aromadendrene
+alloaromadendrene
+alloocimene
+allooocimene
+alpha-amorphene
+alpha-bergamotene
+alpha-bisabolol
+alpha-cadinene
+alpha-calacorene
+alpha-caryophyllene
+alpha-cedrene
+alpha-copaene
+alpha-cubebene
+alpha-farnesene
+alpha-fenchene
+alpha-humulene
+alpha-muurolene
+alpha-phellandrene
+alpha-phellendrene
+alpha-pinene
+alpha-selinene
+alpha-terpinene
+alpha-terpineol
+alpha-terpinolene
+alpha-thujene
+alpha-ylangene
+alpha-zingiberne
+ar-curcumene
+aromadendrene
+baeta-pinene
+bata-myrcene
+benzene,1-methyl-4-(1-methylethenyl)
+beta-bourbonene
+beta-bourboubene
+beta-caryophyllene
+beta-cedrene
+beta-copaene
+beta-cubebene
+beta-farnesene
+beta-myrcene
+beta-ocimene
+beta-ocimene*
+beta-pachoulene
+beta-phellandrene
+beta-phellandrene∗
+beta-pinene
+beta-pinene + myrcene
+beta-selinene
+beta-trans-ocimene
+betata-pinene
+borneol
+bornyl acetate
+c-linalool oxide
+c-ocimene
+camphene
+camphor
+carvone
+caryophyllene
+caryophyllene oxide
+cineole
+cis-3-hexenol
+cis-alpha-bisabolene
+cis-b-ocimene
+cis-beta-ocimene
+cis-linalool oxide
+cis-ocimene
+cis-p-mentha-6,8-dien-2-ol,acetate
+coineole
+copaene
+cyclohexene, 4-methyl-1-(1-methylethenyl)-
+cymene
+d-fenchyl alcohol
+d-pinocarvone
+delat-3-carene
+delta-3-carene
+delta-cadinene
+delta-carene
+delta-limonene
+delta3-carene
+dihydromyrcenol
+e-beta-farnesene
+e-ocimene
+e,e-alpha-farnesene
+esquiterpenes
+eucalyptol
+gamma-cadinene
+gamma-terpinene
+gamma-terpineol
+gamma-terpinolene
+germacrene-d
+germacrene d
+glv
+guaiol
+isoborneol
+isocineole
+isogeraniol
+isoledene
+isolongifolene
+isoprene
+l-fenchone
+l-phellandrene
+ledene
+limone + betaphellandrene
+limonene
+linalool
+linalool-oxide
+linalool l
+longicyclene
+longifolene
+m-cymene
+methacrolein
+methyl-dihydrojasmonate
+methyl eugenol
+methyl salicylate
+methylsalicylate
+monoterpenes
+monterpenes
+myrcene
+nopinene
+ocimene
+osqt1
+osqt2
+osqt4
+osqt5
+osqt6
+osqt7
+osqt8
+ox-monoterpenes
+ox-sequiterpenes
+ox-sesquiterpenes
+oxygenated-monoterpenes
+oxygenated monoterpenes
+oxygenated sesquiterpenes
+p-cymene
+p-cymenene
+p-isopropyl toluene (p-cymene)
+p-methylanisole
+para-cymene
+rosefuran
+sabina ketone
+sabinene
+sabinene + beta-pinene
+santene
+sequiterpenes
+sesquiterpenes
+sqt1
+sqt2
+sqt3
+sqt4
+sqt5
+sqt6
+sqt7
+sum omts
+t-linalool oxide
+t-ocimenne
+terpene
+terpenes
+terpinen-4-ol
+terpinene-4-ol
+terpineole
+terpinolene
+tetrahydrolinalool
+thujene
+thymol
+trans-b-caryophyllene
+trans-b-ocimene
+trans-beta-ocimene
+trans-caryophyllene
+trans-dihydro-b-terpineol
+trans-linalool oxide
+trans-ocimene
+trans-p-mentha-6,8-dien-2-ol,acetate
+tricyclene
+tricylene
+trycyclene
+verbenone
+verbonene
+z-ocimene

@@ -38,6 +38,7 @@ make_ibuttons_table <- function(paths_csv_files, type){
   df <- do.call(rbind, list.DFs) |>
     dplyr::mutate( Date_Time = stringr::str_replace( `Date/Time`, "/24", "/2024")) |> #day ne peut jamais avoir un slash devant puisque en première position donc c'est OK
     dplyr::mutate( Date_Time = stringr::str_replace( Date_Time, "/23", "/2023")) |>
+    dplyr::mutate( Date_Time = stringr::str_replace( Date_Time, "/25", "/2025")) |>
     dplyr::mutate(Date_Time = as.POSIXct(Date_Time, format = "%d/%m/%Y %H:%M:%OS"))
   
   # failed_file<- df |>  dplyr::mutate(Date_file_name = as.Date (Date_file_name, format = "%Y-%m-%d")) |> 
@@ -143,4 +144,35 @@ compute_time_differences <- function(row) {
 #     time_differences = list(compute_time_differences(cur_data()))
 #   ) %>%
 #   unnest_wider(time_differences)
+
+create_new_par_column <- function(data) {
+  # Plage d'indices des colonnes à sélectionner
+  par_column_indices <- 13:22
+  
+  # Sélection des colonnes par indices
+  selected_columns <- data[, par_column_indices]
+  
+  # Application de la transformation
+  data |> 
+    dplyr::mutate(
+      # Create a list column of numeric vectors
+      list_PAR = purrr::pmap(
+        dplyr::pick(dplyr::all_of(par_column_indices)),
+        ~ {
+          values <- c(...)
+          # Convert "-" to NA and ensure numeric
+          numeric_values <- suppressWarnings(as.numeric(values))
+          numeric_values[values == "-"] <- NA
+          # Remove NA values
+          valid_values <- numeric_values[!is.na(numeric_values)]
+          
+          if (length(valid_values) > 0) {
+            list(valid_values)
+          } else {
+            list(numeric(0))  # Empty vector if no valid values
+          }
+        }
+    ))
+}
+  
 

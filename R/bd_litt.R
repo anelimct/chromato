@@ -1,6 +1,6 @@
 
 read_excel_articles <- function(file) {
-  readxl::read_xlsx(file, sheet = 2) 
+  readxl::read_xlsx(file, sheet = 1) 
 }
 
 
@@ -10,13 +10,51 @@ read_excel_articles <- function(file) {
 
 species_aggregation <- function(data, species_woodiv, dataset){
   if (dataset == "litt"){
-    data <- data |> 
-      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_",  " ") ) ,
-                       by = c('Taxon_in_ref' = 'full_scientific_name'))
     
-  } else {
+    species_woodiv <- species_woodiv |> 
+      dplyr::group_by(gragg) |> 
+      dplyr::mutate(
+        taxon = dplyr::first(full_scientific_name),
+        Taxon = stringr::str_replace_all(taxon, "_", " ")
+      ) |> 
+      dplyr::ungroup() 
+    
+    #problematic subspecies that fuck up the joint
+    name_mapping <- tibble::tribble(
+      ~Taxon_in_ref, ~corrected_name,
+      "Quercus macrolepis", "Quercus ithaburensis macrolepis",
+      "Quercus ilex subsp. ilex",  "Quercus ilex ilex",
+      "Quercus ilex subsp. rotundifolia", "Quercus ilex rotundifolia", 
+      "Quercus rotundifolia", "Quercus ilex rotundifolia"
+      # Add other problematic mappings here
+    )
+    
+    
+    data <- data |> dplyr::filter(!is.na(Taxon_in_ref )) |> 
+      dplyr::left_join(name_mapping, by = "Taxon_in_ref") |>
+      dplyr::mutate(
+        match_name = dplyr::coalesce(corrected_name, Taxon_in_ref)
+      ) |>
+      dplyr::left_join(
+        species_woodiv |>
+          dplyr::select(full_scientific_name, spagg, gragg, Taxon) |>
+          dplyr::mutate(full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ")),
+        by = c('match_name' = 'full_scientific_name')
+      ) |>
+      dplyr::select(-corrected_name, -match_name) |> dplyr::mutate(
+        Taxon = stringr::str_replace_all(Taxon, " ", "_"))
+    
+  } 
+  else if (dataset == "field_"){
     data <- data |> 
-      dplyr::left_join(species_woodiv %>% dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ") ),
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg),
+                       by = c('Taxon' = 'full_scientific_name'))
+    
+  }
+  
+  else {
+    data <- data |> 
+      dplyr::left_join(species_woodiv |>  dplyr::select(full_scientific_name, spagg, gragg) |> dplyr::mutate( full_scientific_name = stringr::str_replace_all(full_scientific_name, "_", " ") ),
                        by = c('Taxon' = 'full_scientific_name'))
   }
   
@@ -136,6 +174,35 @@ select_std_or_standardisable <- function(data, sp_storing) {
   data_combined <- rbind(data_std, data)
     
 } 
+
+
+
+select_std_or_standardisable_2 <- function(data) {
+  
+  data_std <- data |> dplyr::filter(Standardized == "true")|> dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") 
+  
+  data<- data |> dplyr::filter(Standardized == "false") 
+  
+  data <- data |> dplyr::filter(
+      
+ Compound == "monoterpenes" &  ((Temperature != "NA" & PAR != "NA") | 
+                                                          
+                                                          (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+                                                          (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+                                                          (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA")) |
+      
+      Compound == "isoprene" & 
+      ((Temperature != "NA" & PAR != "NA") | 
+         (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+         (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+         (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA"))) 
+  
+  data_combined <- rbind(data_std, data)
+  
+} 
+
+
+
 
 
 select_months <- function(data, start_month, end_month) {
@@ -340,7 +407,7 @@ standardisation <- function(data){
   
   data |>  dplyr:: mutate(EF = dplyr::case_when(
     Standardized == "true" & !is.na(Emission) ~ Emission,
-    Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
+    #Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
     TRUE ~ ES_iso_G93
   )) 
   

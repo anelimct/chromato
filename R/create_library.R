@@ -17,6 +17,7 @@ create_library <- function(files_path){
     colnames(data) <- data[1, ]  #
     data <- data[-1, ]
     
+    
     CAS_lib <- rbind(CAS_lib, data)
     CAS_lib <- unique(CAS_lib)
     
@@ -52,6 +53,8 @@ update_lib <- function (new_lib, old_correspondant_table_with_RI) {
     dplyr::summarise(
            New_CAS_Number = unique(`New_CAS_Number`),
            New_CAS_Name = unique(`New_CAS_Name`),
+           smiles = unique(`Canonical SMILES`),
+           inchikey = unique(`InChI Key`),
            Merged_CAS_Numbers = list(unique(purrr::discard(c(unlist(`Merged_CAS_Numbers`), `CAS Registry Number`), is.na))),
            Merged_CAS_Names = list(unique(purrr::discard(c(unlist(`Merged_CAS_Names`), `CAS Index Name`), is.na))), 
            RI = unique(`RI`), 
