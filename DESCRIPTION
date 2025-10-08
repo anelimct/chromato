@@ -16,3 +16,25 @@ License: GPL (>= 2)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+
+
+Imports:
+    dplyr,
+    here,
+    quarto,
+    lubridate, 
+    stringr,
+    ggplot2, 
+    chemodiv, 
+    tidyr, 
+    purrr, 
+    wesanderson, 
+    ggtree, 
+    openxlsx, 
+    writexl, 
+    rlang, 
+    cowplot,
+    ggpubr, 
+    tibble, 
+    tidyselect, 
+    gridExtra
