@@ -111,7 +111,7 @@ list(
   tar_target(check_chromato_2023, chromato_file_check(subset_2023, "2023")),
   tar_target(check_chromato_2025, chromato_file_check(subset_2025, "2025")), 
   
-  tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
+  #tarchetypes::tar_quarto(report, "01_presentation_batches.qmd"),
   #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
   
   ##All bvocs samples lines with values i buttons as a list, closest alcane, batch, if we can read or not the sample (col iso, col mono TRUE or FALSE)
@@ -201,8 +201,16 @@ list(
 #   ##MONO/SESQUI
   tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, bvocs_samples, calib_quanti)),
   tar_target(paradise_reports_mono_quanti_list, area_to_quanti_mono(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)),
-  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  lapply(chemodiv::NPCTable) |>  sum_terpenoids_across_reports()),
-  tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_"))
+  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>   lapply(chemodiv::NPCTable)  )
+  #tar_target(paradise_reports_mono_ER_LOD, mark_values(paradise_reports_mono_ER, paradise_reports_list, lod_3x = 193500, lod_10x = 645000)|>  sum_terpenoids_across_reports())
+
+
+
+#tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>  lapply(chemodiv::NPCTable)),
+
+# revoir cette fonction, faire un tableau avec toutes le s molécules avant sum
+
+#tar_target(field_EF ,  merge_datasets (paradise_reports_mono_ER, paradise_reports_iso_ER, valid_samples_iso) |>  species_aggregation(woodiv_species, "field_"))
 #
 #
 #

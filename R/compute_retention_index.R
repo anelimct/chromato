@@ -53,7 +53,6 @@ calculate_IR_exp_for_one_column <- function(samples_RT_alc, paradise_report, sam
 calculate_IR_exp_for_all_columns <- function(samples_RT_alc, paradise_report, sample_cols) {
   for (i  in 1:length(sample_cols)) {
     sample_col <- sample_cols[i]
-    print(sample_col)
     # Call the function for the current column
     paradise_report <- calculate_IR_exp_for_one_column(samples_RT_alc, paradise_report, sample_col)
   }

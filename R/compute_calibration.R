@@ -132,7 +132,8 @@ plot_calib_btw_session <- function(table_calib_btw_session, calib_quanti, type =
         data = model_data,
         aes(slope = slope, intercept = 0, color = session),
         linetype = "dashed"
-      )
+      )+ geom_hline(yintercept = 193500, color = "black") + 
+      geom_hline(yintercept = 645000, color = "red")
     
     # Convert the summary table to a tableGrob for display
     table_grob <- gridExtra::tableGrob(summary_table, rows = NULL)
