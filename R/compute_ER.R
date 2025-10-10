@@ -31,7 +31,8 @@ area_to_quanti_iso<- function(paradise_reports_sbtr_blanks_list, calib_quanti, t
     # Iterate over each row of the paradise_report dataframe
     for (i in 1:nrow(paradise_report)) {
       # Get the New_CAS_Number for the current row
-      calib_based_on <- paradise_report$calib_based_on[i]
+      calib_based_on <- "78-79-5"
+
       
       # Find the corresponding row in calib_slope
       matching_calib <- calib_slope[calib_slope$New_CAS_Number == calib_based_on, "slope"]
@@ -167,6 +168,7 @@ compute_ER <- function(paradise_reports_quanti_list, bvocs_samples, calib_quanti
           
           
           # Transform the value using the given formula
+          # quantité *60 = flow entrant en heure / biomasse * Temps échantillonnage en heure ( )
           paradise_report[i, sample] <- paradise_report[i, sample] * 60 / leaves_dm * 0.25 * 6
         }
       }
@@ -329,5 +331,19 @@ sum_isoprene_across_reports <- function(reports_list) {
     process_df(reports_list[[.x]]) %>% 
       dplyr::mutate(Session = .x) %>%
       dplyr::select(Session, Sample, Isoprene)
+  })
+}
+
+
+keep_terpenoids_across_reports <- function(reports_list) {
+  # Process each dataframe in the list
+  lapply(reports_list, function(df) {
+    # Create superclass2 if missing
+    if (!"superclass2" %in% colnames(df)) df$superclass2 <- NA
+    
+    dplyr::filter(df, 
+                  superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids" |
+                    superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids")
+    
   })
 }

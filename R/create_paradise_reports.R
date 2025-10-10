@@ -32,7 +32,6 @@ read_paradise_4 <- function(files_path, CAS_library, option = "") {
         RI = sapply(match, function(x) if (nrow(x) > 0) x$RI[1] else NA),
         nb_C_n = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n[1] else NA),
         nb_C_n_s = sapply(match, function(x) if (nrow(x) > 0) x$nb_C_n_s[1] else NA), 
-        calib_based_on = sapply(match, function(x) if (nrow(x) > 0) x$calib_based_on[1] else NA), 
         smiles = sapply(match, function(x) if (nrow(x) > 0) x$`Canonical SMILES`[1] else NA), 
         inchikey = sapply(match, function(x) if (nrow(x) > 0) x$inchikey[1] else NA) 
       ) |> #extract info in CAS lib for the matching row, prendre le premier match sinon NA

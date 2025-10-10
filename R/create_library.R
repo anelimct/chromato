@@ -60,7 +60,6 @@ update_lib <- function (new_lib, old_correspondant_table_with_RI) {
            RI = unique(`RI`), 
            nb_C_n = unique(stringr::str_count(`Canonical SMILES`, "C")),
            nb_C_n_s= unique(nb_C_n +1), 
-           calib_based_on = unique(`calib_based_on`)
            )
   included <- unlist(updated_table$Merged_CAS_Numbers)
   new_lib <- new_lib |> dplyr::filter(!`CAS Registry Number` %in% included) #garder les lignes qui n'avaient pas de canonical smiles dans la correspondant table et qui n'ont donc pas été inclus dans le left join
