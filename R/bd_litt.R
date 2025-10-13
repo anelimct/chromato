@@ -67,7 +67,7 @@ select_iso_mono <- function(data){
   # Standardize Compound names and filter relevant compounds
   data <- data |> 
     dplyr::mutate(Compound = ifelse(Compound %in% variantes_monoterpenes, "monoterpenes", Compound)) |> 
-    dplyr::filter(Compound == "isoprene" | Compound == "monoterpenes") |> 
+    dplyr::filter(Compound == "isoprene" | Compound == "monoterpenes"  | Compound == "sesquiterpenes" | Compound == "ox-sesquiterpenes"| Compound == "ox-monoterpenes") |> 
     dplyr::filter(Compound_TvsP != "partial")
 }
 
@@ -323,12 +323,13 @@ create_population_variable <- function(df) {
   groupes_similaires <- list(
     "Burrina" = c("Burrina Cirat", "Burrina NA", "Cirat NA"),
     "Tartu" = c("Tartu NA", "NA Tartu"),
-    "Castelporziano" = c("Castelporziano NA", "Castelporziano Castelporziano", "Castelporziano Santo Querico"),
+    "Castelporziano" = c("Castelporziano NA", "Castelporziano Castelporziano", "Castelporziano Santo Querico", "Castelporziano Santo Quercio Site"),
     "Freiburg" = c("Freiburg Hartheimer Wald", "NA Hartheimer, Near Freiburg"),
     "Madrid" = c("Madrid Tres Cantos", "Madrid NA"),
     "Julich" = c("Julich Julich Research Center", "Julich NA"),
     "Hyytiala" = c("NA Hyytiala", "Hyytiala Station For Measuring Forest Ecosystem–Atmosphere Relations", "Hyytiala NA"),
-    "Arad" = c("Arad Lipova Forest", "Arad NA")
+    "Arad" = c("Arad Lipova Forest", "Arad NA"), "Donon" = c("Donon Vosges Forest" , "Donon Vosges"), 
+    "Observatoire de haute Provence, O3HP" = c(" O3hp, Observatoire De Haute Provence" , "Marseille O3hp, Observatoire De Haute Provence"), "Terrassa" = c("Terrassa " , "Barcelona Terrassa")
   )
   
   
@@ -350,6 +351,18 @@ create_population_variable <- function(df) {
   return(df)
 }
 
+
+rename_coumpounds <- function(data){
+  
+  
+  data <- data |> 
+    dplyr::mutate(Compound = stringr::str_replace(Compound, "oxygenated-monoterpenes", "ox-monoterpenes"),
+                  Compound = stringr::str_replace(Compound, "oxygenated monoterpenes", "ox-monoterpenes"), 
+                  Compound = stringr::str_replace(Compound, "oxygenated sesquiterpenes", "ox-sesquiterpenes")
+                  )
+  
+  return(data)
+}
 # Définition de la fonction
 std_iso_G93 <- function(L, T, E) {
   # Définition des constantes
