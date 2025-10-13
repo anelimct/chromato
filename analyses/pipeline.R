@@ -155,17 +155,19 @@ list(
     }
     
     do.call(rbind, files)
-  } |> species_aggregation(woodiv_species, "litt") ), 
+  } |> species_aggregation(woodiv_species, "litt") |> rename_coumpounds() ), 
 
   
-  tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |> numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(42, 20, 1500, 500) |> 
+  tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |>  numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(43, 20, 2000, 500) |> 
                dplyr::mutate(
                  Country = clean_country(Country),
                  Origin_city = clean_city_locality(Origin_city),
                  Origin_locality = clean_city_locality(Origin_locality),
-                 Origin_pop = paste(Origin_city, Origin_locality, sep = " "),
-                 Origin_pop = ifelse(Origin_pop == "NA NA", Ref_ID_WoS, Origin_pop)
+                 Origin_pop = stringr::str_replace(paste(Origin_city, Origin_locality, sep = " "), "NA", ""),
+                 Origin_pop = ifelse(Origin_pop == " NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
+  
+  
   #tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered) |>  boxplot_EF(tree, field_EF)),
   
   #tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
