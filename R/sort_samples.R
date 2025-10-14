@@ -7,6 +7,38 @@ var_paradise <- function(bvocs, paradise_reports_list, paradise_reports_iso_list
   
 }
 
+calibration_par <- function(data){
+  cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
+                "PAR.milieu.2",  "PAR.milieu.3", "PAR.milieu.4",  "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1",     "PAR.fin.2") 
+  ##corection des par du début a 23/05/2025 inclu 74
+  
+  soixante_quatorze <- interval( ymd_h("2023-06-15 00"),  ymd_h("2025-05-23 00"))
+    
+  ##corection des par du 03/06/2025 30.1
+  
+  
+  trente <- interval( ymd_h("2025-06-03 00"),  ymd_h("2025-06-04 00"))
+
+  
+  ##after no correction
+  
+  data <- data |> 
+    dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |> 
+    dplyr::mutate(across(all_of(cols_PAR), 
+                         ~ ifelse(.data$interval %within% soixante_quatorze, 
+                                  1.934168 * .x + 0.283437, 
+                                  .x)))
+  
+  
+  data <- data |> 
+    dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |> 
+    dplyr::mutate(across(all_of(cols_PAR), 
+                         ~ ifelse(.data$interval %within% trente, 
+                                  4.734 * .x + 12.560, 
+                                  .x)))
+
+}
+
 # selectionner tous les samples qui sont perdu ou erreur 
 
 filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
@@ -16,8 +48,12 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
   #Tous les échantillons qui ne ce sont pas ouverts dans paradise
   cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
                 "PAR.milieu.2",  "PAR.milieu.3", "PAR.milieu.4",  "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1",     "PAR.fin.2")
-  blancs <- data |> dplyr::filter(Taxon == "BLANC") |>  dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |>  dplyr::mutate(issue = FALSE)
-  data <- data |> dplyr::filter(Taxon != "BLANC") |> dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE))
+  blancs <- data |> dplyr::filter(Taxon == "BLANC") |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |>  dplyr::mutate(issue = FALSE)
+  data <- data |> dplyr::filter(Taxon != "BLANC") |>  dplyr::mutate(mean_PAR = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE))
+  
+  
+  
+  
   if(compound == "iso"){
     data <- data |> 
       dplyr::mutate( issue = dplyr::if_else(
@@ -25,9 +61,8 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
           purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
           purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
           purrr::map_dbl(values_T_in, ~ mean(.x)) < 20 |
-          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
-          paradise_iso ==FALSE, TRUE, FALSE
-      ))
+          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 500| #496
+          paradise_iso ==FALSE, TRUE, FALSE))
     
   } else {
     data <- data |> 
@@ -35,7 +70,7 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
         Etat %in% c("perdu", "Perdu", "Erreur") |
           purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
           purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
-          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 496 | #496
+          purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 500 | #496
           paradise_mono ==FALSE, TRUE, FALSE
       ))
   }
