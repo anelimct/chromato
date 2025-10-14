@@ -102,6 +102,24 @@ numeric_emissions_g_h <- function(data){
   data <- data |>  dplyr:: filter(Emission_unit_leaf == "g")
 }
 
+compound_unit_µg <- function(data) {
+  ## passage de microgC à microC, pour cela il faut la fraction moléaire du carbone dans la molécule
+  # pour monoterpenes C10H16 = 12.01*10 + 16 = 136.1 g.mol, fraction molaire carbone = 120.1 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
+  # pour isoprene C5H8 = 12.01*5 + 8 = 68.05 g.mol, fraction molaire carbone = 60.05 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
+  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "microgC" , Emission/0.8824394 , Emission)) 
+  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission*136.1*1e+06, Emission ))
+  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission*68.05*1e+06, Emission ))
+  
+  
+  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "microgC" , Emission_var_value/0.8824394 , Emission_var_value)) 
+  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission_var_value*136.1*1e+06, Emission_var_value ))
+  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission_var_value*68.05*1e+06, Emission_var_value ))
+  
+  data$Emission_unit_comp <- "microg"
+  return(data)
+}
+
+
 
 convert_temperature <- function(data) {
   # Si la température est en Celsius
@@ -250,6 +268,9 @@ select_temp_and_par <- function(data, Tmax, Tmin, PARmax, PARmin){
         (is.na(PAR_max) | PAR_max <= PARmax)
     )
     #mutate(Temperature_range = Temperature_max - Temperature_min,PAR_range = PAR_max - PAR_min)
+  
+  print(unique(data$Emission_unit_comp))
+  return(data)
 }
 
 
