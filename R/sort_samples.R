@@ -63,7 +63,7 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
           purrr::map_dbl(values_T_in, ~ mean(.x)) < 20 |
           purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 500| #496
           paradise_iso ==FALSE, TRUE, FALSE))
-    
+
   } else {
     data <- data |> 
       dplyr::mutate( issue = dplyr::if_else(
@@ -71,8 +71,7 @@ filter_out_samples <- function(data, T_max, µ_max_T, type, compound ){
           purrr::map_lgl(values_T_in, ~ any(.x > T_max)) |
           purrr::map_dbl(values_T_in, ~ mean(.x)) > µ_max_T |
           purrr::map_lgl(values_T_in, ~ length(.x) == 0) | mean_PAR < 500 | #496
-          paradise_mono ==FALSE, TRUE, FALSE
-      ))
+          paradise_mono ==FALSE, TRUE, FALSE ))
   }
   
 
