@@ -115,7 +115,7 @@ list(
   #tarchetypes::tar_quarto(report, "02_presentation_field.qmd"),
   
   ##All bvocs samples lines with values i buttons as a list, closest alcane, batch, if we can read or not the sample (col iso, col mono TRUE or FALSE)
-  tar_target(bvocs_samples, rbind(subset_2023, subset_2024, subset_2025) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples()),
+  tar_target(bvocs_samples, rbind(subset_2023, subset_2024, subset_2025) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples() |>  calibration_par()),
   
   ##Filter according to a set of conditions
   tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
