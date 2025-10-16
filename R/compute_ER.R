@@ -197,8 +197,8 @@ mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x
     
     
   
-    er_data <- er_data |>  dplyr::select(dplyr::all_of( sample_cols))
-    raw_data <- raw_data |>  dplyr::select(dplyr::all_of( sample_cols))
+    er_data <- er_data |>  dplyr::select(dplyr::any_of( sample_cols))
+    raw_data <- raw_data |>  dplyr::select(dplyr::any_of( sample_cols))
     
      
     
@@ -341,9 +341,46 @@ keep_terpenoids_across_reports <- function(reports_list) {
     # Create superclass2 if missing
     if (!"superclass2" %in% colnames(df)) df$superclass2 <- NA
     
-    dplyr::filter(df, 
+    df |> dplyr::filter( 
                   superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids" |
-                    superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids")
-    
+                    superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids") |> 
+      dplyr::mutate(
+        class = dplyr::case_when(
+          (superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids") & stringr::str_detect(smiles, "O") ~ "Oxygenated-monoterpenes",
+          (superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids") & stringr::str_detect(smiles, "O") ~ "Oxygenated-sesquiterpenes",
+          
+          superclass == "Monoterpenoids" | superclass2 == "Monoterpenoids" ~ "Monoterpenes",
+          superclass == "Sesquiterpenoids" | superclass2 == "Sesquiterpenoids" ~ "Sesquiterpenes",
+          #Garder la valeur existante si aucune condition ne correspond
+          TRUE ~ class
+        )
+      )
+      
   })
+}
+
+save_ER_xlsx <- function(reports_list, suffixe_facultatif = NULL){
+  
+  for (name in names(reports_list)) {
+    
+    cols <- c("compound", "calib_based_on", "class", "est. retention time (min)")
+    
+    df <- reports_list[[name]] |> 
+      dplyr::select(
+        dplyr::any_of(cols),
+        dplyr::matches("^[A-Za-z]{4}_")
+      )
+    
+    # Utiliser le suffixe facultatif si fourni, sinon utiliser le nom original
+    if (!is.null(suffixe_facultatif)) {
+      file_name <- paste0("ER_", suffixe_facultatif, "_", name )
+    } else {
+      file_name <- paste0("ER_", name)
+    }
+    
+    file_path <- file.path(here::here("outputs", "ER_reports"), file_name)
+    openxlsx::write.xlsx(df, file = file_path)
+  }
+  
+  return(reports_list)
 }
