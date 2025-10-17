@@ -376,6 +376,7 @@ save_ER_xlsx <- function(reports_list, suffixe_facultatif = NULL){
       file_name <- paste0("ER_", stringr::str_extract(name, "^[^.]*"), "_", suffixe_facultatif, ".xlsx")
     } else {
       file_name <- paste0("ER_", name)  # name contient déjà .xlsx
+      )
     }
     
     file_path <- file.path(here::here("outputs", "ER_reports"), file_name)
