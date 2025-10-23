@@ -359,29 +359,146 @@ keep_terpenoids_across_reports <- function(reports_list) {
   })
 }
 
+
 save_ER_xlsx <- function(reports_list, suffixe_facultatif = NULL){
   
   for (name in names(reports_list)) {
     
-    cols <- c("compound", "calib_based_on", "class", "est. retention time (min)")
+    # Vérification sécurisée des colonnes
+    expected_cols <- c("compound", "calib_based_on", "class", "est. retention time (min)")
+    available_cols <- intersect(expected_cols, names(reports_list[[name]]))
     
+    # Colonnes sample (doivent commencer par 4 lettres + _)
+    sample_cols <- grep("^[A-Za-z]{4}_", names(reports_list[[name]]), value = TRUE)
+    
+    if (length(sample_cols) == 0) {
+      warning("No sample columns found in ", name, ". Skipping.")
+      next
+    }
+    
+    # Sélection sécurisée des colonnes
     df <- reports_list[[name]] |> 
       dplyr::select(
-        dplyr::any_of(cols),
-        dplyr::matches("^[A-Za-z]{4}_")
-      ) |> dplyr::arrange(class)
+        dplyr::any_of(available_cols),  # Seulement les colonnes disponibles
+        dplyr::all_of(sample_cols)      # Toutes les colonnes sample doivent exister
+      ) 
     
-    # Utiliser le suffixe facultatif si fourni, sinon utiliser le nom original
+    # Vérifier si 'class' existe pour l'arrangement
+    if ("class" %in% names(df)) {
+      df <- df |> dplyr::arrange(class)
+    }
+    
+    # Convertir en caractères - version sécurisée
+    df <- df |> 
+      dplyr::mutate(
+        dplyr::across(
+          .cols = dplyr::everything(),
+          .fns = as.character
+        )
+      )
+    
+    # Identifier les colonnes numériques (les colonnes sample)
+    numeric_cols <- sample_cols
+    
+    # Calcul des sommes par classe - seulement si 'class' existe
+    if ("class" %in% names(df)) {
+      sum_by_class <- df |>
+        dplyr::mutate(
+          dplyr::across(
+            .cols = dplyr::all_of(numeric_cols),
+            .fns = ~ dplyr::case_when(
+              . %in% c("nd", "ND", "tr", "TR") ~ "0",
+              TRUE ~ .
+            )
+          )
+        ) |>
+        dplyr::mutate(
+          dplyr::across(
+            .cols = dplyr::all_of(numeric_cols),
+            .fns = ~ suppressWarnings(as.numeric(.))
+          )
+        ) |>
+        dplyr::group_by(class) |>
+        dplyr::summarise(
+          dplyr::across(
+            .cols = dplyr::all_of(numeric_cols),
+            .fns = ~sum(., na.rm = TRUE),
+            .names = "{.col}"
+          ),
+          compound = "SUM_ng",
+          calib_based_on = NA_character_,
+          `est. retention time (min)` = NA_real_,
+          .groups = "drop"
+        )
+      
+      # Réorganiser les colonnes
+      if ("calib_based_on" %in% available_cols) {
+        sum_by_class <- sum_by_class |> 
+          dplyr::relocate(compound, calib_based_on, class, `est. retention time (min)`)
+      } else {
+        sum_by_class <- sum_by_class |> 
+          dplyr::relocate(compound, class, `est. retention time (min)`)
+      }
+      
+      # Conversion en µg
+      sum_by_class_ug <- sum_by_class |>
+        dplyr::mutate(
+          dplyr::across(
+            .cols = dplyr::all_of(numeric_cols),
+            .fns = ~ . / 1000
+          ),
+          compound = "SUM_ug"
+        ) 
+      
+      sums_combined <- dplyr::bind_rows(sum_by_class, sum_by_class_ug)
+      
+      # Convertir en caractères pour la fusion
+      sums_combined <- sums_combined |>
+        dplyr::mutate(
+          dplyr::across(
+            .cols = dplyr::everything(),
+            .fns = as.character
+          )
+        )
+      
+      # Combiner avec les données originales
+      final_df <- dplyr::bind_rows(df, sums_combined)
+    } else {
+      # Si pas de colonne 'class', utiliser les données originales
+      final_df <- df
+      warning("No 'class' column in ", name, ". Skipping summary calculations.")
+    }
+    
+    # Nom du fichier
     if (!is.null(suffixe_facultatif)) {
       file_name <- paste0("ER_", stringr::str_extract(name, "^[^.]*"), "_", suffixe_facultatif, ".xlsx")
     } else {
-      file_name <- paste0("ER_", name)  # name contient déjà .xlsx
-      )
+      file_name <- paste0("ER_", name)
     }
     
     file_path <- file.path(here::here("outputs", "ER_reports"), file_name)
-    openxlsx::write.xlsx(df, file = file_path)
+    openxlsx::write.xlsx(final_df, file = file_path)
   }
   
   return(reports_list)
+}
+
+
+
+
+transformer_df <- function(df) {
+  # Mettre tous les noms de colonnes en minuscules
+  names(df) <- tolower(names(df))
+  
+  # Renommer 'new_cas_name' en 'compound'
+  if("new_cas_name" %in% names(df)) {
+    names(df)[names(df) == "new_cas_name"] <- "compound"
+  }
+  
+  # Ajouter la colonne 'class' avec la valeur de 'compound'
+  if("compound" %in% names(df)) {
+    df$class <- df$compound
+  }
+  
+  return(df)
 }

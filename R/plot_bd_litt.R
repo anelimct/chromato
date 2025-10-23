@@ -109,5 +109,5 @@ boxplot_EF <- function (data, tree, field){
   
   
   
-  return(data)
+  return(data_iso_mono)
 }

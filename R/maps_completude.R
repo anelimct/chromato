@@ -113,27 +113,25 @@ plot_hist_ranking <- function(data, column_to_plot, tronquer_min, main_lab) {
   return(data)
 }
 
-plot_hist_ranking_cumul <- function(data, planned) {
+plot_hist_ranking_cumul <- function(data) {
   
   # Join data and replace NA values
-
-  data <- dplyr::left_join(data, planned, by = "gragg")|>tidyr::replace_na(list(TS_2025 = 0))
   
-  data_longer  <- data  |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt, TS_2025),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 13)
-  data_longer$type <- factor(data_longer$type, levels = c("min_origins_field", "TS_2025", "min_origins_litt"))
+  data_longer  <- data  |>tidyr::pivot_longer(cols = c(min_origins_field, min_origins_litt),names_to = "type", values_to = "n_pop") |>dplyr::filter(relative_grid >= 13)
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_field", "min_origins_litt"))
   ## line to remove
   data_longer$n_pop[data_longer$gragg == "FANG" & data_longer$type == "min_origins_field"] <- data_longer$n_pop[data_longer$gragg == "FANG" & data_longer$type == "min_origins_field"] + 1
   
   data_longer <- data_longer |> dplyr::arrange(relative_grid, type) |> dplyr::group_by(gragg) |> dplyr::mutate(lab_ypos = cumsum(n_pop) - 0.5 * n_pop) |>  dplyr::ungroup()
   
   
-  data_longer$type <- factor(data_longer$type, levels = c("min_origins_litt", "TS_2025", "min_origins_field"))
+  data_longer$type <- factor(data_longer$type, levels = c("min_origins_litt", "min_origins_field"))
   
   
   # Create the plot
   p <- ggplot(data_longer, aes(x = reorder(gragg, relative_grid, decreasing = FALSE), y = n_pop)) +geom_col(aes(fill = type), width = 0.7) + geom_text(data = dplyr::filter(data_longer, n_pop != 0) |>  dplyr::arrange(relative_grid, type) ,
               aes(y = lab_ypos, label = n_pop, group = type), color = "white", fontface = "bold", size = 3) +
-    coord_flip() + scale_fill_manual(values = wesanderson::wes_palette("Moonrise3", 3), labels = c("min_origins_field" = "Terrain fait 2023/2024", "TS_2025" = "Terrain prévu 2025", "min_origins_litt" = "Données littérature"))
+    coord_flip() + scale_fill_manual(values = wesanderson::wes_palette("Moonrise3", 2), labels = c("min_origins_field" = "Terrain fait 2023/2024", "min_origins_litt" = "Données littérature"))
   
   # Save the plot
   ggsave("cumul_min_ech.png", plot = last_plot(),path = here::here("figures", "completness", "effort_echantillonnage"), width = 3048, height = 2095, create.dir = TRUE, limitsize = FALSE, units = "px", bg = "white")
@@ -186,7 +184,7 @@ tidy_summary_all <- function (data, woodiv_species){
     # Sélectionner les colonnes à conserver et réorganiser
     dplyr::select(
       gragg, relative_grid,
-      all_distinct_origins_isoprene, all_distinct_origins_monoterpenes, min_origins_all, min_origins_field, TS_2025
+      all_distinct_origins_isoprene, all_distinct_origins_monoterpenes, min_origins_all, min_origins_field
     ) |>
     # Rename the columns
     dplyr::rename(
@@ -195,20 +193,9 @@ tidy_summary_all <- function (data, woodiv_species){
       n_mono = all_distinct_origins_monoterpenes,
       n_min = min_origins_all,
       previous_field = min_origins_field,
-      planned_2025 = TS_2025
-    ) |> dplyr::mutate( target_end_2025 = n_min + planned_2025) |> 
+    ) |> dplyr::mutate( target_end_2025 = n_min ) |> 
     dplyr::arrange(dplyr::desc(prct_grid)) |>  dplyr::left_join(species, by = "gragg")
     
-    missing <- dplyr::filter(data_tidy, target_end_2025<3 )
-    
-    p <- ggplot(missing, aes(x = prct_grid, y = ..count..)) +
-      geom_histogram(binwidth = 1, fill = "blue", alpha = 0.7) +  # Histogram with specified bin width
-      labs(title = "Histogram of prct_grid for gragg with target_end_2025 < 3",
-           x = "prct_grid",
-           y = "Frequency (Sum of gragg)") +
-      theme_minimal()
-    
-    ggsave("density_prct_under_3.png", plot = last_plot(),path = here::here("figures", "completness", "effort_echantillonnage"), width = 3048, height = 2095, create.dir = TRUE, limitsize = FALSE, units = "px", bg = "white")
     
     
   file_path <- file.path(here::here("outputs"), "summary_all_bvocs.xlsx")
