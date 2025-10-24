@@ -73,7 +73,7 @@ select_iso_mono <- function(data){
 
 numeric_emissions_g_h <- function(data){
   
-  data <- data |> 
+  data <-data |> 
   #traces and nd as 0
     dplyr::mutate(Emission = ifelse(Emission== "nd", "0", Emission)) |> 
     dplyr::mutate(Emission = ifelse(Emission== "tr", "0", Emission)) |>  #a voir avec Caroline
@@ -104,16 +104,17 @@ numeric_emissions_g_h <- function(data){
 
 compound_unit_µg <- function(data) {
   ## passage de microgC à microC, pour cela il faut la fraction moléaire du carbone dans la molécule
-  # pour monoterpenes C10H16 = 12.01*10 + 16 = 136.1 g.mol, fraction molaire carbone = 120.1 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
+  # pour monoterpenes C10H16 = 12.01*10 + 16 = 136.1 g.mol-1, fraction molaire carbone = 120.1 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
   # pour isoprene C5H8 = 12.01*5 + 8 = 68.05 g.mol, fraction molaire carbone = 60.05 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
   data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "microgC" , Emission/0.8824394 , Emission)) 
-  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission*136.1*1e+06, Emission ))
-  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission*68.05*1e+06, Emission ))
+  # LA masse molaire 136.1 g.mol-1 c'est comme des µg.µmol-1, 1µmol = 1e+03 nanomol
+  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission*1e+03*136.1, Emission ))
+  data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission*1e+03*68.05, Emission ))
   
   
   data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "microgC" , Emission_var_value/0.8824394 , Emission_var_value)) 
-  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission_var_value*136.1*1e+06, Emission_var_value ))
-  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission_var_value*68.05*1e+06, Emission_var_value ))
+  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "monoterpenes", Emission_var_value*1e+03*136.1, Emission_var_value ))
+  data <- data |>   dplyr::mutate(Emission_var_value = ifelse(Emission_unit_comp == "nanomol" & Compound == "isoprene", Emission_var_value*1e+03*68.05, Emission_var_value ))
   
   data$Emission_unit_comp <- "microg"
   return(data)

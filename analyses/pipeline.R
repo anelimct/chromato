@@ -159,7 +159,7 @@ list(
 
   
 
-  tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |>  numeric_emissions_g_h() |> dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(43, 20, 2000, 500) |> compound_unit_µg() |> 
+  tar_target(DB_bvocs_filtered, DB_bvocs |>  select_iso_mono() |>  numeric_emissions_g_h() |> compound_unit_µg() |>  dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_2()  |>  select_months( "05", "07")  |>  select_temp_and_par(43, 20, 2000, 500) |> 
                dplyr::mutate(
                  Country = clean_country(Country),
                  Origin_city = clean_city_locality(Origin_city),
@@ -209,7 +209,7 @@ list(
   tar_target(field_EF ,  merge_datasets (compounds_table, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
 
 
-  tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF)),
+  tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
 
 

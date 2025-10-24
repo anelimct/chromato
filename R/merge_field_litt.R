@@ -134,7 +134,7 @@ merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, p
     aes(x = T_algo_K - 273,15, y = Emission)+
     geom_point(color = "blue", size = 2, alpha = 0.7)
   
-  bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_to_keep ) |>  apply_standardization() |>  dplyr::mutate(EF = ES_iso_G93) |>  dplyr::select(EF, Taxon, Compound) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_")) |> dplyr::mutate(EF = EF/1000)
+  bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_to_keep ) |>  apply_standardization() |>  dplyr::mutate(EF = ES_iso_G93) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K  ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_")) |> dplyr::mutate(EF = EF/1000)
   
   
 }
