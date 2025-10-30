@@ -201,7 +201,8 @@ list(
 #   ##MONO/SESQUI
   tar_target(paradise_reports_sbtr_blanks_mono_list, subtract_blanks_from_samples(paradise_reports_list, bvocs_samples, calib_quanti)),
   tar_target(paradise_reports_mono_quanti_list, area_to_quanti_mono(paradise_reports_sbtr_blanks_mono_list, calib_quanti, table_calib_mono_btw_session)),
-  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>   lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  save_ER_xlsx()),
+  tar_target(paradise_reports_mono_ER_raw, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>   lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  save_ER_xlsx(suffixe_facultatif = "raw")),
+  tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>   lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  keep_above_5_ng () |> save_ER_xlsx(suffixe_facultatif = "limit")),
   tar_target(paradise_reports_mono_ER_LOD, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |> mark_values( paradise_reports_list, lod_3x = 193500, lod_10x = 645000) |> lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  save_ER_xlsx( suffixe_facultatif = "LOD")),
 
   tar_target(compounds_table, plyr::rbind.fill(fusionner_listes(paradise_reports_iso_ER_LOD), fusionner_listes(paradise_reports_mono_ER_LOD))),

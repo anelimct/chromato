@@ -1,44 +1,24 @@
 
+get_compound_stats <- function(compound_table){
 
-get_compound_stats <- function(paradise_reports_mono_ER_list) {
-  # 1. Combiner tous les rapports en un seul dataframe
-  combined_data <- dplyr::bind_rows(paradise_reports_mono_ER_list) |> 
-    dplyr::select(New_CAS_Name, smiles, matches("\\.CDF$")) |>  # Sélectionne les colonnes .CDF
-    dplyr::select(-starts_with("B_"), -contains("calib")) |>    # Exclut les blanks et calibrations
-    tidyr::pivot_longer(
-      cols = -c(New_CAS_Name, smiles, inchikey),
-      names_to = "Sample",
-      values_to = "Value"
-    ) |>
-    dplyr::filter(!is.na(New_CAS_Name))  # Supprimer les lignes sans identifiant CAS
-  
-  # 2. Calculer les statistiques pour chaque composé
-  compound_stats <- combined_data |>
-    dplyr::group_by(New_CAS_Name, smiles) |>
-    dplyr::summarise(
-      total_samples = dplyr::n(),
-      nd_count = sum(Value == "nd", na.rm = TRUE),
-      tr_count = sum(Value == "tr", na.rm = TRUE),
-      quant_count = sum(!(Value %in% c("nd", "tr")) & !is.na(Value), na.rm = TRUE),
-      .groups = 'drop'
-    ) |>
+  data_columns <- compounds_table[, 5:312] |>
+    dplyr::mutate(across(everything(), as.character))
+
+  # Recréer le dataframe avec les colonnes converties
+  compounds_table_char <- cbind(compounds_table[, 1:4], data_columns)
+
+  # Maintenant compter
+  tableau_final <- compounds_table_char |>
+    dplyr::rowwise() |>
     dplyr::mutate(
-      detection_category = dplyr::case_when(
-        quant_count >= 1 ~ "quantifier",
-        quant_count == 0 & tr_count >= 1 ~ "Traces",
-        quant_count == 0 & tr_count == 0 ~ "Below detection limit"
-        
-      )
+      tr = sum(c_across(5:312) == "tr", na.rm = TRUE),
+      nd = sum(c_across(5:312) == "nd", na.rm = TRUE),
+      quantifiee = sum(!is.na(c_across(5:312)) &
+                         c_across(5:312) != "tr" &
+                         c_across(5:312) != "nd" &
+                         c_across(5:312) != "0", na.rm = TRUE)
     ) |>
-    dplyr::arrange(desc(quant_count), New_CAS_Name) |>
-    dplyr::select(
-      New_CAS_Name, smiles,
-      total_samples, 
-      quantified = quant_count,
-      tr_count,
-      nd_count,
-      detection_category
-    )
-  
-  return(compound_stats)
+    dplyr::select(compound, tr, nd, quantifiee)
+
 }
+

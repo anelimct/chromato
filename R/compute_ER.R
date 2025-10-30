@@ -359,6 +359,25 @@ keep_terpenoids_across_reports <- function(reports_list) {
   })
 }
 
+keep_above_5_ng <- function(reports_list, threshold = 5){
+  for (name in names(reports_list)) {
+    sample_cols <- grep("^[A-Za-z]{2,4}_", names(reports_list[[name]]), value = TRUE)
+    
+    # Create a copy for modification
+    df <- reports_list[[name]]
+    
+    for (col in sample_cols) {
+      if (is.numeric(df[[col]])) {
+        # Replace values below threshold with NA
+        df[[col]][df[[col]] < threshold] <- "nd"
+      }
+    }
+    
+    reports_list[[name]] <- df
+  }
+  return(reports_list)
+}
+
 
 save_ER_xlsx <- function(reports_list, suffixe_facultatif = NULL){
   
