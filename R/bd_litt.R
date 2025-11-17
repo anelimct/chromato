@@ -429,6 +429,14 @@ apply_standardization <- function(data) {
   data <- data |> 
     dplyr::mutate(ES_mono_G93 = dplyr::if_else(Standardized != "true", std_mono_G93(T = T_algo_K, E = Emission), NA_real_))
   
+  data <- data |> 
+    dplyr::mutate(ES_mono_G93_bourtsoukidis = dplyr::if_else(Standardized != "true", std_mono_G93(T = T_algo_K, E = Emission, beta = 0.13 ), NA_real_))
+  
+  data <- data |> 
+    dplyr::mutate(ES_sesqui_G93 = dplyr::if_else(Standardized != "true", std_mono_G93(T = T_algo_K, E = Emission, beta = 0.17 ), NA_real_))
+  
+
+  
   return(data)
 }
 

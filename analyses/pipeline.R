@@ -121,11 +121,26 @@ list(
   tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
   tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
   tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
+ 
   
+  ## ER comparison differnt algo-------------------------------------
+ 
+ tar_target(mono_std_T_file, here::here("outputs", "comparison_mono_std", "ER_mono_TG93.xlsx" ), format = "file"),
+ tar_target(mono_std_T,  readxl::read_excel(mono_std_T_file)),
+ tar_target(mono_std_T_bourtsou_file, here::here("outputs", "comparison_mono_std", "ER_mono_TG93.xlsx" ), format = "file"),
+ tar_target(mono_std_T_bourtsou,  readxl::read_excel(mono_std_T_bourtsou_file)),
+ tar_target(mono_std_iso_file, here::here("outputs", "comparison_mono_std", "ER_mono_TG93.xlsx" ), format = "file"),
+ tar_target(mono_std_iso,  readxl::read_excel(mono_std_iso_file)),
+ 
+ 
+ 
+ 
+ 
+ 
   tar_target(summary_field, summarize_field (valid_samples_iso, valid_samples_mono)),
   
   
-  ##Lire les articles BD_litt
+  ##Lire les articles BD_litt-------------------------------------
   
   tar_target(articles, list.files(here::here("data", "TREEVOCS_data", "TREEVOCS_data_shiny"), full.names = TRUE), format = "file"), 
   
@@ -182,7 +197,7 @@ list(
   
 
 
-#   ## working on paradise_files
+#   ## working on paradise_files-------------------------------------
 #
 #
   tar_target(RI_exp ,compute_retention_index( renamed_alcanes, bvocs_samples, paradise_reports_list, calib_quanti )),
@@ -196,6 +211,7 @@ list(
   tar_target(paradise_reports_sbtr_blanks_iso_list, subtract_blanks_from_samples(paradise_reports_iso_list, bvocs_samples, calib_quanti)),
   tar_target(paradise_reports_iso_quanti_list, area_to_quanti_iso(paradise_reports_sbtr_blanks_iso_list, calib_quanti, table_calib_iso_btw_session)),
   tar_target(paradise_reports_iso_ER_LOD, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  mark_values(paradise_reports_iso_list, lod_3x = 193500, lod_10x = 645000) |>  lapply(transformer_df) ),
+  tar_target(paradise_reports_iso_ER, compute_ER (paradise_reports_iso_quanti_list, bvocs_samples, calib_quanti) |>  keep_above_5_ng () |>  lapply(transformer_df) ),
 #
 #
 #   ##MONO/SESQUI
@@ -205,10 +221,17 @@ list(
   tar_target(paradise_reports_mono_ER, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |>   lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  keep_above_5_ng () |> save_ER_xlsx(suffixe_facultatif = "limit")),
   tar_target(paradise_reports_mono_ER_LOD, compute_ER (paradise_reports_mono_quanti_list, bvocs_samples, calib_quanti) |> mark_values( paradise_reports_list, lod_3x = 193500, lod_10x = 645000) |> lapply(chemodiv::NPCTable) |>  keep_terpenoids_across_reports() |>  save_ER_xlsx( suffixe_facultatif = "LOD")),
 
-  tar_target(compounds_table, plyr::rbind.fill(fusionner_listes(paradise_reports_iso_ER_LOD), fusionner_listes(paradise_reports_mono_ER_LOD))),
+  tar_target(compounds_table, plyr::rbind.fill(fusionner_listes(paradise_reports_iso_ER), fusionner_listes(paradise_reports_mono_ER)) |>  apply_unknown_compounds()),
+#se sont des ng.g-1.h-1
+  tar_target(compounds_table_standardized, standardisation_whole_compounds_table (bvocs_samples, compounds_table)),
+#se sont des µg.g-1.h-1
+
+
+  tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
+
+
 
   tar_target(field_EF ,  merge_datasets (compounds_table, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
-
 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
