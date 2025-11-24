@@ -131,8 +131,8 @@ standardisation_whole_compounds_table <- function(bvocs_samples, compounds_table
   writexl::write_xlsx( compounds_table_standardized_mono_T, path = here::here("outputs", "comparison_mono_std", "ER_mono_TG93.xlsx"))
   writexl::write_xlsx( compounds_table_standardized_mono_LetT, path = here::here("outputs", "comparison_mono_std", "ER_mono_isoG93.xlsx"))
   writexl::write_xlsx( compounds_table_standardized_mono_T_bourtsou, path = here::here("outputs", "comparison_mono_std", "ER_mono_T_Bourtsoukidis.xlsx"))
-  
-  return(compounds_table_standardized)
+  list_standardized_tables <- list(compounds_table_standardized,compounds_table_standardized_mono_LetT, compounds_table_standardized_mono_T, compounds_table_standardized_mono_T_bourtsou )
+  return(list_standardized_tables )
 }
 
 
@@ -195,94 +195,83 @@ times_compound_per_species <- function(compounds_table, valid_samples_mono){
 
 
 
+is_2025_sample <- function(col_name) {
+  
+  grepl("2025",col_name)
+}
 
 
 
-
-
-compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound_sp){
+compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound_sp, include_se = TRUE){
   
   cols_to_keep <- valid_samples_mono$ID |>  stringr::str_to_lower() |> stringr::str_c( ".cdf", sep="") |>
     (\(x) x[grepl("^[a-zA-Z]{4}_", x)])()
   
   df <- compounds_table |>  dplyr::select( any_of( c("compound", "smiles",  "class" , "inchikey", paste0(cols_to_keep))))
   
+  spagg_to_keep <- unique(times_compound_sp$spagg)
   
- spagg_to_keep <- unique(times_compound_sp$spagg)
- 
- ## pour toutes les colonnes qui commence par le même spagg = les memes premiere lettre et don ces premières lettres sont dans spagg to keep faire 
- ##la moyenne et l'erreur standard entre parenthèse. Pour connaitre pas combien diviser pour faire la moyenne il y a des subtilités. Déjà pour faire la moyenne d'un composé pour cet spagg il faut que ce couple spagg/ compound soit dans times_compound_sp  ou il y a une colonne spagg et une colonne compounds. 
- ## pour savoir par combien diviser, pour les class %in% ("Sesquiterpenes", "Oxygenated-sesquiterpenes") prendre seulement le nombre de samples fait en 2025
- ## pour le reste des class il faut diviser par le total_samples_species de times_compound_sp pour ce couple espèce composé 
+  extract_spagg <- function(col_name) {substr(col_name, 1, 4)}
   
- # Fonction pour extraire le préfixe spagg d'un nom de colonne
- extract_spagg <- function(col_name) {
-   # Supprimer l'extension .cdf et prendre les 4 premières lettres
-   base_name <- sub("\\.cdf$", "", col_name)
-   substr(base_name, 1, 4)
- }
- 
- # Fonction pour calculer la moyenne et l'erreur standard pour un spagg donné
- calculate_mean_se <- function(compound_row, spagg, compound_name) {
-   # Trouver les colonnes correspondant au spagg
-   spagg_cols <- names(compound_row)[sapply(names(compound_row), function(x) extract_spagg(x) == spagg)]
+  # Fonction pour calculer la moyenne et l'erreur standard pour un spagg donné
+  calculate_mean_se <- function(compound_row, spagg, compound_name, include_se) {
+    # Trouver les colonnes correspondant au spagg
+    spagg_cols <- names(compound_row)[sapply(names(compound_row), function(x) extract_spagg(x) == spagg)]
+    
+    values <- as.numeric(compound_row[spagg_cols])
    
-   if (length(spagg_cols) == 0) {
-     return(NA)
-   }
-   
-   # Extraire les valeurs pour ces colonnes
-   values <- as.numeric(compound_row[spagg_cols])
-   
-   # Obtenir la classe du composé
-   compound_class <- compound_row$class
-   
-   # Trouver le nombre d'échantillons pour la division
-   if (compound_class %in% c("Sesquiterpenes", "Oxygenated-sesquiterpenes")) {
-     # Pour ces classes, utiliser seulement les échantillons de 2025
-     # Vous devrez peut-être adapter cette logique selon vos données
-     n_samples <- length(spagg_cols)  # À adapter selon vos critères 2025
-   } else {
-     # Pour les autres classes, utiliser total_samples_species de times_compound_sp
-     species_compound_info <- times_compound_sp[
-       times_compound_sp$spagg == spagg & times_compound_sp$compound == compound_name,
-     ]
-     
-     if (nrow(species_compound_info) > 0) {
-       n_samples <- species_compound_info$total_samples_species[1]
-     } else {
-       n_samples <- length(spagg_cols)  # Valeur par défaut
-     }
-   }
-   
-   # Calculer la moyenne
-   mean_val <- mean(values, na.rm = TRUE)
-   
-   # Calculer l'erreur standard
-   se_val <- sd(values, na.rm = TRUE) / sqrt(n_samples)
-   
-   # Formater le résultat : moyenne (erreur standard)
-   if (is.na(mean_val) || is.na(se_val)) {
-     return(NA)
-   } else {
-     return(paste0(round(mean_val, 3), " (", round(se_val, 3), ")"))
-   }
- }
- 
- # Créer un nouveau dataframe pour les résultats
- result_df <- df[, c("compound", "smiles", "class", "inchikey")]
- 
- # Pour chaque spagg à conserver, calculer la moyenne et SE
- for (spagg in spagg_to_keep) {
-   spagg_results <- character(nrow(df))
-   
-   for (i in 1:nrow(df)) {
-     spagg_results[i] <- calculate_mean_se(df[i, ], spagg, df$compound[i])
-   }
-   
-   result_df[[paste0("mean_", spagg)]] <- spagg_results
- }
- 
- result <- result_df |>  dplyr::filter(!dplyr::if_all(5:50, ~ is.na(.)))
- return(result)
+    compound_class <- compound_row$class
+    
+    # Trouver le nombre d'échantillons pour la division
+    if (compound_class %in% c("Sesquiterpenes", "Oxygenated-sesquiterpenes")) {
+      # Pour ces classes, utiliser seulement les échantillons de 2025
+      sample_cols_2025 <- spagg_cols[sapply(spagg_cols, is_2025_sample)]
+      n_samples <- length(sample_cols_2025)  
+    } else {
+      # Pour les autres classes, utiliser total_samples_species de times_compound_sp
+      species_compound_info <- times_compound_sp[
+        times_compound_sp$spagg == spagg & times_compound_sp$compound == compound_name,
+      ]
+      
+      if (nrow(species_compound_info) > 0) {
+        n_samples <- species_compound_info$total_samples_species[1]
+      } else {
+        n_samples <- length(spagg_cols)  # Valeur par défaut
+      }
+    }
+    
+    # Calculer la moyenne
+    mean_val <- mean(values, na.rm = TRUE)
+    
+    # Calculer l'erreur standard
+    se_val <- sd(values, na.rm = TRUE) / sqrt(n_samples)
+    
+    # Formater le résultat selon l'option include_se
+    if (is.na(mean_val) || is.na(se_val)) {
+      return(NA)
+    } else {
+      if (include_se) {
+        return(paste0(round(mean_val, 3), " (", round(se_val, 3), ")"))
+      } else {
+        return(round(mean_val, 3))
+      }
+    }
+  }
+  
+  # Créer un nouveau dataframe pour les résultats
+  result_df <- df[, c("compound", "smiles", "class", "inchikey")]
+  
+  # Pour chaque spagg à conserver, calculer la moyenne et SE
+  for (spagg in spagg_to_keep) {
+    spagg_results <- character(nrow(df))
+    
+    for (i in 1:nrow(df)) {
+      spagg_results[i] <- calculate_mean_se(df[i, ], spagg, df$compound[i], include_se)
+    }
+    
+    result_df[[paste0("mean_", spagg)]] <- spagg_results
+  }
+  
+  result <- result_df |>  dplyr::filter(!dplyr::if_all(5:50, ~ is.na(.)))
+  return(result)
 }

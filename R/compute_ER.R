@@ -85,7 +85,7 @@ area_to_quanti_mono<- function(paradise_reports_sbtr_blanks_list, calib_quanti, 
     
     standards <- calib_slope$fingerdist
     
-    dist <- as.data.frame(chemodiv::compDis(paradise_report)) |> 
+    dist <- as.data.frame(chemodiv::compDis(paradise_report, type = "PubChemFingerprint" )) |> 
       dplyr::select(dplyr::all_of(standards))
     dist$fingerdist <- apply(dist, 1, function(x) {
       names(x)[which.min(x)]
@@ -168,8 +168,8 @@ compute_ER <- function(paradise_reports_quanti_list, bvocs_samples, calib_quanti
           
           
           # Transform the value using the given formula
-          # quantité *60 = flow entrant en heure / biomasse * Temps échantillonnage en heure ( )
-          paradise_report[i, sample] <- paradise_report[i, sample] * 60 / leaves_dm * 0.25 * 6
+          # quantité *60 = flow entrant en heure / biomasse * Temps échantillonnage en heure ( ) * flow sortant en heure
+          paradise_report[i, sample] <- paradise_report[i, sample] * 60 / leaves_dm * sampling_duration * 6
         }
       }
     }

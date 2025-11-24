@@ -131,8 +131,20 @@ list(
  tar_target(mono_std_T_bourtsou,  readxl::read_excel(mono_std_T_bourtsou_file)),
  tar_target(mono_std_iso_file, here::here("outputs", "comparison_mono_std", "ER_mono_TG93.xlsx" ), format = "file"),
  tar_target(mono_std_iso,  readxl::read_excel(mono_std_iso_file)),
- 
- 
+
+ # Utilisation dans le pipeline targets
+ # tar_target(comparison_pipeline, {
+ #   compare_compound_means_pipeline(
+ #     compounds_list = list(
+ #       mono_std_T = mono_std_T,
+ #       mono_std_T_bourtsou = mono_std_T_bourtsou,
+ #       mono_std_iso = mono_std_iso
+ #     ),
+ #     valid_samples_mono = valid_samples_mono,
+ #     times_compound_sp = times_compound_sp
+ #   )
+ # }),
+ # 
  
  
  
@@ -223,15 +235,16 @@ list(
 
   tar_target(compounds_table, plyr::rbind.fill(fusionner_listes(paradise_reports_iso_ER), fusionner_listes(paradise_reports_mono_ER)) |>  apply_unknown_compounds()),
 #se sont des ng.g-1.h-1
-  tar_target(compounds_table_standardized, standardisation_whole_compounds_table (bvocs_samples, compounds_table)),
+  tar_target(compounds_table_standardized, standardisation_whole_compounds_table(bvocs_samples, compounds_table)),
 #se sont des µg.g-1.h-1
 
 
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
 
+  tar_target(compound_mean_spagg, compound_mean_sp(compounds_table_standardized[[1]], valid_samples_mono, times_compound_sp)),
+  tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp)),
 
-
-  tar_target(field_EF ,  merge_datasets (compounds_table, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
+  tar_target(field_EF ,  merge_datasets (compounds_table_standardized[[1]], bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
