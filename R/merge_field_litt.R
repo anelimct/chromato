@@ -106,25 +106,28 @@ merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, p
   #samples pour lesquels les mono ont été analysés (.cdf)
   rows_to_plot <- names( fusionner_listes(paradise_reports_mono_ER))[grepl("^[a-zA-Z]{4}_", names( fusionner_listes(paradise_reports_mono_ER)))] 
   #samples qui repectect les condition <43 °C , PAR min (pas.cdf avec des majuscules)
-  rows_to_keep <- valid_samples_mono$ID
+  rows_to_keep <- valid_samples_mono$ID |>  stringr::str_to_lower() |>  stringr::str_c(".cdf")
+  
+  rows_valid <- valid_samples_mono$ID
   
   df <- compounds_table
   colonnes_samples <- names( df)[grepl("^[a-zA-Z]{4}_", names( df))]
   
+  ## Dans df ily y a donc les quantités en µg.g-1.h-1 std pour chaque class, pour chaque échantillons, les sommes sont faites avec les singletons
   df <- compounds_table |> dplyr::group_by(class) |> dplyr::summarise(dplyr::across(tidyselect::all_of(colonnes_samples), ~ sum(as.numeric(.x), na.rm = TRUE),
              .names = "{.col}")) |> dplyr::ungroup() |>    tidyr::pivot_longer(cols = -class,names_to = "sample",values_to = "value"
     ) |> tidyr::pivot_wider(names_from = class,values_from = value) |> 
-    dplyr::filter(sample %in% rows_to_plot) |> dplyr::mutate(ID = stringr::str_replace(sample, ".cdf", "")) |> dplyr::mutate(ID = stringr::str_to_upper(ID)) 
+    dplyr::filter(sample %in% rows_to_keep) |> dplyr::mutate(ID = stringr::str_replace(sample, ".cdf", "")) |> dplyr::mutate(ID = stringr::str_to_upper(ID)) 
     
   cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
                 "PAR.milieu.2",  "PAR.milieu.3", "PAR.milieu.4",  "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1",     "PAR.fin.2")
-  
+
   bvocs_samples_ER <- merge(bvocs_samples, df, by = "ID") |> dplyr::filter(!is.na(Leaves_DM)) |>    dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(PAR_algo = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |> 
     dplyr::mutate(mean_T = purrr::map_dbl(values_T_in, ~ mean(.x))) |> dplyr::mutate(T_algo_K = mean_T + 273,15) |> 
-    dplyr::select(ID, Monoterpenes, Isoprene, Taxon, PAR_algo, T_algo_K ) |>  tidyr::pivot_longer(cols = c(Isoprene, Monoterpenes),names_to = "Compound",values_to = "Emission") |> dplyr::mutate(Standardized = FALSE) |> dplyr::mutate(Compound = stringr::str_to_lower(Compound))
+    dplyr::select(ID, Monoterpenes, Isoprene, Taxon, PAR_algo, T_algo_K ) |>  tidyr::pivot_longer(cols = c(Isoprene, Monoterpenes),names_to = "Compound",values_to = "Emission") |> dplyr::mutate(Standardized = TRUE) |> dplyr::mutate(Compound = stringr::str_to_lower(Compound))
   
-  data_mono <- bvocs_samples_ER |>  dplyr::filter(Compound == "Monoterpenes")
-  data_iso <- bvocs_samples_ER |>  dplyr::filter(Compound == "Isoprene")
+  data_mono <- bvocs_samples_ER |>  dplyr::filter(Compound == "monoterpenes")
+  data_iso <- bvocs_samples_ER |>  dplyr::filter(Compound == "isoprene")
   
   plot_mono <- ggplot(data_mono) + 
     aes(x = T_algo_K - 273,15, y = Emission)+
@@ -134,8 +137,9 @@ merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, p
     aes(x = T_algo_K - 273,15, y = Emission)+
     geom_point(color = "blue", size = 2, alpha = 0.7)
   
-  bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_to_keep ) |>  apply_standardization() |>  dplyr::mutate(EF = ES_iso_G93) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K  ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_")) |> dplyr::mutate(EF = EF/1000)
+  bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_valid ) |>  dplyr::mutate(EF = Emission) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K  ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_"))
   
+  ## bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_to_keep ) |>  apply_standardization() |>  dplyr::mutate(EF = ES_iso_G93) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K  ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_")) |> dplyr::mutate(EF = EF/1000)
   
 }
 

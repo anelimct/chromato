@@ -9,14 +9,55 @@ plot_compare_standardisation <- function(compounds_table_standardized, valid_sam
   all_samples_T_L <- compounds_table_standardized[[2]]
   all_samples_T_bourtsou <- compounds_table_standardized[[4]]
   
-  bvocs_samples<- bvocs_samples |> dplyr::select()
+  cols_PAR <- c("PAR.début.1", "PAR.début.2", "PAR.milieu.1",     
+                "PAR.milieu.2", "PAR.milieu.3", "PAR.milieu.4", "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1", "PAR.fin.2")
+  
+  bvocs_samples<- bvocs_samples |> dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  
+    dplyr::mutate(PAR_algo = rowMeans(dplyr::across(all_of(cols_PAR)), na.rm = TRUE)) |> 
+    dplyr::mutate(mean_T = purrr::map_dbl(values_T_in, ~ mean(.x))) |>  dplyr::filter(Taxon != "BLANC") |>  dplyr::mutate(sample = stringr::str_c(stringr::str_to_lower(ID), ".cdf")) |>  dplyr::select(sample, PAR_algo, mean_T)
     ## la il faudrait avant faire la colonne mean PAR et mean T qui je en sais pas pourquoi je la refait a chaque fois et je en l'enregistre jamais dans le target c'est insuportable
 
-  all_samples_T_sum <- sum_byclass(compounds_table_standardized[[3]]) |>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission")
-  all_samples_T_L_sum <- sum_byclass(compounds_table_standardized[[2]])|>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission")
-  all_samples_T_bourtsou_sum <- sum_byclass(compounds_table_standardized[[4]])|>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission")
+  all_samples_T_sum <- sum_byclass(compounds_table_standardized[[3]]) |>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission") |> dplyr::left_join(bvocs_samples)
+  all_samples_T_L_sum <- sum_byclass(compounds_table_standardized[[2]])|>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission")|> dplyr::left_join(bvocs_samples)
+  all_samples_T_bourtsou_sum <- sum_byclass(compounds_table_standardized[[4]])|>  tidyr::pivot_longer(cols = 2:305, names_to = "sample", values_to = "Emission")|> dplyr::left_join(bvocs_samples)
   
- 
+  # Créer le plot horizontal
+  plot_1 <- ggplot(all_samples_T_sum, aes(x = PAR_algo, y = Emission, color = class)) +
+    geom_point(position = "jitter", alpha = 0.8) +
+    scale_fill_manual(
+      values = c("Monoterpenes" = "steelblue", 
+                 "Oxygenated-monoterpenes" = "darkorange")
+    ) +
+    labs(
+      title = "Emission standardisées en fonction du PAR de l'échantillon",
+      x = "PAR",
+      y = "Emission std",
+      fill = "Classe"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    )
+  
+  
+  
+  
+  plot_2 <- ggplot(all_samples_T_sum, aes(x = mean_T, y = Emission, color = class)) +
+    geom_point(position = "jitter", alpha = 0.8) +
+    scale_fill_manual(
+      values = c("Monoterpenes" = "steelblue", 
+                 "Oxygenated-monoterpenes" = "darkorange")
+    ) +
+    labs(
+      title = "Emission standardisées en fonction de la température de l'échantillon",
+      x = "Température",
+      y = "Emission std ",
+      fill = "Classe"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top"
+    )
 
   
   

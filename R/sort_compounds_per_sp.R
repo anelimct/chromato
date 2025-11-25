@@ -201,25 +201,33 @@ is_2025_sample <- function(col_name) {
 }
 
 
-
 compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound_sp, include_se = TRUE){
   
-  cols_to_keep <- valid_samples_mono$ID |>  stringr::str_to_lower() |> stringr::str_c( ".cdf", sep="") |>
+  cols_to_keep <- valid_samples_mono$ID |> stringr::str_to_lower() |> stringr::str_c(".cdf", sep = "") |>
     (\(x) x[grepl("^[a-zA-Z]{4}_", x)])()
   
-  df <- compounds_table |>  dplyr::select( any_of( c("compound", "smiles",  "class" , "inchikey", paste0(cols_to_keep))))
+  df <- compounds_table |> dplyr::select(any_of(c("compound", "smiles", "class", "inchikey", paste0(cols_to_keep))))
   
   spagg_to_keep <- unique(times_compound_sp$spagg)
   
-  extract_spagg <- function(col_name) {substr(col_name, 1, 4)}
+  # Helper function to check if sample is from 2025
+  is_2025_sample <- function(sample_name) {
+    # Adjust this logic based on how 2025 samples are identified in your data
+    grepl("2025", sample_name) || grepl("25_", sample_name)
+  }
   
   # Fonction pour calculer la moyenne et l'erreur standard pour un spagg donné
-  calculate_mean_se <- function(compound_row, spagg, compound_name, include_se) {
+  calculate_mean_se <- function(compound_row, spagg, compound_name, include_se, times_compound_sp) {
     # Trouver les colonnes correspondant au spagg
-    spagg_cols <- names(compound_row)[sapply(names(compound_row), function(x) extract_spagg(x) == spagg)]
+    spagg_cols <- names(compound_row)[grepl(paste0("^", spagg), names(compound_row))]
+    
+    # If no columns found, return NA
+    if (length(spagg_cols) == 0) {
+      return(NA)
+    }
     
     values <- as.numeric(compound_row[spagg_cols])
-   
+    
     compound_class <- compound_row$class
     
     # Trouver le nombre d'échantillons pour la division
@@ -229,22 +237,34 @@ compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound
       n_samples <- length(sample_cols_2025)  
     } else {
       # Pour les autres classes, utiliser total_samples_species de times_compound_sp
-      species_compound_info <- times_compound_sp[
-        times_compound_sp$spagg == spagg & times_compound_sp$compound == compound_name,
-      ]
+      species_compound_info <- times_compound_sp |> 
+        dplyr::filter(spagg == !!spagg, compound == !!compound_name)
       
-      if (nrow(species_compound_info) > 0) {
-        n_samples <- species_compound_info$total_samples_species[1]
+      # Check if we found matching info
+      if (nrow(species_compound_info) == 0) {
+        n_samples <- length(spagg_cols)  # fallback to number of columns
       } else {
-        n_samples <- length(spagg_cols)  # Valeur par défaut
+        n_samples <- species_compound_info$total_samples_species[1]
       }
     }
     
+    # Ensure n_samples is valid
+    if (is.na(n_samples) || n_samples == 0) {
+      return(NA)
+    }
+    
+    # Remove NA values before calculation
+    valid_values <- values[!is.na(values)]
+    
+    if (length(valid_values) == 0) {
+      return(NA)
+    }
+    
     # Calculer la moyenne
-    mean_val <- mean(values, na.rm = TRUE)
+    mean_val <- sum(valid_values, na.rm = TRUE) / n_samples
     
     # Calculer l'erreur standard
-    se_val <- sd(values, na.rm = TRUE) / sqrt(n_samples)
+    se_val <- sd(valid_values, na.rm = TRUE) / sqrt(n_samples)
     
     # Formater le résultat selon l'option include_se
     if (is.na(mean_val) || is.na(se_val)) {
@@ -266,12 +286,21 @@ compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound
     spagg_results <- character(nrow(df))
     
     for (i in 1:nrow(df)) {
-      spagg_results[i] <- calculate_mean_se(df[i, ], spagg, df$compound[i], include_se)
+      spagg_results[i] <- calculate_mean_se(df[i, ], spagg, df$compound[i], include_se, times_compound_sp)
     }
     
     result_df[[paste0("mean_", spagg)]] <- spagg_results
   }
   
-  result <- result_df |>  dplyr::filter(!dplyr::if_all(5:50, ~ is.na(.)))
+  # FIXED: Use dynamic column selection instead of hard-coded indices
+  mean_cols <- grep("^mean_", names(result_df), value = TRUE)
+  
+  if (length(mean_cols) > 0) {
+    result <- result_df |> 
+      dplyr::filter(!dplyr::if_all(dplyr::all_of(mean_cols), ~ is.na(.)))
+  } else {
+    result <- result_df
+  }
+  
   return(result)
 }
