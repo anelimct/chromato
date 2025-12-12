@@ -213,8 +213,8 @@ mark_values <- function(er_list, paradise_reports_list, lod_3x = 193500, lod_10x
     # Appliquer les seuils
     for (col in sample_cols) {
       # Remplacer les valeurs ER selon les seuils des données brutes
-      marked_data[[col]] <- ifelse(raw_data[[col]] < lod_3x, "nd",
-                                   ifelse(raw_data[[col]] < lod_10x, "tr", 
+      marked_data[[col]] <- ifelse(raw_data[[col]] < lod_3x, "nd", #nd
+                                   ifelse(raw_data[[col]] < lod_10x, "tr", #tr
                                           marked_data[[col]]))
       
     }

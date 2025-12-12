@@ -75,6 +75,8 @@ list(
   
   tar_target(woodiv_species_file, here::here("data", "WOODIV_DB_release_v2", "SPECIES",  "WOODIV_v2_Species_code.csv"), format = "file"), 
   tar_target(woodiv_species, utils::read.csv(woodiv_species_file)),
+  tar_target(woodiv_trait_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS",  "WOODIV_v2_Trait_data.csv"), format = "file"), 
+  tar_target(woodiv_trait, utils::read.csv(woodiv_trait_file, header = TRUE)),
 
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))), 
 
@@ -215,13 +217,34 @@ list(
 
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
 
-  tar_target(compound_mean_spagg, compound_mean_sp(compounds_table_standardized[[1]], valid_samples_mono, times_compound_sp,  include_se = TRUE)),
-  tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
+  tar_target(compound_mean_spagg, compound_mean_sp(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
+  #tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
   tar_target(field_EF ,  merge_datasets(compounds_table_standardized[[1]], bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
+
+##Screening paper
+tar_target(
+  sp_screening, times_compound_sp |>
+    dplyr::distinct(spagg = stringr::str_to_upper(spagg)) |>
+    dplyr::left_join(
+      woodiv_species |>
+        dplyr::distinct(spagg, .keep_all = TRUE),
+      by = "spagg"
+    )),
+
+tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
+
+
+tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) ),
+
+tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |> create_compound_boxplots ( "value", save_plots = TRUE, save_dir = NULL)),
+
+
+
+
 
 
 

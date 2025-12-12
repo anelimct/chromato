@@ -304,3 +304,182 @@ compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound
   
   return(result)
 }
+
+compounds_samples_spagg_to_keep <- function(compounds_table, valid_samples_mono, times_compound_sp) {
+  
+  # Récupérer les spagg à garder
+  spagg_to_keep <- unique(times_compound_sp$spagg)
+  
+  # Créer un pattern regex pour les spagg à garder
+  spagg_pattern <- paste0("^(", paste(spagg_to_keep, collapse = "|"), ")_")
+  
+  # Filtrer les échantillons valides qui commencent par un spagg_to_keep
+  filtered_sample_ids <- valid_samples_mono$ID |> 
+    stringr::str_to_lower() |> 
+    stringr::str_c(".cdf") |>
+    stringr::str_subset(spagg_pattern)
+  
+  # Colonnes à garder
+  cols_to_keep <- c("compound", "smiles", "class", "inchikey", filtered_sample_ids)
+  
+  # Filtrer le dataframe
+  result_df <- compounds_table |> 
+    dplyr::select(dplyr::any_of(cols_to_keep))
+  
+  # Enlever les lignes avec seulement des NAs dans les colonnes d'échantillons
+  sample_cols <- setdiff(names(result_df), c("compound", "smiles", "class", "inchikey"))
+  
+  if (length(sample_cols) > 0) {
+    result_df <- result_df |> 
+      dplyr::filter(dplyr::if_any(dplyr::all_of(sample_cols), ~ !is.na(.)))
+  }
+  
+  return(result_df)
+}
+
+## put 0 for a compound in a sample if this compound is a singelton = not found in at least 50% of samples
+
+compounds_tabled_zeroed <- function(compounds_table, times_compound_sp) {
+  # Extraire les couples espèce-composé valides
+  valid_compounds_sp <- times_compound_sp %>%
+    dplyr::select(spagg, compound) %>%
+    dplyr::distinct()
+  
+  # Identifier les colonnes d'échantillons
+  sample_cols <- names(compounds_table)[grepl("^[a-zA-Z]{4}_", names(compounds_table))]
+  
+  # Appliquer le filtrage pour chaque colonne échantillon
+  filtered_table <- compounds_table
+  
+  for(sample_col in sample_cols) {
+    species_code <- substr(sample_col, 1, 4)
+    
+    valid_compounds <- valid_compounds_sp %>%
+      dplyr::filter(spagg == species_code) %>%
+      dplyr::pull(compound)
+    
+    if(length(valid_compounds) > 0) {
+      filtered_table <- filtered_table %>%
+        dplyr::mutate(
+          !!sample_col := ifelse(compound %in% valid_compounds, 
+                                 .data[[sample_col]],  # Garder la valeur d'origine
+                                 NA)                   # Mettre NA si non valide
+        )
+    } else {
+      filtered_table[[sample_col]] <- NA
+    }
+  }
+  
+  return(filtered_table)
+}
+
+
+
+
+# Fonction pour calculer les sommes par classe avec écart-type
+calculate_class_sums <- function(result_df, include_se = TRUE) {
+  
+  # Fonction pour extraire la moyenne et le SE des chaînes formatées
+  extract_mean_se <- function(x) {
+    if (is.na(x) || x == "NA") {
+      return(list(mean = NA, se = NA))
+    }
+    # Extraire la moyenne (premier nombre avant l'espace et parenthèse)
+    mean_val <- as.numeric(stringr::str_extract(x, "^[-+]?[0-9]*\\.?[0-9]+"))
+    
+    # Extraire l'erreur standard (nombre entre parenthèses)
+    se_match <- stringr::str_match(x, "\\(([-+]?[0-9]*\\.?[0-9]+)\\)")
+    se_val <- ifelse(is.na(se_match[1,2]), NA, as.numeric(se_match[1,2]))
+    
+    return(list(mean = ifelse(is.na(mean_val), 0, mean_val), 
+                se = se_val))
+  }
+  
+  # Identifier les colonnes de moyenne
+  mean_cols <- grep("^mean_", names(result_df), value = TRUE)
+  
+  # Créer un dataframe temporaire pour les calculs
+  temp_df <- result_df[, c("class", mean_cols)]
+  
+  # Extraire les valeurs numériques pour chaque colonne
+  for (col in mean_cols) {
+    extracted_vals <- lapply(temp_df[[col]], extract_mean_se)
+    temp_df[[paste0("mean_", col)]] <- sapply(extracted_vals, function(x) x$mean)
+    temp_df[[paste0("se_", col)]] <- sapply(extracted_vals, function(x) x$se)
+  }
+  
+  # Colonnes extraites pour les moyennes et SE
+  mean_extracted_cols <- grep("^mean_mean_", names(temp_df), value = TRUE)
+  se_extracted_cols <- grep("^se_mean_", names(temp_df), value = TRUE)
+  
+  # Calculer la somme des moyennes par classe
+  class_sums <- temp_df %>%
+    dplyr::group_by(class) %>%
+    dplyr::summarise(
+      dplyr::across(
+        all_of(mean_extracted_cols),
+        ~sum(., na.rm = TRUE),
+        .names = "sum_{.col}"
+      )
+    )
+  
+  # Calculer l'erreur standard de la somme (propagation d'erreur)
+  class_se_sums <- temp_df %>%
+    dplyr::group_by(class) %>%
+    dplyr::summarise(
+      dplyr::across(
+        all_of(se_extracted_cols),
+        ~sqrt(sum(.^2, na.rm = TRUE)),  # Propagation d'erreur pour la somme
+        .names = "se_{.col}"
+      )
+    )
+  
+  # Fusionner les résultats
+  class_results <- class_sums %>%
+    dplyr::left_join(class_se_sums, by = "class")
+  
+  # Formater les résultats
+  result_class <- data.frame(class = class_results$class)
+  
+  # Extraire les noms des espèces à partir des noms de colonnes
+  species_names <- stringr::str_remove(mean_cols, "^mean_")
+  
+  for (species in species_names) {
+    sum_col <- paste0("sum_mean_mean_", species)
+    se_col <- paste0("se_se_mean_", species)
+    
+    sums <- class_results[[sum_col]]
+    ses <- class_results[[se_col]]
+    
+    formatted_results <- character(length(sums))
+    
+    for (i in seq_along(sums)) {
+      if (is.na(sums[i]) || sums[i] == 0) {
+        formatted_results[i] <- NA
+      } else {
+        if (include_se) {
+          formatted_results[i] <- paste0(round(sums[i], 3), " (", round(ses[i], 3), ")")
+        } else {
+          formatted_results[i] <- round(sums[i], 3)
+        }
+      }
+    }
+    
+    result_class[[paste0("sum_", species)]] <- formatted_results
+  }
+  
+  
+  
+  dir_path <- here::here("outputs", "ER_means")
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE)
+  }
+  
+  # Sauvegarder le tableau
+  file_path <- file.path(dir_path, "means_by_class.xlsx")
+  openxlsx::write.xlsx(result_class, file = file_path)
+  
+  return(result_class)
+  
+  
+}
