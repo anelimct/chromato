@@ -339,10 +339,10 @@ compounds_samples_spagg_to_keep <- function(compounds_table, valid_samples_mono,
 
 ## put 0 for a compound in a sample if this compound is a singelton = not found in at least 50% of samples
 
-compounds_tabled_zeroed <- function(compounds_table, times_compound_sp) {
+compounds_tabled_zeroed_singleton <- function(compounds_table, times_compound_sp) {
   # Extraire les couples espèce-composé valides
-  valid_compounds_sp <- times_compound_sp %>%
-    dplyr::select(spagg, compound) %>%
+  valid_compounds_sp <- times_compound_sp |> 
+    dplyr::select(spagg, compound) |> 
     dplyr::distinct()
   
   # Identifier les colonnes d'échantillons
@@ -354,12 +354,12 @@ compounds_tabled_zeroed <- function(compounds_table, times_compound_sp) {
   for(sample_col in sample_cols) {
     species_code <- substr(sample_col, 1, 4)
     
-    valid_compounds <- valid_compounds_sp %>%
-      dplyr::filter(spagg == species_code) %>%
+    valid_compounds <- valid_compounds_sp |> 
+      dplyr::filter(spagg == species_code) |> 
       dplyr::pull(compound)
     
     if(length(valid_compounds) > 0) {
-      filtered_table <- filtered_table %>%
+      filtered_table <- filtered_table |> 
         dplyr::mutate(
           !!sample_col := ifelse(compound %in% valid_compounds, 
                                  .data[[sample_col]],  # Garder la valeur d'origine

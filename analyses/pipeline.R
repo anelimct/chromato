@@ -217,10 +217,10 @@ list(
 
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
 
-  tar_target(compound_mean_spagg, compound_mean_sp(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
+  tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
   #tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
-  tar_target(field_EF ,  merge_datasets(compounds_table_standardized[[1]], bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")),
+  tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), # ici il y a tooujours les singletons
 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
@@ -238,9 +238,9 @@ tar_target(
 tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
 
 
-tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) ),
+tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) ),
 
-tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |> create_compound_boxplots ( "value", save_plots = TRUE, save_dir = NULL)),
+tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno)),  #create_compound_boxplots ( "value", save_plots = TRUE, save_dir = NULL)
 
 
 

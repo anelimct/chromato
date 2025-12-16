@@ -1,6 +1,6 @@
 # table <- compound_mean_spagg |> dplyr::filter(class %in% c("Isoprene", "Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4))
 # 
-# table_pas_iso <- compound_mean_spagg |> dplyr::filter(class %in% c( "Monoterpenes", "Oxygenated-monoterpenes"))|> dplyr::select(-c(2,3,4))
+#table_pas_iso <- compound_mean_spagg |> dplyr::filter(class %in% c( "Monoterpenes", "Oxygenated-monoterpenes"))|> dplyr::select(-c(2,3,4))
 # 
 #  table_mono_emitters <- compound_mean_spagg |> dplyr::filter(class %in% c( "Monoterpenes", "Oxygenated-monoterpenes"))|> dplyr::select(-c(2,3,4)) |> dplyr::select(-c(
 # "mean_fcar", "mean_acam" , "mean_msyl" ,  "mean_pang", "mean_pavi",
