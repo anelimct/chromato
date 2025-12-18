@@ -240,10 +240,9 @@ tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::
 
 tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) ),
 
-tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno)),  #create_compound_boxplots ( "value", save_plots = TRUE, save_dir = NULL)
+tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |>  create_all_boxplots(trait_col = "value", save_path = here::here("figures", "graphs_screening", "boxplots"), remove_zeros = TRUE, test_emissions = TRUE, apply_log_transform = TRUE, test_richness = TRUE)), 
 
-
-
+tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_smou", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spur") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
 
 
 
