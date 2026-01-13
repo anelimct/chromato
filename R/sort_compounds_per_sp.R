@@ -190,7 +190,7 @@ times_compound_per_species <- function(compounds_table, valid_samples_mono){
       samples_detected, 
       total_samples_species,
       detection_rate
-    ) |>  dplyr::filter(total_samples_species >= 3)|>  dplyr::filter(detection_rate >= 0.5) |>  dplyr::mutate(spagg = stringr::str_to_lower(spagg))
+    ) |>  dplyr::filter(detection_rate >= 0.5) |>  dplyr::mutate(spagg = stringr::str_to_lower(spagg))
 }
 
 

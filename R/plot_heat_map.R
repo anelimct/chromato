@@ -25,61 +25,61 @@ rename_mean_columns <- function(data, sp_screening) {
   }
 
 
-# my_compound_order <- c(
-#   "α-Terpinene",
-#   "Myrcene",
-#   "α-Terpineol",
-#   "γ-Terpinene",
-#   "Limonene",
-#   "Linalool",
-#   "β-Phellandrene",
-#   "3-Carene",
-#   "β-Pinene",
-#   "α-Pinene",
-#   "Camphene",
-#   "β-Ocimene",
-#   "Terpinolene",
-#   "p-Cymene",
-#   "Sabinene",
-#   "1,8-Cineole",
-#   "Camphor",
-#   "2,3,6-Trimethyl-1,5-heptadiene (ACI)",
-#   "Cosmene",
-#   "Isoterpinolene",
-#   "Neoalloocimene",
-#   "Thuja-2,4(10)-diene",
-#   "alpha-Phellandrene",
-#   "p-Cymenene",
-#   "p-Mentha-1,5,8-triene",
-#   "unknown monoterpene 1"
-# )
-# 
-# # Reverse the order
-# my_compound_order <- rev(my_compound_order)
-# 
-# 
-# my_species_order <- c(
-#   # Deciduous angiosperms
-#   "Betula pendula",
-#   "Betula pubescens", 
-#   "Fraxinus angustifolia",
-#   "Fraxinus excelsior",
-#   "Ostrya carpinifolia",
-#   "Sorbus aucuparia",
-#   "Sorbus mougeotii",
-#   "Alnus viridis",
-#   "Salix eleagnos",
-#   "Salix purpurea",
-#   "Vitex agnus-castus",
-#   
-#   # Evergreen broadleaves (angiosperms)
-#   "Quercus crenata",  # Holm oak - evergreen oak
-#   
-#   # Evergreen conifers (gymnosperms)
-#   "Juniperus thurifera",
-#   "Juniperus communis",
-#   "Pinus uncinata"
-# )
+my_compound_order <- c(
+  "α-Terpinene",
+  "Myrcene",
+  "α-Terpineol",
+  "γ-Terpinene",
+  "Limonene",
+  "Linalool",
+  "β-Phellandrene",
+  "3-Carene",
+  "β-Pinene",
+  "α-Pinene",
+  "Camphene",
+  "β-Ocimene",
+  "Terpinolene",
+  "p-Cymene",
+  "Sabinene",
+  "1,8-Cineole",
+  "Camphor",
+  "2,3,6-Trimethyl-1,5-heptadiene (ACI)",
+  "Cosmene",
+  "Isoterpinolene",
+  "Neoalloocimene",
+  "Thuja-2,4(10)-diene",
+  "alpha-Phellandrene",
+  "p-Cymenene",
+  "p-Mentha-1,5,8-triene",
+  "unknown monoterpene 1"
+)
+
+# Reverse the order
+my_compound_order <- rev(my_compound_order)
+
+
+my_species_order <- c(
+  # Deciduous angiosperms
+  "Betula pendula",
+  "Betula pubescens",
+  "Fraxinus angustifolia",
+  "Fraxinus excelsior",
+  "Ostrya carpinifolia",
+  "Sorbus aucuparia",
+  "Sorbus mougeotii",
+  "Alnus viridis",
+  "Salix eleagnos",
+  "Salix pentandra",
+  "Vitex agnus-castus",
+
+  # Evergreen broadleaves (angiosperms)
+  "Quercus crenata",  # Holm oak - evergreen oak
+
+  # Evergreen conifers (gymnosperms)
+  "Juniperus thurifera",
+  "Juniperus communis",
+  "Pinus uncinata"
+)
 
 
 create_bubble_heatmap <- function(table, log_relative_prop = FALSE, 
@@ -303,5 +303,23 @@ proportion_relative <- function(data) {
   return(data_wide)
 }
 
+calculer_somme_terpenes <- function(df) {
+  # Identifier les indices des terpènes
+  indices <- which(df$compound %in% c("α-Terpinene", "Myrcene", "α-Terpineol", 
+                                      "γ-Terpinene", "Limonene", "Linalool", 
+                                      "β-Phellandrene"))
+  
+  # Calculer les sommes
+  sommes_especes <- colSums(df[indices, -1], na.rm = TRUE)
+  total <- sum(sommes_especes)
+  
+  # Retourner les résultats
+  resultats <- data.frame(
+    espece = c(names(sommes_especes), "TOTAL_GENERAL"),
+    somme = c(as.numeric(sommes_especes), total)
+  )
+  
+  return(resultats)
+}
 
 

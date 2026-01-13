@@ -1,6 +1,6 @@
 boxplot_EF <- function (data, tree, field){
   
-  data_select <- data |>  dplyr::select(Taxon, spagg, gragg, EF, Compound, PAR_algo, T_algo_K) |> dplyr::mutate(source = "literature") |> rbind(field)
+  data_select <- data |>  dplyr::select(Taxon, spagg, gragg, EF, Compound, PAR_algo, T_algo_K, Origin_pop) |> dplyr::mutate(source = "literature") |> rbind(field)
   
   data_iso_mono <- data_select|> dplyr::group_by(Taxon) |> dplyr::filter( length(unique(Compound) ) >= 2) |> dplyr::ungroup()
   ## voir pour quelles espèces on n'a pas les deux coumponds

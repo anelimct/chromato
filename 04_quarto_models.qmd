@@ -1,0 +1,358 @@
+---
+title: "modeles_stage"
+format: html
+editor: visual
+---
+
+```{r, warning=FALSE}
+library(tibble)
+library(dplyr)
+library(ape)
+library(geiger)
+library(funspace)
+library(ggplot2)
+library(tidyr)
+library(phyr)
+library(phylosignal)
+library(phylobase)
+library(dendextend)
+library(data.table)
+library(nlme)
+
+```
+
+```{r}
+targets::tar_source(here::here("R/internship_analysis.R"))
+targets::tar_load(imputed.traits_3T)
+targets::tar_load(DB_bvocs_iso_mono_EF)
+targets::tar_load(tree)
+targets::tar_load(woodiv_species)
+
+
+merged_data_3T <-merge_trait_EF(imputed.traits_3T, DB_bvocs_iso_mono_EF)
+imputed.traits_3T <- subset(imputed.traits_3T, select = -SeedMass)
+imputed.traits <-  imputed.traits_3T
+funspaceDim(imputed.traits) #3 dimensions
+imputed.traitsN <- normaliser_dataframe(imputed.traits)
+pca.trait <- princomp(imputed.traitsN, cor=TRUE)
+summary(pca.trait)
+trait_space_global <- funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T$BVOCsData)
+
+
+
+merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE)%>% 
+  column_to_rownames(var = "Row.names")
+```
+
+## Clairement j'ai sorti ça d'où ? c'est pas du tout comme ça, voir seuils Fitsky 2019
+
+```{r}
+breaks <- quantile(merged_data_3T$total, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)
+
+# Assigner les étiquettes "faible", "moyen" et "fort" aux classes
+labels <- c("faible", "moyen", "fort")
+
+# Ajouter une colonne avec les valeurs "faible", "moyen" ou "fort" en fonction de la classe pour la colonne total
+merged_data_3T <- merged_data_3T %>%
+  mutate(total_class = cut(total, breaks = breaks, labels = labels, include.lowest = TRUE))
+```
+
+Intensité des émissions le long de l'arbre
+
+```{r}
+
+#maintenet le tree c'est avec spagg plus name complete il faut changer les rownames de merged data 3T
+
+merged_data_3T <- merged_data_3T |> tibble::rownames_to_column( var = "rowname") |>  dplyr::left_join(woodiv_species, by = c( "rowname"="full_scientific_name" )) |>  tibble::column_to_rownames(var = "gragg") 
+
+ pruned_tree <- drop.tip(tree, setdiff(tree$tip.label, rownames(merged_data_3T)))
+  phylo4_object <- phylobase::phylo4(pruned_tree)
+  
+  # Créer un data.frame avec les résidus et nommer la colonne
+ df <- data.frame(Sum = merged_data_3T$Sum)
+
+# Transférer les noms de ligne depuis 'merged_data_3T' vers 'df'
+rownames(df) <- rownames(merged_data_3T)
+  colnames(df) <- "Sum"
+  
+  # Créer un objet phylo4d avec les résidus
+  phylo4d_object <- phylobase::phylo4d(phylo4_object, tip.data = df)
+  
+  phylosignal::dotplot.phylo4d(phylo4d_object, focusTraits = "Sum", center = FALSE, scale = FALSE)
+ clust <-  phylosignal::graphClust(phylo4d_object,trait = "Sum")
+  print(clust)
+  
+  trait_values <- df$Sum
+```
+
+```{r}
+hist(merged_data_3T$Sum, breaks = 18)
+hist(log(merged_data_3T$Sum+1))
+##model lors du stage log(Sum) ~ Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3 mais la il y a une erreur Erreur dans glsEstimate(glsSt, control = glsEstControl) : l'ajustement "gls" calculé est singulier, de rang 5 
+modele_s <-nlme:: gls(log(Sum+1) ~ Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3 , data = merged_data_3T, method = "REML", na.action = na.omit)
+summary(modele_s)
+hist(modele_s$residuals)
+shapiro.test(modele_s$residuals)
+visreg::visreg(modele_s, "Comp.3", overlay = TRUE, band = TRUE)
+```
+
+```{r}
+Residuals <- as.numeric(modele_s$residuals)
+names(Residuals) <- row.names(dplyr::filter(merged_data_3T, !is.na(Sum)))
+create_residual_correlogram(tree, Residuals)
+```
+
+Soit le model est surparamétré par rapport au nombre d'observations, ou un manque d'observation de certaines intéractions ? **A revoir,** en fait il y avait surtout des 0, enfin 1 UGLA et il ne de vait pas y en avaoir avant, j'ai mis log +1 maintenat il n'y a aplus d'erreur mais il faudrait quand meme revoir ce model
+
+```{r}
+
+
+model_glm_phy <- pglmm_compare( log(Sum+1) ~Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3 , family = "gaussian", phy = tree , data = merged_data_3T, REML = T, na.action(na.omit))
+
+summary(model_glm_phy)
+hist(model_glm_phy$H)
+shapiro.test(model_glm_phy$H)
+rr2::R2( mod = model_glm_phy, phy = tree )
+```
+
+Comme dans pglmm l'ordre des résidus c'est l'ordre des tips
+
+```{r}
+Residuals  <-  as.numeric(model_glm_phy$H)
+
+
+#names(Residuals) <- model_glm_phy$phy$tip.label
+
+
+#create_residual_correlogram(tree, Residuals)
+```
+
+Il y a bien abscence de signal phylo dans les résidus du pglmm_compare ##Test avec le phylm (méthode Lucile)
+
+```{r}
+plm <-phylolm::phylolm(formula = log(Sum+1)  ~ Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3  , data = merged_data_3T, REML = TRUE, phy =tree, model = "BM")
+summary(plm)
+hist(plm$residuals)
+shapiro.test(plm$residuals)
+```
+
+```{r}
+create_residual_correlogram(tree, plm$residuals)
+```
+
+Dans phylomlm ça te retrourne les "raw residuals" = les résidus non corrigés même si les beta du phylolm sont différents des beta gls contraitement à pglmm compare...
+
+On essaye ici de regarder les résidus corrigés du phylolm
+
+```{r}
+install.packages("devtools")
+library(devtools)
+install_github("glmgen/genlasso")
+install_github("khabbazian/l1ou")
+library(l1ou)
+library(DHARMa)
+
+plm_boot <-phylolm(formula = log(Sum)  ~ Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3  , data = merged_data_3T, REML = TRUE, phy =tree, boot = 250)
+fitted <- plm_boot$fitted.values
+sim_resp <- as.matrix(plm_boot$bootstrap)
+#moyenne des boot
+int_resp <- apply(plm_boot$bootstrap,1,mean)
+obs_resp <- plm_boot$bootstrap
+plm_boot$vcov
+# Get model residual of the model corrected for phylogeny
+library(l1ou)
+
+inv_corr<-sqrt_OU_covariance(pruned_tree)$sqrtInvSigma
+inv_corr<-as.matrix(nearPD(inv_corr, corr=F, base.matrix = T)$mat)
+
+dharmaRes_cov <- DHARMa::createDHARMa(simulatedResponse = sim_resp,
+                                      integerResponse = F,
+                                      observedResponse = obs_resp,
+                                      fittedPredictedResponse = fitted,
+                                      rotation = inv_corr)
+
+
+res_cov <-as.data.frame(dharmaRes_cov$scaledResiduals)
+rownames(res_cov) <- names(dharmaRes_cov$fittedPredictedResponse)
+colnames(res_cov) <- "Residuals"
+
+```
+
+## pglmm_compare selection de model
+
+Step one
+
+```{r}
+# Run the model and summary
+model_glm_phy <- pglmm_compare( log(Sum) ~ Comp.2+ Comp.3 , family = "gaussian", phy = tree , data = merged_data_3T, REML = T)
+summary(model_glm_phy)
+R2(model_glm_phy)
+hist(model_glm_phy$H)
+shapiro.test(model_glm_phy$H)
+```
+
+```{r}
+qqnorm(model_glm_phy$H) 
+qqline(model_glm_phy$H)
+```
+
+Residuals vs fitted
+
+```{r}
+Coeff <- as.vector(model_glm_phy$B)
+Residuals  <-  as.numeric(model_glm_phy$H)
+names(Residuals) <- model_glm_phy$phy$tip.label
+
+
+df_residuals <- merged_data_3T %>%
+  mutate(data = log(Sum)) %>%
+  mutate(predict = Coeff[1] + Coeff[2]* Comp.2 + Coeff[3]*Comp.3) %>% 
+  merge(Residuals, by = "row.names") %>% 
+  rename(residuals= y) %>%
+  column_to_rownames(var = "Row.names")
+ 
+
+plot(df_residuals$residuals~df_residuals$predict, col = as.factor(df_residuals$type), pch = 19 ) + legend("topright", 
+       legend = levels(as.factor(df_residuals$type)), 
+       col = 1:length(levels(as.factor(df_residuals$type))), 
+       pch = 19,
+       title = "Type")
+
+plot(df_residuals$residuals  ~ as.factor(merged_data_3T$type),
+     xlab = "Type",
+     ylab = "Residuals")
+
+
+```
+
+```{r}
+y1 <- expression(Log~sum(Isoprenoids)~"("~µg~g^-1~h^-1~")")
+
+# Plot the data points and the curve
+ggplot(df_residuals, aes(x = Comp.2, y = log(Sum))) +
+  geom_point() +
+  geom_abline(slope = -0.43542, intercept = 0.90207, color = "red") +
+  geom_ribbon(aes(ymin=(0.90207 + (-0.43542 - 1.96 * 0.24064) * Comp.2), ymax=(0.90207 + (-0.43542 + 1.96 * 0.24064) * Comp.2), x=Comp.2, fill = "band"), alpha = 0.3)+
+  labs(x = "PC2", y = y1) +
+  theme_minimal()
+```
+
+Test 1 intervalles de confiance
+
+```{r}
+y1 <- expression(Log~sum(Isoprenoids)~"("~µg~g^-1~h^-1~")")
+
+ggplot(df_residuals, aes(x = Comp.3, y = log(Sum))) +
+  geom_point() +
+  geom_abline(slope = 0.66007, intercept = 0.90207, color = "red") +
+  geom_ribbon(aes(ymin=(0.90207 + (0.66007 - 1.96 * 0.26866) * Comp.3 ), ymax=(0.90207 + (0.66007 + 1.96 * 0.26866) * Comp.3 ), x=Comp.3, fill = "band"), alpha = 0.3)+
+  labs(x = "PC3", y = y1) +
+  theme_minimal()
+```
+
+Test 2 IC methodes décrite dans visereg (bizarre le sens du calcul matriciel comme dans visereg ne conctionne pas, pas dans le bon sens pour que lignes colonnes pour que les matrices puissent être multipliées)
+
+```{r}
+
+ y1 <- expression(Log~sum(Isoprenoids)~"("~µg~g^-1~h^-1~")")
+mm <- model.matrix(~ Comp.2 + Comp.3,
+                   data = df_residuals)
+
+vars <- mm %*%  model_glm_phy$B.cov %*% t(mm)
+
+
+sds <- sqrt(diag(vars))
+
+df_residuals$LoCI.man <- df_residuals$predict- 1.96 * sds
+df_residuals$UpCI.man <- df_residuals$predict + 1.96 * sds
+
+ggplot(df_residuals, aes(x = Comp.3, y = 0.66007 * Comp.3 + Residuals -0.43542 *median(merged_data_3T$Comp.2)+0.90207 )) +
+  geom_point() +
+  geom_abline(slope = 0.66007, intercept = 0.90207, color = "red") +
+   geom_ribbon(aes(ymin = LoCI.man, ymax = UpCI.man), alpha = 0.3, fill = "blue") +
+  labs(x = "PC3", y = y1)+ 
+  theme_minimal()
+```
+
+```{r}
+type_labels <- c("both" = "Both", "mono" = "Monoterpenes", "iso" = "Isoprene", "NE" ="NE")
+viridis_colors <- c("#da6484", "#3764da", "#70c230", "#FDE725FF")
+
+# Convertir 'type' en facteur avec les étiquettes définies
+df_residuals$type <- factor(df_residuals$type, levels = names(type_labels), labels = type_labels)
+
+# Plot avec ggplot2
+ggplot(df_residuals, aes(x = StemSpecDens, y = HeightMax, color = type, size = Sum)) +
+  geom_point(shape = 19) +  # Type de point : cercle plein
+  scale_color_manual(values = viridis_colors) +  # Couleurs définies
+  scale_size_continuous(range = c(1, 10)) +  # Échelle de taille des points
+  labs(
+    x = "Stem Specific Density",
+    y = "Maximum Height",
+    color = "Type",
+    size = "Sum"
+  ) +
+  theme_minimal() +  # Thème minimal
+  guides(color = guide_legend(title = "Type"), size = guide_legend(title = "Sum"))  # Légendes pour couleur et taille
+```
+
+```{r}
+model_glm_phy <- pglmm_compare(binaire ~ Comp.1 + Comp.2, family = "binomial", phy = tree , data = merged_data_3T, REML = TRUE)
+summary(model_glm_phy)
+
+glm <- glm(binaire ~ Comp.1 + Comp.2 , family = "binomial"(link = "logit"), data = merged_data_3T)
+summary(glm)
+
+
+model_glm_phy <- pglmm_compare(binaire ~ Comp.2 + Comp.3, family = "binomial", phy = tree , data = merged_data_3T, REML = TRUE)
+summary(model_glm_phy)
+
+glm <- glm(binaire ~ Comp.2 + Comp.3 , family = "binomial"(link = "logit"), data = merged_data_3T)
+summary(glm)
+
+
+
+model_glm_phy <- pglmm_compare(binaire ~ Comp.1 + Comp.3, family = "binomial", phy = tree , data = merged_data_3T, REML = TRUE)
+summary(model_glm_phy)
+
+glm <- glm(binaire ~ Comp.1 + Comp.3 , family = "binomial"(link = "logit"), data = merged_data_3T)
+summary(glm)
+
+
+```
+
+on utilise les modèles pglmm
+
+```{r}
+model_glm_phy <- pglmm_compare(binaire ~ Comp.1 + Comp.2, family = "binomial", phy = tree , data = merged_data_3T, REML = FALSE)
+summary(model_glm_phy)
+
+
+model_glm_phy <- pglmm_compare(binaire ~ Comp.2 , family = "binomial", phy = tree , data = merged_data_3T, REML = FALSE)
+summary(model_glm_phy)
+```
+
+```{r}
+model_glm_phy <- pglmm_compare(binaire ~ Comp.2 + Comp.3, family = "binomial", phy = tree , data = merged_data_3T, REML = FALSE)
+summary(model_glm_phy)
+
+model_glm_phy <- pglmm_compare(binaire ~ Comp.1 + Comp.3, family = "binomial", phy = tree , data = merged_data_3T, REML = FALSE)
+summary(model_glm_phy)
+
+model_glm_phy <- pglmm_compare(binaire ~ Comp.3 , family = "binomial", phy = tree , data = merged_data_3T, REML = FALSE)
+summary(model_glm_phy)
+```
+
+Test validité modèle binaire (Christelle Gonindard)
+
+```{r}
+glm = glm(binaire~ Comp.3 , family = "binomial"(link = "cloglog"), data = merged_data_3T)
+summary(glm)
+prediction = predict(glm, type = "response")
+merged_data_3T_1 <- na.omit(merged_data_3T, cols = "binaire")
+hoslem.test(merged_data_3T_1$binaire, prediction)
+plot(rstudent(glm), ylab = "residus studentisés")+
+abline( h = c(-2,0,2))
+courbe_roc =  roc(merged_data_3T_1$binaire, prediction)
+plot(courbe_roc)
+```

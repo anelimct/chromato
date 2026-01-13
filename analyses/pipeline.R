@@ -78,7 +78,10 @@ list(
   tar_target(woodiv_trait_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS",  "WOODIV_v2_Trait_data.csv"), format = "file"), 
   tar_target(woodiv_trait, utils::read.csv(woodiv_trait_file, header = TRUE)),
 
-  tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))), 
+  tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
+  
+  tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "imputed_traits_3T.csv" ), format = "file"),
+  tar_target(imputed.traits_3T,utils::read.csv(imputed_traits_file, sep = ",") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
 
   #liste des paradise reports
    #mono
@@ -220,14 +223,20 @@ list(
   tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
   #tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
-  tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), # ici il y a tooujours les singletons
+  tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
 
+##Recreate analysis master
+# il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
+tar_target(all_data_mean_EF_taxon, merged_EF |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
+tar_target(DB_bvocs_iso_mono_EF, all_data_mean_EF_taxon |> tibble::column_to_rownames(var = "name_complete") |>  dplyr::mutate(Sum = isoprene + monoterpenes) |> dplyr::select("isoprene", "monoterpenes", "Sum")), 
+
+
 ##Screening paper
 tar_target(
-  sp_screening, times_compound_sp |>
+  sp_screening, times_compound_sp |>  dplyr::filter(total_samples_species >= 3) |> 
     dplyr::distinct(spagg = stringr::str_to_upper(spagg)) |>
     dplyr::left_join(
       woodiv_species |>
@@ -242,7 +251,9 @@ tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(comp
 
 tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |>  create_all_boxplots(trait_col = "value", save_path = here::here("figures", "graphs_screening", "boxplots"), remove_zeros = TRUE, test_emissions = TRUE, apply_log_transform = TRUE, test_richness = TRUE)), 
 
-tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_smou", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spur") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
+tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spen") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
+
+tar_target(table_heat_map_both,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_ptre", "mean_scin", "mean_rcat", "mean_spen", "mean_spur", "mean_sele") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
 
 
 
