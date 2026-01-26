@@ -75,7 +75,7 @@ normaliser_dataframe <- function(dataframe) {
   sds <- apply(dataframe, MARGIN = 2, FUN = function(x) sd(x, na.rm = TRUE))
   
   # Normaliser les données en utilisant les moyennes et les écarts-types calculés
-  dataframe_normalise <- scale(dataframe, center = means, scale = sds) %>% 
+  dataframe_normalise <- scale(dataframe, center = means, scale = sds) |>  
     as.data.frame()
   
   return(dataframe_normalise)

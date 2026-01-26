@@ -1,0 +1,47 @@
+---
+title: "Additional figures screening"
+author: "Miléna"
+format: html
+editor: visual
+---
+
+```{r}
+targets::tar_load(compounds_samples_spagg_to_keep)
+targets::tar_source(here::here("R/analysis_internship.R"))
+
+data <- compounds_samples_spagg_to_keep |> dplyr::filter(!class %in% c( "Sesquiterpenes", "Oxygenated-sesquiterpenes")) |> 
+  dplyr::select(-smiles, -class, -inchikey) |> dplyr::mutate(across(c(where(is.character), -compound), as.numeric))|> 
+  tidyr::pivot_longer(cols = -compound,names_to = "sample",values_to = "value") |> 
+  tidyr::pivot_wider( names_from = "compound", values_from = "value") |> 
+  dplyr::mutate(across(-sample, ~ ifelse(is.na(.), 0, .))) |>  
+  dplyr::mutate(gragg = stringr::str_to_upper(stringr::str_sub(sample, 1,4)))
+
+
+sample_col <- data |> dplyr::select(sample, gragg)
+numeric_cols <- data |> dplyr::select(-sample, -gragg)
+
+# Normaliser les colonnes numériques
+numeric_cols_normalised <- normaliser_dataframe(numeric_cols)
+
+# Réassembler avec la colonne sample
+data_N <- cbind(sample = sample_col, numeric_cols_normalised)
+
+pca = princomp(data_N[,3 :32])
+  
+biplot(pca)
+
+ggplot2::autoplot(
+  pca,
+  data = data_N,
+  colour = "sample.gragg",      # Colorer par cette variable
+  label = TRUE,
+  label.label = "sample.gragg",  # Afficher ces labels
+  label.size = 3,
+  loadings = TRUE,
+  loadings.label = TRUE,
+  loadings.colour = "lightgray",        # Flèches en gris clair
+  loadings.label.colour = "lightgray"   # Labels des flèches en gris clair
+) +
+  theme_minimal() +
+  labs(colour = "Sample Group")  # Renommer la légende
+```

@@ -27,32 +27,59 @@ rename_mean_columns <- function(data, sp_screening) {
 
 my_compound_order <- c(
   "α-Terpinene",
+  "alpha-Phellandrene", 
+  "β-Ocimene",
   "Myrcene",
   "α-Terpineol",
   "γ-Terpinene",
   "Limonene",
   "Linalool",
   "β-Phellandrene",
+  "Sabinene",
+  "Thuja-2,4(10)-diene",
+  "Neoalloocimene",
+  "Isoterpinolene",
+  "Cosmene",
+  "2,3,6-Trimethyl-1,5-heptadiene (ACI)",
+  "p-Cymenene", 
+  "p-Mentha-1,5,8-triene",
+  "unknown monoterpene 1",
   "3-Carene",
   "β-Pinene",
   "α-Pinene",
   "Camphene",
+"Terpinolene",
+  "p-Cymene",
+  "1,8-Cineole", 
+"Camphor")
+
+my_compound_mapping <- c(
+  "α-Terpinene",
+  "alpha-Phellandrene", 
   "β-Ocimene",
+  "Myrcene",
+  "α-Terpineol",
+  "γ-Terpinene",
+  "Limonene",
+  "Linalool",
+  "β-Phellandrene",
+  "Sabinene",
+  "Thuja-2,4(10)-diene*",
+  "Neoalloocimene*",
+  "Isoterpinolene*",
+  "Cosmene*",
+  "2,3,6-Trimethyl-1,5-heptadiene*",
+  "p-Cymenene*", 
+  "p-Mentha-1,5,8-triene*",
+  "unknown monoterpene 1*",
+  "3-Carene",
+  "β-Pinene",
+  "α-Pinene",
+  "Camphene",
   "Terpinolene",
   "p-Cymene",
-  "Sabinene",
-  "1,8-Cineole",
-  "Camphor",
-  "2,3,6-Trimethyl-1,5-heptadiene (ACI)",
-  "Cosmene",
-  "Isoterpinolene",
-  "Neoalloocimene",
-  "Thuja-2,4(10)-diene",
-  "alpha-Phellandrene",
-  "p-Cymenene",
-  "p-Mentha-1,5,8-triene",
-  "unknown monoterpene 1"
-)
+  "1,8-Cineole", 
+  "Camphor")
 
 # Reverse the order
 my_compound_order <- rev(my_compound_order)
@@ -83,7 +110,7 @@ my_species_order <- c(
 
 
 create_bubble_heatmap <- function(table, log_relative_prop = FALSE, 
-                                  title = "Carte de chaleur des émissions",
+                                  title = "",
                                   bubble_sizes = c(5, 50, 500),
                                   bubble_labels = NULL,
                                   compound_order = NULL,
@@ -280,6 +307,24 @@ create_bubble_heatmap <- function(table, log_relative_prop = FALSE,
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 proportion_relative <- function(data) {
   # Transformer en format long
   data_long <- data %>%
@@ -305,9 +350,9 @@ proportion_relative <- function(data) {
 
 calculer_somme_terpenes <- function(df) {
   # Identifier les indices des terpènes
-  indices <- which(df$compound %in% c("α-Terpinene", "Myrcene", "α-Terpineol", 
+  indices <- which(df$compound %in% c("α-Terpinene", "alpha-Phellandrene", "Myrcene", "α-Terpineol", 
                                       "γ-Terpinene", "Limonene", "Linalool", 
-                                      "β-Phellandrene"))
+                                      "β-Phellandrene", "β-Ocimene", "Sabinene"))
   
   # Calculer les sommes
   sommes_especes <- colSums(df[indices, -1], na.rm = TRUE)

@@ -5,7 +5,11 @@ editor: visual
 ---
 
 ```{r}
-targets::tar_source(here::here("R/internship_analysis.R"))
+# traits <- INTEGRADIV_traits_v5 |> dplyr::filter(Taxon == "Trees")|> dplyr::select(Species, Trait, Value) |> pivot_wider(names_from = Trait, values_from = Value)|>   dplyr::mutate(Species = stringr::str_replace(Species, " ", "_")) |> tibble::column_to_rownames(var = "Species")|> dplyr::select( DispMode, HeightMax, LeafArea, SLA, SeedMass, StemSpecDens) |> mutate(DispMode = as.factor(DispMode)) |> mutate(across(-1, as.numeric))
+```
+
+```{r}
+targets::tar_source(here::here("R/analysis_internship.R"))
 targets::tar_load(imputed.traits_3T)
 targets::tar_load(DB_bvocs_iso_mono_EF)
 targets::tar_load(tree)
@@ -24,9 +28,6 @@ trait_space_global <- funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T
 
 merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE)%>% 
   column_to_rownames(var = "Row.names")
-
-
-
 ```
 
 ```{r}
@@ -36,15 +37,6 @@ TPD <- trait_space_global$global$images$noThreshold.quantiles |>
   rename(PC3 = Var2) 
 ```
 
-```{r}
-fig <- autoplot(pca.trait, 
-                col = "transparent",  
-                loadings = T,                                                                                                                                                                   
-                loadings.colour = "grey50", 
-                loadings.label = T, 
-                loadings.label.colour = "grey50", 
-                loadings.label.repel = T) 
-```
 
 ```{r}
 # Pour PC2-PC3 avec tuiles et points

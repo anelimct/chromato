@@ -80,7 +80,7 @@ list(
 
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
   
-  tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "imputed_traits_3T.csv" ), format = "file"),
+  tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "traits_imputed_liquidambar.csv" ), format = "file"),
   tar_target(imputed.traits_3T,utils::read.csv(imputed_traits_file, sep = ",") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
 
   #liste des paradise reports
@@ -225,7 +225,8 @@ list(
 
   tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
-  tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp()),
+##ici filter outs tartu parec que 'il ya une conversion que je n'arriva aps a faire 
+  tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
 
 ##Recreate analysis master
@@ -246,9 +247,10 @@ tar_target(
 
 tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
 
+## emission standardisées pour chaque samples screening
+tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) |>  dplyr::filter(!dplyr::if_all(5:230, is.na))),
 
-tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) ),
-
+##table avec iso, sum mono/mo-ox pour tous les samples de screening (pas de mean a sp)
 tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |>  create_all_boxplots(trait_col = "value", save_path = here::here("figures", "graphs_screening", "boxplots"), remove_zeros = TRUE, test_emissions = TRUE, apply_log_transform = TRUE, test_richness = TRUE)), 
 
 tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spen") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
