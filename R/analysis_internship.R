@@ -45,7 +45,8 @@ compute_mean_EFtaxon_across_pop <- function(data, woodiv_species) {
       monoterpenes = `monoterpenes_EF_species_mean`,
       n_pop_isoprene = `isoprene_n_populations`,
       n_pop_monoterpenes = `monoterpenes_n_populations`
-    ) |> dplyr::left_join(  gragg_to_name, by = "gragg") |> dplyr::select("full_scientific_name", "gragg", "isoprene", "monoterpenes","n_pop_isoprene", "n_pop_monoterpenes") |> dplyr::rename("name_complete"= "full_scientific_name" )
+    ) |> dplyr::left_join(  gragg_to_name, by = "gragg") |> dplyr::select("full_scientific_name", "gragg", "isoprene", "monoterpenes","n_pop_isoprene", "n_pop_monoterpenes") |> dplyr::rename("name_complete"= "full_scientific_name" )|>    dplyr::mutate(name_complete = dplyr::case_when(name_complete == "Juniperus_deltoides" ~ "Juniperus_oxycedrus",TRUE ~ name_complete))
+    
   
   return(final_table)
 }

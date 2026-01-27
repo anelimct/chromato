@@ -1,0 +1,295 @@
+plot_pie_chart <- function(data, type_column = "type", title = "Distribution des types") {
+  # Charger les packages nécessaires
+  library(plotly)
+  library(dplyr)
+  
+  # Préparer les données : compter les occurrences de chaque type
+  data_summary <- data |> 
+    dplyr::rename(type = !!rlang::sym(type_column)) |> 
+    dplyr::count(type, name = "count") |> 
+    dplyr::arrange(desc(count))
+  
+  # Mapping des labels
+  label_mapping <- c(
+    "mono" = "Monoterpenes",
+    "iso" = "Isoprene", 
+    "both" = "Both",
+    "NE" = "Non-emitters"
+  )
+  
+  # Mapping des couleurs
+  color_mapping <- c(
+    "iso" = "#70c230",
+    "both" = "#da6484",
+    "mono" = "#3764da", 
+    "NE" = "#fce72e"
+  )
+  
+  # Appliquer le mapping des labels
+  data_summary <- data_summary |> 
+    dplyr::mutate(
+      display_label = ifelse(type %in% names(label_mapping), 
+                             label_mapping[type], 
+                             type)
+    )
+  
+  # Créer le vecteur de couleurs ordonné selon data_summary
+  ordered_colors <- sapply(data_summary$type, function(x) {
+    if (x %in% names(color_mapping)) {
+      return(color_mapping[x])
+    } else {
+      # Couleur par défaut pour les types non spécifiés
+      return("#cccccc")
+    }
+  })
+  
+  # Créer le graphique plotly
+  fig <- plotly::plot_ly(
+    data = data_summary,
+    labels = ~display_label,
+    values = ~count,
+    type = 'pie',
+    textposition = 'inside',
+    textinfo = 'label+percent',
+    insidetextfont = list(color = '#FFFFFF', size = 12),
+    hoverinfo = 'text',
+    hovertext = ~paste('<b>', display_label, '</b><br>',
+                       'Type original: ', type, '<br>',
+                       'Count: ', count, '<br>',
+                       'Percentage: ', round(count/sum(count)*100, 1), '%'),
+    marker = list(
+      colors = ordered_colors,
+      line = list(color = '#FFFFFF', width = 2)
+    ),
+    showlegend = TRUE,
+    hole = 0  # Pie chart normal (0 pour pie chart, >0 pour donut chart)
+  )
+  
+  # Personnaliser la mise en page
+  fig <- fig |>  plotly::layout(
+    title = list(
+      text = title,
+      font = list(size = 20, family = "Arial", color = "#333333")
+    ),
+    xaxis = list(
+      showgrid = FALSE, 
+      zeroline = FALSE, 
+      showticklabels = FALSE
+    ),
+    yaxis = list(
+      showgrid = FALSE, 
+      zeroline = FALSE, 
+      showticklabels = FALSE
+    ),
+    legend = list(
+      title = list(text = "Types"),
+      orientation = "v",
+      font = list(size = 12),
+      x = 1.05,
+      y = 0.5
+    ),
+    margin = list(l = 20, r = 120, t = 50, b = 20)
+  )
+  
+  return(fig)
+}
+
+
+
+
+
+
+
+create_density_facet_plot <- function(data, 
+                                      x_var = "SLA", 
+                                      group_var = "type",
+                                      plot_type = "density_mean",  
+                                      same_y_scale = TRUE,
+                                      show_histogram = TRUE) {
+  
+  library(ggplot2)
+  library(dplyr)
+  
+  if (!x_var %in% names(data)) stop(paste("Variable", x_var, "non trouvée"))
+  if (!group_var %in% names(data)) stop(paste("Variable", group_var, "non trouvée"))
+  
+  type_colors <- c(
+    "iso" = "#70c230",
+    "both" = "#da6484",
+    "mono" = "#3764da", 
+    "NE" = "#fce72e"
+  )
+  
+  type_labels <- c(
+    "iso" = "Isoprene",
+    "both" = "Both", 
+    "mono" = "Monoterpenes",
+    "NE" = "Non-emitters",
+    "All" = "All species"
+  )
+  
+  # ===== créer facettes =====
+  data_facet <- data %>%
+    mutate(.facet = as.character(.data[[group_var]]),
+           .fill = as.character(.data[[group_var]]))
+  
+  data_all <- data %>%
+    mutate(.facet = "All",
+           .fill = "All")
+  
+  data_plot <- bind_rows(data_facet, data_all)
+  
+  # ===== moyennes =====
+  if (plot_type %in% c("density_mean", "combined")) {
+    
+    mean_groups <- data %>%
+      group_by(.data[[group_var]]) %>%
+      summarise(mean_value = mean(.data[[x_var]], na.rm = TRUE), .groups = "drop") %>%
+      mutate(.facet = as.character(.data[[group_var]]),
+             .fill = as.character(.data[[group_var]]))
+    
+    mean_all <- data %>%
+      summarise(mean_value = mean(.data[[x_var]], na.rm = TRUE)) %>%
+      mutate(.facet = "All",
+             .fill = "All")
+    
+    group_means <- bind_rows(mean_groups, mean_all)
+  }
+  
+  # ===== base =====
+  p <- ggplot(data_plot, aes(x = .data[[x_var]], fill = .fill))
+  
+  # Histogramme
+  if (show_histogram) {
+    p <- p +
+      geom_histogram(aes(y = after_stat(density)),
+                     bins = 30,
+                     color = "white",
+                     alpha = 0.4)
+  }
+  
+  # Densité
+  p <- p + geom_density(alpha = 0.6, size = 0.8, color = "black")
+  
+  # Moyenne
+  if (plot_type %in% c("density_mean", "combined")) {
+    p <- p +
+      geom_vline(data = group_means,
+                 aes(xintercept = mean_value, color = .fill),
+                 linetype = "dashed",
+                 size = 1)
+  }
+  
+  # Facettes
+  p <- p +
+    facet_grid(.facet ~ .,
+               scales = if (same_y_scale) "fixed" else "free_y",
+               labeller = as_labeller(type_labels))
+  
+  # Couleurs
+  p <- p +
+    scale_fill_manual(values = c(type_colors, "All" = "grey70"), guide = "none") +
+    scale_color_manual(values = c(type_colors, "All" = "black"), guide = "none")
+  
+  # Thème
+  p <- p +
+    labs(
+      title = paste("Distribution de", x_var),
+      x = x_var,
+      y = "Densité"
+    ) +
+    theme_minimal() +
+    theme(
+      strip.text = element_text(face = "bold"),
+      strip.background = element_rect(fill = "grey95"),
+      plot.title = element_text(hjust = 0.5, face = "bold")
+    )
+  
+  return(p)
+}
+
+
+
+
+
+# Charger les packages nécessaires
+library(corrplot)
+library(ggplot2)
+library(dplyr)
+
+
+
+matrice_correlation_spearmann <- function(data){
+  
+  # Sélectionner les traits d'intérêt
+  traits <- c("HeightMax", "LeafArea", "SLA", "StemSpecDens", "type")
+  
+  # Créer un sous-ensemble des données
+  data_traits <- data[, traits]
+  
+  # Matrice de corrélation de Spearman pour TOUTES les espèces
+  M <- cor(data_traits[, 1:4], 
+           method = "spearman")
+  
+  
+  
+  col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+  
+  
+  p.mat <- cor.mtest(data_traits[, 1:4], method = "spearman")
+  
+  
+  
+
+  par(mfrow = c(1, 2))
+  
+  # Corrplot
+  corrplot(M,
+           method = "color",
+           type = "upper",
+           addCoef.col = "black",
+           p.mat = p.mat$p,
+           sig.level = 0.05,
+           insig = "blank")
+  
+  title("Spearman correlations")
+  
+  # Scatterplot matrix
+  pairs(data_traits[, 1:4],
+        pch = 19,
+        col = rgb(0, 0, 0, 0.5),
+        main = "Scatterplot matrix", lower.panel = NULL, panel = panel.smooth)
+  
+
+}
+
+
+matrice_correlation_spearmann_by_type <- function(data){
+  # Vérifier les types disponibles
+  types <- unique(data$type)
+  print(paste("Types disponibles:", paste(types, collapse = ", ")))
+  
+  
+  for (t in types) {
+    # Sous-ensemble pour le type t
+    subset_data <- data |> dplyr:: filter(type == t)
+    
+    
+    if(nrow(subset_data) < 8){
+      warning(paste("Type", t, ": pas assez de données → ignoré"))
+      next
+    }
+    
+    
+    matrice_correlation_spearmann(subset_data)
+    title(main = paste("Spearman – Type:", t))
+    
+  
+}
+}
+
+
+
+
+
+

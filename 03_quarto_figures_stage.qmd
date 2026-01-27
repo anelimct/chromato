@@ -9,7 +9,7 @@ editor: visual
 ```
 
 ```{r}
-targets::tar_source(here::here("R/analysis_internship.R"))
+targets::tar_source(here::here("R/analysis_internship"))
 targets::tar_load(imputed.traits_3T)
 targets::tar_load(DB_bvocs_iso_mono_EF)
 targets::tar_load(tree)
@@ -36,7 +36,6 @@ TPD <- trait_space_global$global$images$noThreshold.quantiles |>
   rename(PC2 = Var1) |> 
   rename(PC3 = Var2) 
 ```
-
 
 ```{r}
 # Pour PC2-PC3 avec tuiles et points

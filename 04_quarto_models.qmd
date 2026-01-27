@@ -33,7 +33,7 @@ library(nlme)
 ```
 
 ```{r}
-targets::tar_source(here::here("R/internship_analysis.R"))
+targets::tar_source(here::here("R/analysis_internship.R"))
 targets::tar_load(imputed.traits_3T)
 targets::tar_load(DB_bvocs_iso_mono_EF)
 targets::tar_load(tree)

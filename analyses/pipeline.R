@@ -225,7 +225,7 @@ list(
 
   tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
-##ici filter outs tartu parec que 'il ya une conversion que je n'arriva aps a faire 
+##ici filter outs tartu parce que 'il ya une conversion que je n'arriva aps a faire 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
   tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
 
