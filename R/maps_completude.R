@@ -33,6 +33,41 @@ compute_completeness <- function(WOODIV_grid, working_file, summary_all, minimum
   return(completeness)
 }
 
+compute_completeness_v2 <- function(WOODIV_grid, working_file, data, minimum_pop) {
+  # Join the datasets to create WOODIV_data
+  WOODIV_data <- WOODIV_grid |>
+    merge(working_file, by = c("idgrid" = "idgrid")) |>
+    dplyr::left_join(data, by = c("gragg" = "gragg"))
+  
+  # Calculate completeness
+  completeness <- WOODIV_data |>
+    dplyr::group_by(idgrid, geometry) |>
+    dplyr::summarise(
+      total_species = dplyr::n_distinct(gragg),
+      bvocs_completeness_litt = dplyr::n_distinct(
+        gragg[!is.na(n_pop_isoprene) & !is.na(n_pop_monoterpenes) & 
+                n_pop_isoprene >= as.numeric(minimum_pop) & 
+                n_pop_monoterpenes >= as.numeric(minimum_pop)], 
+        na.rm = TRUE
+      ) / total_species * 100,
+      bvocs_completeness_all = dplyr::n_distinct(
+        gragg[!is.na(n_pop_isoprene) & !is.na(n_pop_monoterpenes) & 
+                n_pop_isoprene >= as.numeric(minimum_pop) & 
+                n_pop_monoterpenes >= as.numeric(minimum_pop)], 
+        na.rm = TRUE
+      ) / total_species * 100) |>
+    dplyr::ungroup()
+  
+  return(completeness)
+}
+
+
+
+
+
+
+
+
 
 map_et_plot_completness <- function (completeness, WOODIV_shape){
   

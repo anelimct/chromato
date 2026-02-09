@@ -219,10 +219,15 @@ library(dplyr)
 
 
 
-matrice_correlation_spearmann <- function(data){
+matrice_correlation_spearmann <- function(data, include_type = FALSE) {
   
   # Sélectionner les traits d'intérêt
-  traits <- c("HeightMax", "LeafArea", "SLA", "StemSpecDens", "type")
+  traits <- c("HeightMax", "LeafArea", "SLA", "StemSpecDens")
+  
+  # Inclure la variable "type" si demandé
+  if (include_type) {
+    traits <- c(traits, "type")
+  }
   
   # Créer un sous-ensemble des données
   data_traits <- data[, traits]
@@ -288,6 +293,60 @@ matrice_correlation_spearmann_by_type <- function(data){
 }
 }
 
+
+#test <- merged_data_3T|>  subset( select = c(isoprene, monoterpenes, HeightMax, LeafArea, SLA, SeedMass, StemSpecDens)) |> normaliser_dataframe()
+#clean_test <- na.omit(test[, c("isoprene", "monoterpenes", "HeightMax", "LeafArea", "SLA", "SeedMass", "StemSpecDens")])
+
+
+
+
+
+
+
+plot_funspace_with_species_and_spearman <- function(
+    pca_obj,  # Objet PCA (ex: pca.trait_usual_iso)
+    group_vec,  # Vecteur de groupes (ex: type_isoprenoids$type)
+    noms_a_afficher,  # Noms des espèces à afficher
+    main_title,  # Titre du plot
+    data_spearman,  # Données pour le test de Spearman
+    PCs = c(1, 2)  # Composantes principales à afficher
+) {
+  
+  # 1. Créer l'objet funspace
+  trait_space <- funspace::funspace(pca_obj, PCs = PCs, group.vec = group_vec)
+  
+  # 2. Extraire les coordonnées des espèces
+  species_coords <- trait_space$originalX$scores
+  
+  # 3. Plot funspace avec les espèces et leurs étiquettes
+  plot(trait_space, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+  
+  # Extraire les coordonnées des espèces à afficher
+  coords_a_afficher <- species_coords[rownames(species_coords) %in% noms_a_afficher, c("Comp.1", "Comp.2")]
+  
+  # Tracer les points précis pour chaque espèce
+  points(coords_a_afficher[, "Comp.1"], coords_a_afficher[, "Comp.2"],
+         pch = 19, col = "black", cex = 1.2)
+  
+  # Appliquer un jitter global aux coordonnées des étiquettes
+  coords_jittered <- jitter(as.matrix(coords_a_afficher), amount = 0.02)
+  
+  # Ajouter les étiquettes avec le jitter global
+  text(coords_jittered[, 1], coords_jittered[, 2],
+       labels = rownames(coords_jittered),
+       cex = 0.8, col = "black", pos = 3)
+  
+  # Ajouter un titre
+  title(main = main_title, cex.main = 1.2)
+  
+  # 4. Plot de type "groups"
+  plot(x = trait_space, type = "groups", quant.plot = TRUE, globalContour = TRUE,
+       pnt = TRUE, pnt.cex = 0.1, pnt.col = rgb(0.2, 0.8, 0.1, alpha = 0.2),
+       axis.title.line = 1)
+  
+  # 5. Test de Spearman et corrélations
+  matrice_correlation_spearmann(data_spearman)
+}
 
 
 

@@ -208,6 +208,8 @@ compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound
   
   df <- compounds_table |> dplyr::select(any_of(c("compound", "smiles", "class", "inchikey", paste0(cols_to_keep))))
   
+  
+  times_compound_sp <- times_compound_sp |>  dplyr::filter(total_samples_species >=3)
   spagg_to_keep <- unique(times_compound_sp$spagg)
   
   # Helper function to check if sample is from 2025
@@ -308,7 +310,8 @@ compound_mean_sp <- function(compounds_table, valid_samples_mono, times_compound
 compounds_samples_spagg_to_keep <- function(compounds_table, valid_samples_mono, times_compound_sp) {
   
   # Récupérer les spagg à garder
-  spagg_to_keep <- unique(times_compound_sp$spagg)
+  spagg_to_keep <-  times_compound_sp |>  dplyr::filter(total_samples_species >= 3) 
+  spagg_to_keep <- unique(spagg_to_keep$spagg)
   
   # Créer un pattern regex pour les spagg à garder
   spagg_pattern <- paste0("^(", paste(spagg_to_keep, collapse = "|"), ")_")

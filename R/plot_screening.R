@@ -189,6 +189,21 @@ wide_table_sum_per_sample <- function(compounds_table, bvocs_samples, valid_samp
 
 
 
+
+#' Title
+#'
+#' @param data 
+#' @param trait_col 
+#' @param remove_zeros 
+#' @param test_emissions 
+#' @param test_richness 
+#' @param apply_log_transform 
+#' @param save_path 
+#'
+#' @returns box-plots emission EF and richness according to leaf pheno decidious vs evergreen for the screening species
+#' @export
+#'
+#' @examples
 create_all_boxplots <- function(data, trait_col, 
                                 remove_zeros = TRUE,
                                 test_emissions = TRUE,
@@ -1302,6 +1317,369 @@ create_stacked_barchart_errorbar <- function(compound_mean_spagg, spagg_code, co
   
   return(p)
 }
+
+
+
+
+
+#' Title
+#'
+#' @param data 
+#'
+#' @returns data formated to do multivariate analysis for the screening visualization
+#' @export
+#'
+#' @examples
+prepare_plsda_data <- function(data) {
+  # Step 1: Filter rows where class is NOT "Oxygenated-sesquiterpenes" or "Sesquiterpenes"
+  filtered_data <- data |> 
+    dplyr::filter(!class %in% c("Oxygenated-sesquiterpenes", "Sesquiterpenes"))
+  
+  # Step 2: Remove specified columns (class, smiles, inchikey)
+  filtered_data <- filtered_data |> 
+    dplyr::select(-class, -smiles, -inchikey)
+  
+  # Step 3: Set compound names as row names and remove the compound column
+  # Then transpose the data
+  # First convert to regular data frame if it's a tibble
+  filtered_df <- as.data.frame(filtered_data)
+  
+  # Set row names to compound names and remove the column
+  rownames(filtered_df) <- filtered_df$compound
+  filtered_df$compound <- NULL
+  
+  # Step 4: Transpose the data (compounds become columns, samples become rows)
+  transposed_data <- as.data.frame(t(filtered_df))
+  
+  # Convert all columns to numeric (they might be character due to NAs)
+  transposed_data <- transposed_data |> 
+    dplyr::mutate(across(everything(), as.numeric)) |> 
+    dplyr::mutate(across(everything(), ~ ifelse(is.na(.), 0, .))) 
+  
+  transposed_data_N <- transposed_data |> normaliser_dataframe()
+  
+  gragg <- factor(stringr::str_to_upper(substr(rownames(transposed_data), 1, 4)))
+  
+  return(list(data = transposed_data_N, gragg = gragg, data_chemodiv = transposed_data))
+}
+
+plot_plsda <- function(data, group){
+  
+  
+}
+
+
+extract_value_sd <- function(x) {
+  if (is.na(x) || x == "") return(c(NA, NA))
+  parts <- strsplit(x, " \\(|\\)")[[1]]
+  value <- as.numeric(parts[1])
+  sd <- as.numeric(parts[2])
+  c(value, sd)
+}
+
+# Function to plot emissions for a given class (isoprene or monoterpenes)
+create_emission_plot <- function(df, class_name, y_axis_label = "Emission Rate") {
+  # Filter for the class
+  df_class <- df %>%
+    filter(class %in% class_name)
+  
+  # Get the names of species columns (assuming columns 5 to end)
+  species_cols <- names(df_class)[5:ncol(df_class)]
+  
+  # Reshape data for plotting
+  df_long <- df_class %>%
+    pivot_longer(cols = all_of(species_cols), names_to = "species", values_to = "value_sd") %>%
+    mutate(value = sapply(value_sd, function(x) extract_value_sd(x)[1]),
+           sd = sapply(value_sd, function(x) extract_value_sd(x)[2])) %>%
+    group_by(species) %>%
+    summarise(value = sum(value, na.rm = TRUE),
+              sd = sqrt(sum(sd^2, na.rm = TRUE)))  # Sum of variances for combined SD
+  
+  # Create and return the plot
+  p <- ggplot(df_long, aes(x = species, y = value)) +
+    geom_bar(stat = "identity", fill = "grey", color = "black") +
+    geom_errorbar(aes(ymin = value - sd, ymax = value + sd), width = 0.2) +
+    labs(x = NULL, y = y_axis_label) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  return(p)  # Explicitly return the plot
+}
+
+# Function to create a cow plot (stacked vertically)
+plot_cow_emissions <- function(df) {
+  # Create individual plots
+  isoprene_plot <- create_emission_plot(df, "Isoprene", y_axis_label = expression("Isoprene EF" ~ (mu*g ~ "." ~g^{-1} ~ "." ~h^{-1})))+ theme(axis.title.x = element_blank())
+  monoterpenes_plot <- create_emission_plot(df, c("Monoterpenes", "Oxygenated-monoterpenes"), y_axis_label = expression("Monoterpenes EF" ~ (mu*g ~ "." ~g^{-1} ~ "." ~h^{-1})))
+  
+  # Combine plots vertically with shared x-axis
+  combined_plot <- isoprene_plot +
+    monoterpenes_plot +
+    plot_layout(ncol = 1)  # Stack vertically
+  print(combined_plot)
+}
+
+
+pie_chart_screening <- function(data){
+  
+  species_cols <- grep("^mean_", names(pie_chart_emission_screening), value = TRUE)
+  
+  # Convert species columns to numeric and handle NA values
+  pie_chart_numeric <- pie_chart_emission_screening  |> 
+    dplyr::mutate(across(all_of(species_cols), ~ as.numeric(ifelse(. == "NA", NA, .))))
+  
+  # Now group by class and sum for each species, then pivot
+  result <- pie_chart_numeric |> 
+    dplyr::group_by(class) |> 
+    # Sum across all species columns, removing NAs
+    dplyr::summarise(across(all_of(species_cols), ~ sum(., na.rm = TRUE))) |> 
+    # Pivot to long format
+    tidyr::pivot_longer(
+      cols = all_of(species_cols),
+      names_to = "species",
+      values_to = "total_emission"
+    ) |> 
+    # Remove "mean_" prefix from species names if desired
+    dplyr::mutate(species = gsub("^mean_", "", species)) %>%
+    # Pivot back to wide format with classes as columns (optional, based on your description)
+    tidyr::pivot_wider(
+      names_from = class,
+      values_from = total_emission,
+      values_fill = 0
+    ) |> dplyr::mutate(monoterpenes = `Monoterpenes` + `Oxygenated-monoterpenes`) |> dplyr::mutate(isoprene = `Isoprene`) |> dplyr::mutate(Sum = `isoprene` + `monoterpenes`)|>     dplyr::mutate(type = dplyr::if_else(!is.na(Sum), 
+                                             ifelse(isoprene >= 1 & monoterpenes > 0.2, "both", 
+                                                    ifelse(monoterpenes > 0.2, "mono", 
+                                                           ifelse(isoprene > 1, "iso", "NE"))), 
+                                             NA_character_)) |> dplyr::mutate(sub_type = dplyr::case_when(
+    # For iso type
+    type == "iso" & isoprene < 10 ~ "low",
+    type == "iso" & isoprene <= 30 ~ "medium",
+    type == "iso" ~ "high",
+    # For mono type
+    type == "mono" & monoterpenes < 2 ~ "low",
+    type == "mono" & monoterpenes <= 5 ~ "medium",
+    type == "mono" ~ "high",
+    # For both type - you need to decide thresholds for both
+    type == "both" & isoprene < 10 & monoterpenes < 2 ~ "low-low",
+    type == "both" & isoprene < 10 & monoterpenes <= 5 ~ "low-medium",
+    type == "both" & isoprene < 10 ~ "low-high",
+    type == "both" & isoprene <= 30 & monoterpenes < 2 ~ "medium-low",
+    type == "both" & isoprene <= 30 & monoterpenes <= 5 ~ "medium-medium",
+    type == "both" & isoprene <= 30 ~ "medium-high",
+    type == "both" & monoterpenes < 2 ~ "high-low",
+    type == "both" & monoterpenes <= 5 ~ "high-medium",
+    type == "both" ~ "high-high",
+    # For NE (not emitting) or others
+    TRUE ~ NA_character_
+  ))
+  
+  result <- result |>  group_by(type, sub_type) |> dplyr::summarise(n = dplyr::n())
+  return(result)
+  
+  
+}
+
+
+
+PieDonut_custom_colors_v2 <- function(data, 
+                                      type_colors = NULL,
+                                      subtype_colors = NULL,
+                                      title = "Emission Types Distribution",
+                                      show_counts = TRUE,
+                                      inner_radius = 0.3,
+                                      middle_radius = 0.7,
+                                      outer_radius = 1.0,
+                                      label_threshold = 0.02) {
+  
+  # Prepare data (same as before)
+  df <- data %>%
+    ungroup() %>%
+    mutate(
+      sub_type = ifelse(is.na(sub_type), "total", sub_type)
+    )
+  
+  # Calculate totals for each type (inner ring)
+  type_totals <- df %>%
+    group_by(type) %>%
+    summarise(total = sum(n)) %>%
+    ungroup() %>%
+    mutate(
+      proportion = total / sum(total),
+      end_angle = cumsum(proportion) * 2 * pi,
+      start_angle = lag(end_angle, default = 0),
+      mid_angle = (start_angle + end_angle) / 2,
+      segment_id = paste0(type, "_total")
+    )
+  
+  # Calculate for subtypes (outer ring)
+  subtype_data <- df %>%
+    group_by(type, sub_type) %>%
+    summarise(count = sum(n)) %>%
+    ungroup() %>%
+    left_join(
+      type_totals %>% select(type, type_start = start_angle, type_end = end_angle),
+      by = "type"
+    ) %>%
+    group_by(type) %>%
+    mutate(
+      prop_within = count / sum(count),
+      cumsum_within = cumsum(prop_within)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      start_angle = type_start + (type_end - type_start) * (cumsum_within - prop_within),
+      end_angle = type_start + (type_end - type_start) * cumsum_within,
+      mid_angle = (start_angle + end_angle) / 2,
+      segment_id = paste0(type, "_", sub_type)
+    )
+  
+  # Set default type colors if not provided (same as before)
+  if (is.null(type_colors)) {
+    type_colors <- c(
+      "NE" = "#999999", 
+      "both" = "#E69F00", 
+      "iso" = "#56B4E9", 
+      "mono" = "#009E73"
+    )
+  }
+  
+  # Create color mapping for all segments (same as before)
+  all_segments <- unique(c(type_totals$segment_id, subtype_data$segment_id))
+  color_mapping <- setNames(rep(NA, length(all_segments)), all_segments)
+  
+  # Assign colors to type totals (inner ring)
+  for (type in names(type_colors)) {
+    segment_id <- paste0(type, "_total")
+    if (segment_id %in% names(color_mapping)) {
+      color_mapping[segment_id] <- type_colors[type]
+    }
+  }
+  
+  # Assign colors to subtypes (outer ring) (same as before)
+  if (!is.null(subtype_colors)) {
+    for (segment_id in names(subtype_colors)) {
+      if (segment_id %in% names(color_mapping)) {
+        color_mapping[segment_id] <- subtype_colors[segment_id]
+      }
+    }
+  } else {
+    for (type in unique(subtype_data$type)) {
+      type_subtypes <- subtype_data %>%
+        filter(type == !!type, sub_type != "total") %>%
+        pull(segment_id)
+      
+      if (length(type_subtypes) > 0) {
+        base_color <- ifelse(type %in% names(type_colors), 
+                             type_colors[type], 
+                             "#CCCCCC")
+        base_rgb <- col2rgb(base_color) / 255
+        
+        for (i in seq_along(type_subtypes)) {
+          factor <- 0.3 + 0.7 * (i - 1) / max(1, (length(type_subtypes) - 1))
+          subtype_color <- rgb(
+            base_rgb[1] * factor,
+            base_rgb[2] * factor,
+            base_rgb[3] * factor
+          )
+          color_mapping[type_subtypes[i]] <- subtype_color
+        }
+      }
+    }
+  }
+  
+  # Now, we have:
+  #   type_totals: for inner ring
+  #   subtype_data: for outer ring (including the "total" subtype, but we will filter out for outer ring arcs)
+  
+  # We will plot:
+  #   Inner ring arcs: using type_totals
+  #   Outer ring arcs: using subtype_data without the "total" subtype
+  #   Inner ring labels: using type_totals
+  #   Outer ring labels: using subtype_data without the "total" subtype, and filtered by label_threshold
+  
+  # Prepare outer ring data (without "total")
+  outer_ring_data <- subtype_data %>%
+    filter(sub_type != "total")
+  
+  # Create the plot
+  p <- ggplot() +
+    # Inner ring arcs
+    geom_arc_bar(
+      data = type_totals,
+      aes(
+        x0 = 0, y0 = 0,
+        r0 = inner_radius,
+        r = middle_radius,
+        start = start_angle,
+        end = end_angle,
+        fill = segment_id
+      ),
+      color = "white",
+      size = 0.5
+    ) +
+    # Outer ring arcs
+    geom_arc_bar(
+      data = outer_ring_data,
+      aes(
+        x0 = 0, y0 = 0,
+        r0 = middle_radius,
+        r = outer_radius,
+        start = start_angle,
+        end = end_angle,
+        fill = segment_id
+      ),
+      color = "white",
+      size = 0.5
+    ) +
+    coord_fixed() +
+    theme_void() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      legend.position = "none"
+    ) +
+    labs(title = title) +
+    scale_fill_manual(values = color_mapping)
+  
+  # Add inner ring labels
+  if (show_counts) {
+    inner_labels <- type_totals %>%
+      mutate(
+        label = paste0(type, "\n(", total, ")"),
+        label_x = (inner_radius + middle_radius) / 2 * sin(mid_angle),
+        label_y = (inner_radius + middle_radius) / 2 * cos(mid_angle)
+      )
+    
+    p <- p +
+      geom_text(
+        data = inner_labels,
+        aes(x = label_x, y = label_y, label = label),
+        size = 3.5,
+        fontface = "bold"
+      )
+    
+    # Add outer ring labels (only for segments above threshold)
+    outer_labels <- outer_ring_data %>%
+      mutate(
+        label = paste0(sub_type, "\n(", count, ")"),
+        label_x = (middle_radius + outer_radius) / 2 * sin(mid_angle),
+        label_y = (middle_radius + outer_radius) / 2 * cos(mid_angle),
+        show_label = count / sum(outer_ring_data$count) >= label_threshold
+      )
+    
+    p <- p +
+      geom_text(
+        data = outer_labels %>% filter(show_label),
+        aes(x = label_x, y = label_y, label = label),
+        size = 2.8
+      )
+  }
+  
+  return(p)
+}
+
+
+
+
+
 
 
 

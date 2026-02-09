@@ -78,6 +78,9 @@ list(
   tar_target(woodiv_trait_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS",  "WOODIV_v2_Trait_data.csv"), format = "file"), 
   tar_target(woodiv_trait, utils::read.csv(woodiv_trait_file, header = TRUE)),
 
+  
+  
+
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
   
   tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "traits_imputed_liquidambar.csv" ), format = "file"),
@@ -219,19 +222,18 @@ list(
 
 
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
-
-  tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
   #tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
   tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
 ##ici filter outs tartu parce que 'il ya une conversion que je n'arriva aps a faire 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
-  tar_target(summary_DB, count_available (DB_bvocs_ES, 1)),
+  tar_target(summary_DB_litt, count_available (DB_bvocs_ES, 1)),
 
 ##Recreate analysis master
 # il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
 tar_target(all_data_mean_EF_taxon, merged_EF |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
+#DB_bvocs_iso_mono_EF is with rownames for tree
 tar_target(DB_bvocs_iso_mono_EF, all_data_mean_EF_taxon |> tibble::column_to_rownames(var = "name_complete") |>  dplyr::mutate(Sum = isoprene + monoterpenes) |> dplyr::select("isoprene", "monoterpenes", "Sum")), 
 
 
@@ -244,23 +246,26 @@ tar_target(
         dplyr::distinct(spagg, .keep_all = TRUE),
       by = "spagg"
     )),
-
+tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
 tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
 
 ## emission standardisées pour chaque samples screening
-tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) |>  dplyr::filter(!dplyr::if_all(5:230, is.na))),
+tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) |>  dplyr::filter(!dplyr::if_all(5:174, is.na)) ),
 
 ##table avec iso, sum mono/mo-ox pour tous les samples de screening (pas de mean a sp)
 tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |>  create_all_boxplots(trait_col = "value", save_path = here::here("figures", "graphs_screening", "boxplots"), remove_zeros = TRUE, test_emissions = TRUE, apply_log_transform = TRUE, test_richness = TRUE)), 
 
+
 tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spen") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
-
 tar_target(table_heat_map_both,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_ptre", "mean_scin", "mean_rcat", "mean_spen", "mean_spur", "mean_sele") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
-
-
+tar_target(data_set_PLSDA,   prepare_plsda_data(compounds_samples_spagg_to_keep)),
+tar_target(data_set_plot_emission_screening,compound_mean_spagg |>  rename_mean_columns(sp_screening)),
+tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE) ),
+ 
 
 
   ##SPATIAL maps
+#Dans le working file c'est bien les occuerence de woodiv v2
   tar_target(working_file, {
     utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
   }),
@@ -272,12 +277,19 @@ tar_target(table_heat_map_both,  compounds_tabled_zeroed_singleton(compounds_tab
     sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Shape_epsg3035"), "/WOODIV_v2_Shape_epsg3035.shp"))
   }),
 
+  ###previous maps plots
 
-  tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |>
-               process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul ()
-             |> tidy_summary_all(woodiv_species)),
+ tar_target(summary_all , ranking_species(working_file) |>  dplyr::left_join(summary_DB_litt, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |>
+            process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul ()
+              |> tidy_summary_all(woodiv_species)),
 
-  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape))
+  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
 
    #How important are species to sample to have max completness
-  )
+
+tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1))
+
+## New
+
+
+)

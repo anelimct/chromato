@@ -70,17 +70,22 @@ format_sample_data_chemodiv <- function(compounds_table, times_compound_sp, vali
   ##
   
   
-  pheno <- WOODIV_v2_Trait_data |> 
-    dplyr::filter(trait == "LeafPheno") |> 
-    dplyr::rename("spagg" = "spcode")
-  
   group_df <- data.frame(
     sample = rownames(sampledata_relative),
     species = substr(rownames(sampledata_relative), 1, 4)
-  ) |>  dplyr::mutate(spagg = stringr::str_to_upper(species)) |> dplyr::left_join( pheno)
+  ) |>  dplyr::mutate(spagg = stringr::str_to_upper(species)) #|> dplyr::left_join( pheno)
   
   
-  group <- group_df[,3]
+  #group <- group_df[,3]
+  
+  
+  
+  
+  
+  ## debut
+  
+  
+  dis_matrix <- chemodiv::compDis(compound_data, type = "PubChemFingerprint", npcTable = NULL, unknownCompoundsMean = TRUE)
   
   
   
