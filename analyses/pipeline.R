@@ -258,6 +258,12 @@ tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_
 
 tar_target(table_heat_map,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_vagn", "mean_bpen", "mean_bpub", "mean_fang", "mean_jthu", "mean_ocar", "mean_fexc", "mean_sauc", "mean_avir", "mean_jcom", "mean_punc", "mean_qcre", "mean_sele", "mean_spen") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
 tar_target(table_heat_map_both,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes")) |> dplyr::select(-c(2,3,4)) |>  dplyr::select(1, "mean_ptre", "mean_scin", "mean_rcat", "mean_spen", "mean_spur", "mean_sele") |> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
+
+
+tar_target(table_heat_map_complete,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)|> dplyr::filter(class %in% c("Monoterpenes", "Oxygenated-monoterpenes", "Isoprene")) |> dplyr::select(-c(2,3,4))|> dplyr::mutate(dplyr::across(-1, as.numeric)) |>  rename_mean_columns(sp_screening)),
+
+
+
 tar_target(data_set_PLSDA,   prepare_plsda_data(compounds_samples_spagg_to_keep)),
 tar_target(data_set_plot_emission_screening,compound_mean_spagg |>  rename_mean_columns(sp_screening)),
 tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE) ),

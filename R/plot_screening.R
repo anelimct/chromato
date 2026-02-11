@@ -1483,14 +1483,19 @@ pie_chart_screening <- function(data){
 PieDonut_custom_colors_v2 <- function(data, 
                                       type_colors = NULL,
                                       subtype_colors = NULL,
+                                      type_labels = NULL,
+                                      subtype_labels = NULL,
                                       title = "Emission Types Distribution",
                                       show_counts = TRUE,
                                       inner_radius = 0.3,
                                       middle_radius = 0.7,
                                       outer_radius = 1.0,
-                                      label_threshold = 0.02) {
+                                      label_threshold = 0.02,
+                                      segment_length = 0.15,
+                                      segment_color = "gray50",
+                                      segment_size = 0.5) {
   
-  # Prepare data (same as before)
+  # Prepare data
   df <- data %>%
     ungroup() %>%
     mutate(
@@ -1509,6 +1514,19 @@ PieDonut_custom_colors_v2 <- function(data,
       mid_angle = (start_angle + end_angle) / 2,
       segment_id = paste0(type, "_total")
     )
+  
+  # Apply type labels if provided
+  if (!is.null(type_labels)) {
+    type_totals <- type_totals %>%
+      mutate(
+        type_display = ifelse(type %in% names(type_labels), 
+                              type_labels[type], 
+                              type)
+      )
+  } else {
+    type_totals <- type_totals %>%
+      mutate(type_display = type)
+  }
   
   # Calculate for subtypes (outer ring)
   subtype_data <- df %>%
@@ -1532,7 +1550,33 @@ PieDonut_custom_colors_v2 <- function(data,
       segment_id = paste0(type, "_", sub_type)
     )
   
-  # Set default type colors if not provided (same as before)
+  # Apply subtype labels if provided
+  if (!is.null(subtype_labels)) {
+    subtype_data <- subtype_data %>%
+      mutate(
+        subtype_display = ifelse(sub_type %in% names(subtype_labels), 
+                                 subtype_labels[sub_type], 
+                                 sub_type)
+      )
+  } else {
+    subtype_data <- subtype_data %>%
+      mutate(subtype_display = sub_type)
+  }
+  
+  # Also apply type labels to subtype_data
+  if (!is.null(type_labels)) {
+    subtype_data <- subtype_data %>%
+      mutate(
+        type_display = ifelse(type %in% names(type_labels), 
+                              type_labels[type], 
+                              type)
+      )
+  } else {
+    subtype_data <- subtype_data %>%
+      mutate(type_display = type)
+  }
+  
+  # Set default type colors if not provided
   if (is.null(type_colors)) {
     type_colors <- c(
       "NE" = "#999999", 
@@ -1542,7 +1586,7 @@ PieDonut_custom_colors_v2 <- function(data,
     )
   }
   
-  # Create color mapping for all segments (same as before)
+  # Create color mapping for all segments
   all_segments <- unique(c(type_totals$segment_id, subtype_data$segment_id))
   color_mapping <- setNames(rep(NA, length(all_segments)), all_segments)
   
@@ -1554,7 +1598,7 @@ PieDonut_custom_colors_v2 <- function(data,
     }
   }
   
-  # Assign colors to subtypes (outer ring) (same as before)
+  # Assign colors to subtypes (outer ring)
   if (!is.null(subtype_colors)) {
     for (segment_id in names(subtype_colors)) {
       if (segment_id %in% names(color_mapping)) {
@@ -1585,16 +1629,6 @@ PieDonut_custom_colors_v2 <- function(data,
       }
     }
   }
-  
-  # Now, we have:
-  #   type_totals: for inner ring
-  #   subtype_data: for outer ring (including the "total" subtype, but we will filter out for outer ring arcs)
-  
-  # We will plot:
-  #   Inner ring arcs: using type_totals
-  #   Outer ring arcs: using subtype_data without the "total" subtype
-  #   Inner ring labels: using type_totals
-  #   Outer ring labels: using subtype_data without the "total" subtype, and filtered by label_threshold
   
   # Prepare outer ring data (without "total")
   outer_ring_data <- subtype_data %>%
@@ -1643,7 +1677,7 @@ PieDonut_custom_colors_v2 <- function(data,
   if (show_counts) {
     inner_labels <- type_totals %>%
       mutate(
-        label = paste0(type, "\n(", total, ")"),
+        label = paste0(type_display, "\n(", total, ")"),
         label_x = (inner_radius + middle_radius) / 2 * sin(mid_angle),
         label_y = (inner_radius + middle_radius) / 2 * cos(mid_angle)
       )
@@ -1656,20 +1690,49 @@ PieDonut_custom_colors_v2 <- function(data,
         fontface = "bold"
       )
     
-    # Add outer ring labels (only for segments above threshold)
+    # Prepare outer ring labels with short segments
     outer_labels <- outer_ring_data %>%
       mutate(
-        label = paste0(sub_type, "\n(", count, ")"),
-        label_x = (middle_radius + outer_radius) / 2 * sin(mid_angle),
-        label_y = (middle_radius + outer_radius) / 2 * cos(mid_angle),
+        label = paste0(subtype_display, "\n(", count, ")"),
+        # Only show labels for segments above threshold
         show_label = count / sum(outer_ring_data$count) >= label_threshold
+      ) %>%
+      filter(show_label) %>%
+      mutate(
+        # Start point of the line (on the outer edge of donut)
+        line_x_start = outer_radius * sin(mid_angle),
+        line_y_start = outer_radius * cos(mid_angle),
+        
+        # End point of the line (short segment outside donut)
+        line_x_end = (outer_radius + segment_length) * sin(mid_angle),
+        line_y_end = (outer_radius + segment_length) * cos(mid_angle),
+        
+        # Text position (right after the segment)
+        text_x = (outer_radius + segment_length + 0.05) * sin(mid_angle),
+        text_y = (outer_radius + segment_length + 0.05) * cos(mid_angle),
+        
+        # Text alignment based on angle quadrant
+        hjust = ifelse(sin(mid_angle) > 0, 0, 1),
+        vjust = 0.5
       )
     
+    # Add short line segments (no arrows)
     p <- p +
+      geom_segment(
+        data = outer_labels,
+        aes(x = line_x_start, y = line_y_start,
+            xend = line_x_end, yend = line_y_end),
+        color = segment_color,
+        size = segment_size
+      ) +
+      # Add labels at the end of segments
       geom_text(
-        data = outer_labels %>% filter(show_label),
-        aes(x = label_x, y = label_y, label = label),
-        size = 2.8
+        data = outer_labels,
+        aes(x = text_x, y = text_y, 
+            label = label, 
+            hjust = hjust, vjust = vjust),
+        size = 3,
+        lineheight = 0.8
       )
   }
   

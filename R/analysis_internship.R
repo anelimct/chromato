@@ -118,14 +118,14 @@ create_residual_correlogram <- function(tree, residuals, col_name = "Residuals")
   
   # Créer un objet phylo4 avec l'arbre élagué
   pruned_tree <- ape::drop.tip(tree, setdiff(tree$tip.label, names(residuals)))
-  phylo4_object <- as(pruned_tree, "phylo4")
+  phylo4_object <- phylobase::phylo4(pruned_tree)
   
   # Créer un data.frame avec les résidus et nommer la colonne
   df_residuals <- data.frame(residuals)
   colnames(df_residuals) <- col_name
   
   # Créer un objet phylo4d avec les résidus
-  phylo4d_object <- phylo4d(phylo4_object, tip.data = df_residuals)
+  phylo4d_object <- phylobase::phylo4d(phylo4_object, tip.data = df_residuals)
   
   # Créer le correlogramme
   correlogram <- phylosignal::phyloCorrelogram(
@@ -140,4 +140,5 @@ create_residual_correlogram <- function(tree, residuals, col_name = "Residuals")
   # Afficher le plot
   phylosignal:: plot.phylocorrelogram(correlogram, main = paste("Phylogenetic correlogram of", col_name))
   
+  return(correlogram)
 }
