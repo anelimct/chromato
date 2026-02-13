@@ -100,64 +100,74 @@ plot_pie_chart <- function(data, type_column = "type", title = "Distribution des
 
 
 
-create_density_facet_plot <- function(data, 
-                                      x_var = "SLA", 
+create_density_facet_plot <- function(data,
+                                      x_var = "SLA",
                                       group_var = "type",
-                                      plot_type = "density_mean",  
+                                      plot_type = "density_mean",
                                       same_y_scale = TRUE,
-                                      show_histogram = TRUE) {
+                                      show_histogram = TRUE,
+                                      trans = "none") {   # nouveau paramètre
   
   library(ggplot2)
   library(dplyr)
   
+  # Vérification des variables
   if (!x_var %in% names(data)) stop(paste("Variable", x_var, "non trouvée"))
   if (!group_var %in% names(data)) stop(paste("Variable", group_var, "non trouvée"))
   
+  # Transformation de la variable
+  data <- data %>%
+    mutate(x_trans = case_when(
+      trans == "log"  ~ log(.data[[x_var]]),
+      trans == "sqrt" ~ sqrt(.data[[x_var]]),
+      TRUE            ~ .data[[x_var]]
+    ))
+  
+  # Couleurs et labels
   type_colors <- c(
-    "iso" = "#70c230",
+    "iso"  = "#70c230",
     "both" = "#da6484",
-    "mono" = "#3764da", 
-    "NE" = "#fce72e"
+    "mono" = "#3764da",
+    "NE"   = "#fce72e"
   )
   
   type_labels <- c(
-    "iso" = "Isoprene",
-    "both" = "Both", 
+    "iso"  = "Isoprene",
+    "both" = "Both",
     "mono" = "Monoterpenes",
-    "NE" = "Non-emitters",
-    "All" = "All species"
+    "NE"   = "Non-emitters",
+    "All"  = "All species"
   )
   
-  # ===== créer facettes =====
+  # ===== Créer les facettes =====
   data_facet <- data %>%
     mutate(.facet = as.character(.data[[group_var]]),
-           .fill = as.character(.data[[group_var]]))
+           .fill  = as.character(.data[[group_var]]))
   
   data_all <- data %>%
     mutate(.facet = "All",
-           .fill = "All")
+           .fill  = "All")
   
   data_plot <- bind_rows(data_facet, data_all)
   
-  # ===== moyennes =====
+  # ===== Calcul des moyennes =====
   if (plot_type %in% c("density_mean", "combined")) {
-    
     mean_groups <- data %>%
       group_by(.data[[group_var]]) %>%
-      summarise(mean_value = mean(.data[[x_var]], na.rm = TRUE), .groups = "drop") %>%
+      summarise(mean_value = mean(x_trans, na.rm = TRUE), .groups = "drop") %>%
       mutate(.facet = as.character(.data[[group_var]]),
-             .fill = as.character(.data[[group_var]]))
+             .fill  = as.character(.data[[group_var]]))
     
     mean_all <- data %>%
-      summarise(mean_value = mean(.data[[x_var]], na.rm = TRUE)) %>%
+      summarise(mean_value = mean(x_trans, na.rm = TRUE)) %>%
       mutate(.facet = "All",
-             .fill = "All")
+             .fill  = "All")
     
     group_means <- bind_rows(mean_groups, mean_all)
   }
   
-  # ===== base =====
-  p <- ggplot(data_plot, aes(x = .data[[x_var]], fill = .fill))
+  # ===== Graphique de base =====
+  p <- ggplot(data_plot, aes(x = x_trans, fill = .fill))
   
   # Histogramme
   if (show_histogram) {
@@ -171,7 +181,7 @@ create_density_facet_plot <- function(data,
   # Densité
   p <- p + geom_density(alpha = 0.6, size = 0.8, color = "black")
   
-  # Moyenne
+  # Lignes des moyennes
   if (plot_type %in% c("density_mean", "combined")) {
     p <- p +
       geom_vline(data = group_means,
@@ -186,16 +196,21 @@ create_density_facet_plot <- function(data,
                scales = if (same_y_scale) "fixed" else "free_y",
                labeller = as_labeller(type_labels))
   
-  # Couleurs
+  # Couleurs manuelles
   p <- p +
     scale_fill_manual(values = c(type_colors, "All" = "grey70"), guide = "none") +
     scale_color_manual(values = c(type_colors, "All" = "black"), guide = "none")
   
-  # Thème
+  # ===== Labels des axes avec transformation =====
+  x_label <- switch(trans,
+                    "log"  = paste0("log(", x_var, ")"),
+                    "sqrt" = paste0("sqrt(", x_var, ")"),
+                    x_var)
+  
   p <- p +
     labs(
-      title = paste("Distribution de", x_var),
-      x = x_var,
+      title = paste("Distribution de", x_label),
+      x = x_label,
       y = "Densité"
     ) +
     theme_minimal() +
@@ -207,7 +222,6 @@ create_density_facet_plot <- function(data,
   
   return(p)
 }
-
 
 
 

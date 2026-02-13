@@ -177,6 +177,18 @@ list(
                  Origin_pop = ifelse(Origin_pop == " NA", Ref_ID_WoS, Origin_pop)
                ) |> create_population_variable ()),
 
+  
+  
+  tar_target(DB_bvocs_filtered_all_L_T, DB_bvocs |>  select_iso_mono() |>  numeric_emissions_g_h() |> compound_unit_µg() |>  dplyr::filter(Emission_unit_leaf == "g" | Emission == 0) |> select_std_or_standardisable_3()  |>  select_months( "05", "07")  |>  select_temp_and_par(43, 20, 2000, 500) |> 
+               dplyr::mutate(
+                 Country = clean_country(Country),
+                 Origin_city = clean_city_locality(Origin_city),
+                 Origin_locality = clean_city_locality(Origin_locality),
+                 Origin_pop = stringr::str_replace(paste(Origin_city, Origin_locality, sep = " "), "NA", ""),
+                 Origin_pop = ifelse(Origin_pop == " NA", Ref_ID_WoS, Origin_pop)
+               ) |> create_population_variable ()),
+  
+  
   tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered)),
   
   ## Library CAS
@@ -229,6 +241,7 @@ list(
 ##ici filter outs tartu parce que 'il ya une conversion que je n'arriva aps a faire 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
   tar_target(summary_DB_litt, count_available (DB_bvocs_ES, 1)),
+  tar_target(summary_DB_litt_all_L_T, count_available (DB_bvocs_filtered_all_L_T, 1)),
 
 ##Recreate analysis master
 # il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
@@ -289,11 +302,19 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
             process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul ()
               |> tidy_summary_all(woodiv_species)),
 
-  tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
+
+tar_target(summary_all_L_T , ranking_species(working_file) |>  dplyr::left_join(summary_DB_litt_all_L_T, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |>
+             process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul ()
+           |> tidy_summary_all(woodiv_species))
+
+
+
+
+ # tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
 
    #How important are species to sample to have max completness
 
-tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1))
+#tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1))
 
 ## New
 

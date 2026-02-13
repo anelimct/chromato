@@ -8,6 +8,8 @@ process_summary_data <- function(summary_data, working_file) {
     dplyr::mutate(
       all_distinct_origins_isoprene = dplyr::coalesce(distinct_origins_isoprene, 0) + dplyr::coalesce(distinct_origins_field_iso, 0),
       all_distinct_origins_monoterpenes = dplyr::coalesce(distinct_origins_monoterpenes, 0) + dplyr::coalesce(distinct_origins_field_mono, 0),
+      all_distinct_entries_isoprene = dplyr::coalesce(nb_entries_isoprene, 0) + dplyr::coalesce(n_entries_iso, 0),
+      all_distinct_entries_monoterpenes = dplyr::coalesce(nb_entries_monoterpenes, 0) + dplyr::coalesce(n_entries_mono, 0),
       relative_grid = (nb_grid / length(unique(working_file$idgrid)))*100
     )|> dplyr::mutate(min_origins_all = pmin(all_distinct_origins_isoprene, all_distinct_origins_monoterpenes ), min_origins_field = pmin(distinct_origins_field_mono, distinct_origins_field_iso), min_origins_litt = pmin(distinct_origins_isoprene, distinct_origins_monoterpenes)) |>  
     tidyr::replace_na( list(min_origins_field = 0)) |>  tidyr::replace_na( list(min_origins_litt = 0))

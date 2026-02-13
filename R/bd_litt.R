@@ -103,7 +103,7 @@ numeric_emissions_g_h <- function(data){
 }
 
 compound_unit_µg <- function(data) {
-  ## passage de microgC à microC, pour cela il faut la fraction moléaire du carbone dans la molécule
+  ## passage de microgC à microg, pour cela il faut la fraction moléaire du carbone dans la molécule
   # pour monoterpenes C10H16 = 12.01*10 + 16 = 136.1 g.mol-1, fraction molaire carbone = 120.1 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
   # pour isoprene C5H8 = 12.01*5 + 8 = 68.05 g.mol, fraction molaire carbone = 60.05 , fraction massique  = 0.8824394, Emission µgC/0.8824394 = Emission µg
   data <- data |>   dplyr::mutate(Emission = ifelse(Emission_unit_comp == "microgC" , Emission/0.8824394 , Emission)) 
@@ -196,6 +196,16 @@ select_std_or_standardisable <- function(data, sp_storing) {
 
 
 
+
+
+#' Title
+#'
+#' @param data 
+#'
+#' @returns standardised or standardsable data if we consider that we keep all data std in the literature no matter if the t only was used for mono as long as it was a guenther one
+#' @export
+#'
+#' @examples
 select_std_or_standardisable_2 <- function(data) {
   
   data_std <- data |> dplyr::filter(Standardized == "true")|> dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") 
@@ -217,6 +227,52 @@ select_std_or_standardisable_2 <- function(data) {
          (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA"))) 
   
   data_combined <- rbind(data_std, data)
+  
+} 
+
+
+#' Title
+#'
+#' @param data 
+#'
+#' @returns standardised or standardsable data if we consider that even for data that was standardised in the article =, if the T only algorithm was used, we demand to have light and T of the original so we can go back to the non std value using the t only algo the orther way (compute the rate befor teh standardisation) in order to standardise it back to T +L 
+#' @export
+#'
+#' @examples
+select_std_or_standardisable_3 <- function(data) {
+  
+  data_std <- data |> dplyr::filter(Standardized == "true")|> 
+    dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") |>  
+    dplyr::filter( Standardization_algo_type %in% c("T+L" ,  "T+L/ T"))
+  
+  data_back_transform <- data |> dplyr::filter(Standardized == "true")|>
+    dplyr::filter(Standardization_algo_ref != "S97") |> dplyr::filter( Standardization_algo_type == "T" ) |> 
+    dplyr::filter(
+      
+      Compound == "monoterpenes" &  ((Temperature != "NA" & PAR != "NA") | 
+                                       
+                                       (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+                                       (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+                                       (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA")))
+    
+  
+  data<- data |> dplyr::filter(Standardized == "false") 
+  
+  data <- data |> dplyr::filter(
+    
+    Compound == "monoterpenes" &  ((Temperature != "NA" & PAR != "NA") | 
+                                     
+                                     (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+                                     (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+                                     (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA")) |
+      
+      Compound == "isoprene" & 
+      ((Temperature != "NA" & PAR != "NA") | 
+         (Temperature_min != "NA" & Temperature_max != "NA" & PAR_min != "NA" & PAR_max != "NA")  | 
+         (Temperature != "NA"& PAR_min != "NA" & PAR_max != "NA") |
+         (PAR != "NA" & Temperature_min != "NA" & Temperature_max != "NA"))) 
+  
+  data_combined <- rbind(data_std, data, data_back_transform)
   
 } 
 
