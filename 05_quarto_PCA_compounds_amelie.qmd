@@ -9,6 +9,9 @@ editor: visual
 targets::tar_load(compounds_samples_spagg_to_keep)
 targets::tar_source(here::here("R/analysis_internship.R"))
 
+library(ggplot2)
+library(ggfortify)
+
 data <- compounds_samples_spagg_to_keep |> dplyr::filter(!class %in% c( "Sesquiterpenes", "Oxygenated-sesquiterpenes")) |> 
   dplyr::select(-smiles, -class, -inchikey) |> dplyr::mutate(across(c(where(is.character), -compound), as.numeric))|> 
   tidyr::pivot_longer(cols = -compound,names_to = "sample",values_to = "value") |> 
@@ -26,7 +29,7 @@ numeric_cols_normalised <- normaliser_dataframe(numeric_cols)
 # Réassembler avec la colonne sample
 data_N <- cbind(sample = sample_col, numeric_cols_normalised)
 
-pca = princomp(data_N[,3 :32])
+pca = princomp(data_N[,3 :29])
   
 biplot(pca)
 
@@ -45,3 +48,271 @@ ggplot2::autoplot(
   theme_minimal() +
   labs(colour = "Sample Group")  # Renommer la légende
 ```
+
+```{r}
+#| warning: false
+
+library(mdatools)
+targets::tar_load(data_set_PLSDA)
+m.all = plsda(data_set_PLSDA[[1]], data_set_PLSDA[[2]], 3, cv = 1)
+# Extract scores
+scores <- m.all$res$cal$xdecomp$scores
+scores_df <- data.frame(
+  Comp1 = scores[, 1],
+  Comp2 = scores[, 2],
+  Class = data_set_PLSDA[[2]]
+)
+
+class_counts <- table(scores_df$Class)
+valid_classes <- names(class_counts[class_counts >= 3])
+
+# Create a filtered version for ellipses only
+scores_df_filtered <- scores_df[scores_df$Class %in% valid_classes, ]
+
+# Create plot with ggplot2
+ggplot(scores_df, aes(x = Comp1, y = Comp2, color = Class)) +
+  geom_point(size = 3, alpha = 0.8) +
+  # Add ellipses only for classes with enough points
+  stat_ellipse(data = scores_df_filtered, 
+               aes(x = Comp1, y = Comp2, color = Class),
+               level = 0.95, type = "norm", linetype = 2) +
+  theme_minimal() +
+  labs(title = "PLS-DA Score Plot",
+       x = paste0("Component 1 (", round(m.all$calres$xdecomp$expvar[1], 1), "%)"),
+       y = paste0("Component 2 (", round(m.all$calres$xdecomp$expvar[2], 1), "%)")) +
+  theme(legend.position = "right") +
+  # Use a color palette that supports many classes
+  scale_color_discrete()
+
+```
+
+```{r}
+#| warning: false
+ targets::tar_load(data_set_PLSDA)
+m.all = plsda(data_set_PLSDA[[1]], data_set_PLSDA[[2]], 3, cv = 1)
+# Extract scores
+scores <- m.all$res$cal$xdecomp$scores
+scores_df <- data.frame(
+  Comp2 = scores[, 2],
+  Comp3 = scores[, 3],
+  Class = data_set_PLSDA[[2]]
+)
+
+class_counts <- table(scores_df$Class)
+valid_classes <- names(class_counts[class_counts >= 3])
+
+# Create a filtered version for ellipses only
+scores_df_filtered <- scores_df[scores_df$Class %in% valid_classes, ]
+
+# Create plot with ggplot2
+ggplot(scores_df, aes(x = Comp2, y = Comp3, color = Class)) +
+  geom_point(size = 3, alpha = 0.8) +
+  # Add ellipses only for classes with enough points
+  stat_ellipse(data = scores_df_filtered, 
+               aes(x = Comp2, y = Comp3, color = Class),
+               level = 0.95, type = "norm", linetype = 2) +
+  theme_minimal() +
+  labs(title = "PLS-DA Score Plot",
+       x = paste0("Component 2 (", round(m.all$calres$xdecomp$expvar[2], 1), "%)"),
+       y = paste0("Component 3 (", round(m.all$calres$xdecomp$expvar[3], 1), "%)")) +
+  theme(legend.position = "right") +
+  # Use a color palette that supports many classes
+  scale_color_discrete()
+
+```
+
+```{r}
+targets::tar_load(compounds_table)
+targets::tar_load(times_compound_sp)
+targets::tar_load( valid_samples_mono)
+targets::tar_load( data_set_PLSDA)
+
+library(fmcsR)
+ 
+  
+  
+comp_to_keep <- colnames(data_set_PLSDA[[1]])  
+compound_data <- compounds_table[compounds_table$compound %in% comp_to_keep, 1:4]
+  
+
+
+  
+  sampledata_relative <- as.data.frame(t(apply(data_set_PLSDA[[3]], 1, function(x) x/sum(x))))
+  
+  ##
+rows_all_missing <- apply(sampledata_relative, 1, function(x) all(is.na(x)))
+
+# On garde les lignes qui ne sont pas entièrement manquantes
+sampledata_relative <- sampledata_relative[!rows_all_missing, ]
+  
+  group_df <- data.frame(
+    sample = rownames(sampledata_relative),
+    species = substr(rownames(sampledata_relative), 1, 4)
+  ) |>  dplyr::mutate(spagg = stringr::str_to_upper(species)) #|> dplyr::left_join( pheno)
+  
+  
+  #group <- group_df[,3]
+  
+  
+  #reorder compounds so compound table matches the order of sample data
+ desired_order <- colnames(sampledata_relative)
+
+# Réorganiser compound_data selon cet ordre
+compound_data <- compound_data[match(desired_order, compound_data$compound), ]
+
+  
+  ## debut
+  
+  
+  dis_matrix <- chemodiv::compDis(compound_data, type = c("PubChemFingerprint", "fMCS" ), npcTable = NULL, unknownCompoundsMean = TRUE)
+  
+```
+
+```{r}
+library(chemodiv)
+
+
+sampDisMat <- sampDis(sampledata_relative, compDisMat = NULL, type = "BrayCurtis", alpha = 1)
+divData <- calcDiv(sampledata_relative, compDisMat = dis_matrix[[2]], type = "RaoQ")
+
+
+
+chemoDivPlot(
+  sampDisMat= sampDisMat[[1]],
+  groupData = group_df$spagg
+)
+
+```
+
+```{r}
+
+targets::tar_source(here::here("R/plot_screening.R"))
+targets::tar_load(pie_chart_emission_screening)
+library(dplyr)
+library(grid)
+library(ggforce)
+library(moonBook)
+result <- pie_chart_screening(pie_chart_emission_screening) 
+
+
+
+p2 <- PieDonut_custom_colors_v2(
+    data = result,
+    type_colors = c("NE" = "#fce72e", "both" = "#da6484",
+                    "iso" = "#70c230", "mono" = "#3764da"),
+    subtype_colors = c(
+        "both_high-high" = "#c34f70",
+        "both_high-medium" = "#eba5b5",
+        "both_high-low" = "#f4c2cd",
+        "iso_high" = "#59ac24",
+        "iso_medium" = "#adda96",
+        "mono_high" = "#2c52c4",
+        "mono_medium" = "#91a2e9",
+        "mono_low" = "#b7c2f3"
+    ),
+    type_labels = c(
+        "NE" = "NE",
+        "both" = "Both" ,
+        "iso" = "Iso",
+        "mono" = "Mono"
+    ),
+    subtype_order = list(
+    "NE"   = c("low", "medium", "high"),
+    "iso"  = c("low", "medium", "high"),
+    "mono" = c("low", "medium", "high"),
+    "both" = c("high-low", "high-medium", "high-high")
+  ), use_repel = FALSE, 
+    title = "Emission type repartition"
+)
+
+
+
+plot(p2)
+```
+
+```{r}
+calculate_all_chemodiv_metrics <- function(sampleData, compDisMat, q = 1) {
+  # Check if chemodiv package is available
+  if (!requireNamespace("chemodiv", quietly = TRUE)) {
+    stop("Package 'chemodiv' is required but not installed.")
+  }
+  
+  # All metric types that calcDiv can compute
+  metric_types <- c("Shannon", "Simpson", "HillDiv", "FuncHillDiv",
+                    "MPD", "RaoQ", "PielouEven", "HillEven")
+  
+  # Compute all metrics in one call
+  metrics_df <- chemodiv::calcDiv(
+    sampleData = sampleData,
+    compDisMat = compDisMat,
+    type = metric_types,
+    q = q
+  )
+  
+  # Compute richness (number of compounds with relative concentration > 0)
+  richness <- apply(sampleData, 1, function(row) sum(row > 0))
+  
+  # Get list of compound names present in each sample
+  compound_names <- colnames(sampleData)
+  compounds_present <- apply(sampleData, 1, function(row) {
+    present <- compound_names[row > 0]
+    paste(present, collapse = ", ")
+  })
+  
+  # Add these as new columns
+  metrics_df$Richness <- richness
+  metrics_df$Compounds <- compounds_present
+  
+  # Ensure row names are preserved (calcDiv already returns row names from sampleData)
+  # But we can explicitly set them
+  rownames(metrics_df) <- rownames(sampleData)
+  
+  return(metrics_df)
+}
+
+
+test <- calculate_all_chemodiv_metrics(sampledata_relative, dis_matrix[[2]], q = 1)
+
+
+test$rowname <- rownames(test)                
+test$prefixe <- toupper(substr(test$rowname, 1, 4))
+
+
+
+sum_by_sample <- rowSums(data_set_PLSDA[[3]])
+
+
+test$sum_by_sample <- sum_by_sample[test$rowname]
+
+```
+
+Est-ce qu'il ne faudrait pasplutot faire ce type de graph sans enlever les singletons ?
+
+```{r}
+library(ggplot2)
+
+# Liste des colonnes de diversité
+diversity_metrics <- c("Shannon", "Simpson", "HillDiv", "FuncHillDiv", "MPD", "RaoQ", 
+                       "PielouEven", "HillEven", "Richness")
+diversity_metrics <- intersect(diversity_metrics, colnames(test))
+
+# Boucle sur chaque métrique
+for (metric in diversity_metrics) {
+  p <- ggplot(test, aes(x = sum_by_sample, y = .data[[metric]], color = prefixe)) +
+    geom_point(size = 2, alpha = 0.7) +
+    labs(title = paste(metric, "vs sum_by_sample (coloré par espèce)"),
+         x = "Sum by sample",
+         y = metric,
+         color = "Espèce") +
+    theme_minimal() +
+    theme(legend.position = "right",                # légende sur le côté
+          legend.key.size = unit(0.3, "cm"),       # taille des symboles réduite
+          legend.margin = margin(0, 0, 0, 0),      # marges internes nulles
+          legend.spacing.x = unit(0.1, "cm"),      # espace horizontal entre clé et label
+          legend.spacing.y = unit(0.05, "cm"))     # espace vertical entre éléments
+  
+  print(p)
+}
+```
+
+\

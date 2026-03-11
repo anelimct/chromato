@@ -43,16 +43,21 @@ targets::tar_load(woodiv_species)
 merged_data_3T <-merge_trait_EF(imputed.traits_3T, DB_bvocs_iso_mono_EF)
 imputed.traits_3T <- subset(imputed.traits_3T, select = -c(SeedMass, DispMode))
 imputed.traits <-  imputed.traits_3T
-funspaceDim(imputed.traits) #3 dimensions
+funspace::funspaceDim(imputed.traits) #3 dimensions
 imputed.traitsN <- normaliser_dataframe(imputed.traits)
 pca.trait <- princomp(imputed.traitsN, cor=TRUE)
 summary(pca.trait)
-trait_space_global <- funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T$BVOCsData)
+trait_space_global <- funspace::funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T$BVOCsData)
 
 
 
 merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE)%>% 
-  column_to_rownames(var = "Row.names")
+  tibble::column_to_rownames(var = "Row.names")
+
+
+#maintenet le tree c'est avec spagg plus name complete il faut changer les rownames de merged data 3T
+
+merged_data_3T <- merged_data_3T |> tibble::rownames_to_column( var = "rowname") |>  dplyr::left_join(woodiv_species, by = c( "rowname"="full_scientific_name" )) |>  tibble::column_to_rownames(var = "gragg") 
 ```
 
 ```{r}
@@ -81,9 +86,7 @@ Intensité des émissions le long de l'arbre
 
 ```{r}
 
-#maintenet le tree c'est avec spagg plus name complete il faut changer les rownames de merged data 3T
 
-merged_data_3T <- merged_data_3T |> tibble::rownames_to_column( var = "rowname") |>  dplyr::left_join(woodiv_species, by = c( "rowname"="full_scientific_name" )) |>  tibble::column_to_rownames(var = "gragg") 
 
  pruned_tree <- drop.tip(tree, setdiff(tree$tip.label, rownames(merged_data_3T)))
   phylo4_object <- phylobase::phylo4(pruned_tree)
@@ -136,7 +139,7 @@ Avec la transformation
 ```{r}
 
 
-model_glm_phy <- pglmm_compare( log(Sum+0.01) ~Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3 , family = "gaussian", phy = tree , data = merged_data_3T, REML = T, na.action(na.omit))
+model_glm_phy <- phyr::pglmm_compare( log(Sum+0.01) ~Comp.2+ Comp.3 + Comp.1 +Comp.2*Comp.3 , family = "gaussian", phy = tree , data = merged_data_3T, REML = T, na.action(na.omit))
 
 summary(model_glm_phy)
 hist(model_glm_phy$H)

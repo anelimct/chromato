@@ -50,10 +50,9 @@ calculate_emission_stats <- function(grid_to_plot, working_file, all_data_mean_E
 
 
 
-
 map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, output_dir = "figures/emission_maps") {
   
-  # S'assurer que l'annuaire de sortie existe
+  # S'assurer que le répertoire de sortie existe
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
   }
@@ -62,73 +61,66 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
   emission_stats_df <- as_tibble(emission_stats_df)
   
   # Joindre les statistiques avec les géométries des grilles
-  # Utiliser st_as_sf() pour s'assurer que le résultat est un objet sf
-  emission_stats_sf <- WOODIV_grid |> 
-    dplyr::filter(idgrid %in% emission_stats_df$idgrid) |> 
-    dplyr::left_join(emission_stats_df, by = "idgrid") |> 
-    sf::st_as_sf()  # Cette ligne est CRUCIALE
-  
+  emission_stats_sf <- WOODIV_grid |>
+    dplyr::filter(idgrid %in% emission_stats_df$idgrid) |>
+    dplyr::left_join(emission_stats_df, by = "idgrid") |>
+    sf::st_as_sf()
   
   # 1. Carte pour mean_isoprene
   map_mean_isoprene <- ggplot() +
-    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +  # Add the background grid
-    geom_sf(data = emission_stats_sf, aes(fill =  mean_isoprene), size = 0.5) +  # Add the completeness data
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = mean_isoprene), color = NA) +
     scale_fill_gradient(low = "white", high = "#03a219", name = "Mean Isoprene (µg g⁻¹ h⁻¹)") +
     theme_minimal() +
     labs(title = "Mean Isoprene Emission by Grid",
          fill = "Mean Isoprene (µg g⁻¹ h⁻¹)") +
     theme(
-      panel.grid.major = element_blank(),  # Remove major grid lines
-      panel.grid.minor = element_blank(),  # Remove minor grid lines
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
       legend.position = "bottom"
     )
   
-  
-  
-  
   # 2. Carte pour median_isoprene
   map_median_isoprene <- ggplot() +
-    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +  # Add the background grid
-    geom_sf(data = emission_stats_sf, aes(fill =   median_isoprene), size = 0.5) +  # Add the completeness data
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = median_isoprene), color = NA) +
     scale_fill_gradient(low = "white", high = "#03a219", name = "Median Isoprene (µg g⁻¹ h⁻¹)") +
     theme_minimal() +
     labs(title = "Median Isoprene Emission by Grid",
          fill = "Median Isoprene (µg g⁻¹ h⁻¹)") +
     theme(
-      panel.grid.major = element_blank(),  # Remove major grid lines
-      panel.grid.minor = element_blank(),  # Remove minor grid lines
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
       legend.position = "bottom"
     )
   
-  
   # 3. Carte pour mean_monoterpenes
   map_mean_monoterpenes <- ggplot() +
-    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +  # Add the background grid
-    geom_sf(data = emission_stats_sf, aes(fill =   mean_monoterpenes), size = 0.5) +  # Add the completeness data
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = mean_monoterpenes), color = NA) +
     scale_fill_gradient(low = "white", high = "#0985e2", name = "Mean Monoterpenes (µg g⁻¹ h⁻¹)") +
     theme_minimal() +
-    labs(title = "Mean monoterpenes Emission by Grid",
+    labs(title = "Mean Monoterpenes Emission by Grid",
          fill = "Mean Monoterpenes (µg g⁻¹ h⁻¹)") +
     theme(
-      panel.grid.major = element_blank(),  # Remove major grid lines
-      panel.grid.minor = element_blank(),  # Remove minor grid lines
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
       legend.position = "bottom"
     )
   
   # 4. Carte pour median_monoterpenes
   map_median_monoterpenes <- ggplot() +
-    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +  # Add the background grid
-    geom_sf(data = emission_stats_sf, aes(fill =   median_monoterpenes), size = 0.5) +  # Add the completeness data
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = median_monoterpenes), color = NA) +
     scale_fill_gradient(low = "white", high = "#0985e2", name = "Median Monoterpenes (µg g⁻¹ h⁻¹)") +
     theme_minimal() +
-    labs(title = "Median monoterpenes Emission by Grid",
+    labs(title = "Median Monoterpenes Emission by Grid",
          fill = "Median Monoterpenes (µg g⁻¹ h⁻¹)") +
     theme(
-      panel.grid.major = element_blank(),  # Remove major grid lines
-      panel.grid.minor = element_blank(),  # Remove minor grid lines
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
       legend.position = "bottom"
     )
-  
   
   # Sauvegarder les cartes
   ggsave(
@@ -158,8 +150,14 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
     path = output_dir,
     width = 16, height = 16, units = "cm", bg = "white"
   )
-
   
-  # Retourner les cartes dans une liste pour utilisation interactive
-  return()
+  # Retourner les cartes dans une liste pour utilisation interactivehttps://www.lelivrescolaire.fr/page/16858280
+  return(list(
+    map_mean_isoprene = map_mean_isoprene,
+    map_median_isoprene = map_median_isoprene,
+    map_mean_monoterpenes = map_mean_monoterpenes,
+    map_median_monoterpenes = map_median_monoterpenes
+  ))
 }
+
+

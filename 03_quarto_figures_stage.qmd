@@ -9,32 +9,74 @@ editor: visual
 ```
 
 ```{r}
-targets::tar_source(here::here("R/analysis_internship"))
+# targets::tar_source(here::here("R/analysis_internship"))
+# targets::tar_load(imputed.traits_3T)
+# targets::tar_load(DB_bvocs_iso_mono_EF)
+# targets::tar_load(tree)
+# 
+# 
+# merged_data_3T <-merge_trait_EF(imputed.traits_3T, DB_bvocs_iso_mono_EF)
+# imputed.traits_3T <- subset(imputed.traits_3T, select = -SeedMass)
+# imputed.traits <-  imputed.traits_3T
+# funspaceDim(imputed.traits) #3 dimensions
+# imputed.traitsN <- normaliser_dataframe(imputed.traits)
+# pca.trait <- princomp(imputed.traitsN, cor=TRUE)
+# summary(pca.trait)
+# trait_space_global <- funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T$BVOCsData)
+# 
+# 
+# 
+# merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE)%>% 
+#   column_to_rownames(var = "Row.names")
+
+
+
+
+
+targets::tar_source(here::here("R/analysis_internship.R"))
 targets::tar_load(imputed.traits_3T)
 targets::tar_load(DB_bvocs_iso_mono_EF)
 targets::tar_load(tree)
+targets::tar_load(woodiv_species)
 
 
 merged_data_3T <-merge_trait_EF(imputed.traits_3T, DB_bvocs_iso_mono_EF)
-imputed.traits_3T <- subset(imputed.traits_3T, select = -SeedMass)
-imputed.traits <-  imputed.traits_3T
-funspaceDim(imputed.traits) #3 dimensions
-imputed.traitsN <- normaliser_dataframe(imputed.traits)
-pca.trait <- princomp(imputed.traitsN, cor=TRUE)
-summary(pca.trait)
+
+
+#in the trait database there is no imputed values for liquidambar orientalis SLA ans StemSpecDens
+
+data_traits_EF <-merge_trait_EF(imputed.traits_3T, DB_bvocs_iso_mono_EF)
+data_traits_EF <- subset(data_traits_EF, select = -c(SeedMass, DispMode, Sum, total, p_isoprene, p_monoterpenes, prct_isoprene, prct_monoterpenes, isoprene_mod, binaire  )) 
+
+
+data_traits_all_sp <- data_traits_EF |>  subset( select = -c(isoprene, monoterpenes, BVOCsData, type)) |> normaliser_dataframe() #ajouter en groupe vec BVOCsData to create a subset for which we have isoprenoids data 
+
+
+#vecteur group
+
+type_isoprenoids <- data_traits_EF|> dplyr::filter(BVOCsData == 1) |>subset( select =  type)
+
+funspace::funspaceDim(data_traits_all_sp) ## retains only the first compoenent ? 
+pca.trait_usual_all <- princomp(data_traits_all_sp, cor=TRUE)
+summary(pca.trait_usual_all)
+
+
+
+
+pca.trait <- pca.trait_usual_all
 trait_space_global <- funspace(pca.trait, PCs=c(2,3), group.vec = merged_data_3T$BVOCsData)
 
 
+merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE) |> 
+  tibble::column_to_rownames(var = "Row.names")
 
-merged_data_3T <- merge(merged_data_3T, trait_space_global$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE)%>% 
-  column_to_rownames(var = "Row.names")
 ```
 
 ```{r}
 TPD <- trait_space_global$global$images$noThreshold.quantiles |>
   reshape2::melt()|> 
-  rename(PC2 = Var1) |> 
-  rename(PC3 = Var2) 
+  dplyr::rename(PC2 = Var1) |> 
+  dplyr::rename(PC3 = Var2) 
 ```
 
 ```{r}

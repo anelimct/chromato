@@ -259,7 +259,7 @@ matrice_correlation_spearmann <- function(data, include_type = FALSE) {
   
   
   
-
+  
   par(mfrow = c(1, 2))
   
   # Corrplot
@@ -279,7 +279,7 @@ matrice_correlation_spearmann <- function(data, include_type = FALSE) {
         col = rgb(0, 0, 0, 0.5),
         main = "Scatterplot matrix", lower.panel = NULL, panel = panel.smooth)
   
-
+  
 }
 
 

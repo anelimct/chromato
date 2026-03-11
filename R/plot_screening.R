@@ -1477,21 +1477,21 @@ pie_chart_screening <- function(data){
   
   
 }
-
-
-
 PieDonut_custom_colors_v2 <- function(data, 
                                       type_colors = NULL,
                                       subtype_colors = NULL,
                                       type_labels = NULL,
                                       subtype_labels = NULL,
+                                      subtype_order = NULL,
                                       title = "Emission Types Distribution",
                                       show_counts = TRUE,
+                                      use_repel = FALSE,
                                       inner_radius = 0.3,
                                       middle_radius = 0.7,
                                       outer_radius = 1.0,
                                       label_threshold = 0.02,
                                       segment_length = 0.15,
+                                      repel_segment_length = 0.5,
                                       segment_color = "gray50",
                                       segment_size = 0.5) {
   
@@ -1528,11 +1528,31 @@ PieDonut_custom_colors_v2 <- function(data,
       mutate(type_display = type)
   }
   
-  # Calculate for subtypes (outer ring)
-  subtype_data <- df %>%
+  # Calculate counts for subtypes
+  subtype_counts <- df %>%
     group_by(type, sub_type) %>%
-    summarise(count = sum(n)) %>%
-    ungroup() %>%
+    summarise(count = sum(n), .groups = "drop")
+  
+  # Apply custom ordering of subtypes if specified
+  if (!is.null(subtype_order)) {
+    subtype_counts <- subtype_counts %>%
+      group_by(type) %>%
+      group_modify(~ {
+        current_type <- .y$type
+        if (current_type %in% names(subtype_order)) {
+          .x %>% arrange(factor(sub_type, levels = subtype_order[[current_type]], ordered = TRUE))
+        } else {
+          .x %>% arrange(sub_type)
+        }
+      }) %>%
+      ungroup()
+  } else {
+    subtype_counts <- subtype_counts %>%
+      arrange(type, sub_type)
+  }
+  
+  # Join with type angles and compute positions
+  subtype_data <- subtype_counts %>%
     left_join(
       type_totals %>% select(type, type_start = start_angle, type_end = end_angle),
       by = "type"
@@ -1563,7 +1583,7 @@ PieDonut_custom_colors_v2 <- function(data,
       mutate(subtype_display = sub_type)
   }
   
-  # Also apply type labels to subtype_data
+  # Apply type labels to subtype_data
   if (!is.null(type_labels)) {
     subtype_data <- subtype_data %>%
       mutate(
@@ -1634,9 +1654,8 @@ PieDonut_custom_colors_v2 <- function(data,
   outer_ring_data <- subtype_data %>%
     filter(sub_type != "total")
   
-  # Create the plot
+  # Build base plot
   p <- ggplot() +
-    # Inner ring arcs
     geom_arc_bar(
       data = type_totals,
       aes(
@@ -1650,7 +1669,6 @@ PieDonut_custom_colors_v2 <- function(data,
       color = "white",
       size = 0.5
     ) +
-    # Outer ring arcs
     geom_arc_bar(
       data = outer_ring_data,
       aes(
@@ -1664,7 +1682,6 @@ PieDonut_custom_colors_v2 <- function(data,
       color = "white",
       size = 0.5
     ) +
-    coord_fixed() +
     theme_void() +
     theme(
       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
@@ -1673,8 +1690,9 @@ PieDonut_custom_colors_v2 <- function(data,
     labs(title = title) +
     scale_fill_manual(values = color_mapping)
   
-  # Add inner ring labels
+  # Add labels if requested
   if (show_counts) {
+    # Inner ring labels (with newline for readability)
     inner_labels <- type_totals %>%
       mutate(
         label = paste0(type_display, "\n(", total, ")"),
@@ -1690,55 +1708,109 @@ PieDonut_custom_colors_v2 <- function(data,
         fontface = "bold"
       )
     
-    # Prepare outer ring labels with short segments
+    # Prepare outer ring labels data
     outer_labels <- outer_ring_data %>%
       mutate(
-        label = paste0(subtype_display, "\n(", count, ")"),
+        # Count on same line as subtype label
+        label = paste0(subtype_display, " (", count, ")"),
         # Only show labels for segments above threshold
         show_label = count / sum(outer_ring_data$count) >= label_threshold
       ) %>%
       filter(show_label) %>%
       mutate(
-        # Start point of the line (on the outer edge of donut)
-        line_x_start = outer_radius * sin(mid_angle),
-        line_y_start = outer_radius * cos(mid_angle),
+        # Point on the outer edge of donut
+        point_x = outer_radius * sin(mid_angle),
+        point_y = outer_radius * cos(mid_angle),
         
-        # End point of the line (short segment outside donut)
-        line_x_end = (outer_radius + segment_length) * sin(mid_angle),
-        line_y_end = (outer_radius + segment_length) * cos(mid_angle),
-        
-        # Text position (right after the segment)
-        text_x = (outer_radius + segment_length + 0.05) * sin(mid_angle),
-        text_y = (outer_radius + segment_length + 0.05) * cos(mid_angle),
-        
-        # Text alignment based on angle quadrant
+        # Text alignment for non-repel case
         hjust = ifelse(sin(mid_angle) > 0, 0, 1),
         vjust = 0.5
       )
     
-    # Add short line segments (no arrows)
-    p <- p +
-      geom_segment(
-        data = outer_labels,
-        aes(x = line_x_start, y = line_y_start,
-            xend = line_x_end, yend = line_y_end),
-        color = segment_color,
-        size = segment_size
-      ) +
-      # Add labels at the end of segments
-      geom_text(
-        data = outer_labels,
-        aes(x = text_x, y = text_y, 
-            label = label, 
-            hjust = hjust, vjust = vjust),
-        size = 3,
-        lineheight = 0.8
-      )
+    if (use_repel) {
+      # Check if ggrepel is installed
+      if (!requireNamespace("ggrepel", quietly = TRUE)) {
+        warning("Package 'ggrepel' is not installed. Falling back to standard labels.")
+        use_repel <- FALSE
+      } else {
+        # For repel, place labels at a fixed distance (repel_segment_length) from outer edge
+        outer_labels <- outer_labels %>%
+          mutate(
+            label_x_init = (outer_radius + repel_segment_length) * sin(mid_angle),
+            label_y_init = (outer_radius + repel_segment_length) * cos(mid_angle)
+          )
+        
+        p <- p +
+          ggrepel::geom_text_repel(
+            data = outer_labels,
+            aes(x = point_x, y = point_y, label = label),
+            nudge_x = outer_labels$label_x_init - outer_labels$point_x,
+            nudge_y = outer_labels$label_y_init - outer_labels$point_y,
+            segment.color = segment_color,
+            segment.size = segment_size,
+            min.segment.length = 0,  # Always draw segment
+            size = 3,
+            lineheight = 0.8,
+            box.padding = 0.5,
+            point.padding = 0.2,
+            force = 2,               # Stronger force to keep near initial radius
+            max.iter = 2000,
+            direction = "both"
+          )
+      }
+    }
+    
+    # If not using repel, add manual segments and labels with segment_length
+    if (!use_repel) {
+      outer_labels <- outer_labels %>%
+        mutate(
+          label_x_init = (outer_radius + segment_length + 0.05) * sin(mid_angle),
+          label_y_init = (outer_radius + segment_length + 0.05) * cos(mid_angle)
+        )
+      
+      p <- p +
+        geom_segment(
+          data = outer_labels,
+          aes(x = point_x, y = point_y,
+              xend = label_x_init, yend = label_y_init),
+          color = segment_color,
+          size = segment_size
+        ) +
+        geom_text(
+          data = outer_labels,
+          aes(x = label_x_init, y = label_y_init, 
+              label = label, 
+              hjust = hjust, vjust = vjust),
+          size = 3,
+          lineheight = 0.8
+        )
+    }
+    
+    # Compute limits to include all elements
+    all_coords <- c(
+      outer_labels$point_x, outer_labels$point_y,
+      if (use_repel) outer_labels$label_x_init else outer_labels$label_x_init,
+      inner_labels$label_x, inner_labels$label_y
+    )
+    max_abs <- max(abs(all_coords), na.rm = TRUE)
+    plot_limit <- max_abs * 1.1
+    
+    p <- p + coord_fixed(
+      xlim = c(-plot_limit, plot_limit),
+      ylim = c(-plot_limit, plot_limit),
+      clip = "off"
+    )
+    
+  } else {
+    p <- p + coord_fixed(
+      xlim = c(-outer_radius, outer_radius) * 1.1,
+      ylim = c(-outer_radius, outer_radius) * 1.1,
+      clip = "off"
+    )
   }
   
   return(p)
 }
-
 
 
 

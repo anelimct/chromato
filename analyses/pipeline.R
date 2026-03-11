@@ -190,6 +190,7 @@ list(
   
   
   tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered)),
+  tar_target(DB_bvocs_ES_all_L_T, standardisation (DB_bvocs_filtered)),
   
   ## Library CAS
 
@@ -234,19 +235,21 @@ list(
 
 
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
-  #tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
+  tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
   tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
 ##ici filter outs tartu parce que 'il ya une conversion que je n'arriva aps a faire 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
-  tar_target(summary_DB_litt, count_available (DB_bvocs_ES, 1)),
-  tar_target(summary_DB_litt_all_L_T, count_available (DB_bvocs_filtered_all_L_T, 1)),
+  tar_target(merged_EF_L_T, boxplot_EF(DB_bvocs_ES_all_L_T , tree, field_EF) |>  plot_EF_sp() ),
+
+  tar_target(summary_DB_litt, count_available (merged_EF, 1)),
+  tar_target(summary_DB_litt_all_L_T, count_available (merged_EF_L_T, 1)),
 
 ##Recreate analysis master
 # il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
 tar_target(all_data_mean_EF_taxon, merged_EF |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
-#DB_bvocs_iso_mono_EF is with rownames for tree
+#DB_bvocs_iso_mono_EF is with rownames adapted to phylogeny
 tar_target(DB_bvocs_iso_mono_EF, all_data_mean_EF_taxon |> tibble::column_to_rownames(var = "name_complete") |>  dplyr::mutate(Sum = isoprene + monoterpenes) |> dplyr::select("isoprene", "monoterpenes", "Sum")), 
 
 
@@ -286,12 +289,12 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
   ##SPATIAL maps
 #Dans le working file c'est bien les occuerence de woodiv v2
   tar_target(working_file, {
-    utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
-  }),
+     utils::read.csv(paste0(here::here("data", "WOODIV_DB_release_v2", "OCCURRENCE"), "/WOODIV_v2_Occurrence_data.csv")) |> dplyr::left_join(woodiv_species, by = "spcode")
+   }),
   tar_target(WOODIV_grid, {
-    WOODIV_grid <- sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Grid_epsg3035"), "/WOODIV_v2_Grid_epsg3035.shp"))
-    WOODIV_grid <- WOODIV_grid[WOODIV_grid$idgrid %in% unique(working_file$idgrid), ]
-  }),
+     WOODIV_grid <- sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Grid_epsg3035"), "/WOODIV_v2_Grid_epsg3035.shp"))
+     WOODIV_grid <- WOODIV_grid[WOODIV_grid$idgrid %in% unique(working_file$idgrid), ]
+   }),
   tar_target(WOODIV_shape, {
     sf::st_read(paste0(here::here("data", "WOODIV_DB_release_v2", "SPATIAL", "WOODIV_v2_Shape_epsg3035"), "/WOODIV_v2_Shape_epsg3035.shp"))
   }),
@@ -305,16 +308,20 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
 
 tar_target(summary_all_L_T , ranking_species(working_file) |>  dplyr::left_join(summary_DB_litt_all_L_T, by = c('gragg' = 'gragg')) |>  dplyr::left_join(summary_field,  by = c('gragg' = 'gragg')) |>
              process_summary_data(working_file)  |>  plot_hist_ranking("all_distinct_origins_isoprene", 20, "Effort échantilonnage isoprène pour les espèces les plus communes ") |> plot_hist_ranking("all_distinct_origins_monoterpenes", 20, "Effort échantilonnage monoterpènes pour les espèces les plus communes ") |>  plot_tree_effort_ech(tree) |>  plot_hist_ranking_cumul ()
-           |> tidy_summary_all(woodiv_species))
+           |> tidy_summary_all(woodiv_species)), 
+
+
+#tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
+tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1)),
+
+tar_target(simple_maps, select_grids_completed(test, 10, 75) |>  calculate_emission_stats ( working_file, all_data_mean_EF_taxon) |> map_emission_stats ( WOODIV_grid, WOODIV_shape, output_dir = "figures/emission_maps"))
 
 
 
-
- # tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
 
    #How important are species to sample to have max completness
 
-#tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1))
+
 
 ## New
 
