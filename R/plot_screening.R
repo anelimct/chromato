@@ -1419,8 +1419,11 @@ plot_cow_emissions <- function(df) {
 }
 
 
-pie_chart_screening <- function(data){
+pie_chart_screening <- function(pie_chart_emission_screening){
   
+  
+  pie_chart_emission_screening |> dplyr::filter(class != "Oxygenated-sesquiterpenes")
+  pie_chart_emission_screening |> dplyr::filter(class != "Sesquiterpenes")
   species_cols <- grep("^mean_", names(pie_chart_emission_screening), value = TRUE)
   
   # Convert species columns to numeric and handle NA values
@@ -1456,23 +1459,23 @@ pie_chart_screening <- function(data){
     type == "iso" ~ "high",
     # For mono type
     type == "mono" & monoterpenes < 2 ~ "low",
-    type == "mono" & monoterpenes <= 5 ~ "medium",
+    type == "mono" & monoterpenes <= 5.1 ~ "medium",
     type == "mono" ~ "high",
     # For both type - you need to decide thresholds for both
     type == "both" & isoprene < 10 & monoterpenes < 2 ~ "low-low",
-    type == "both" & isoprene < 10 & monoterpenes <= 5 ~ "low-medium",
+    type == "both" & isoprene < 10 & monoterpenes <= 5.1 ~ "low-medium",
     type == "both" & isoprene < 10 ~ "low-high",
     type == "both" & isoprene <= 30 & monoterpenes < 2 ~ "medium-low",
-    type == "both" & isoprene <= 30 & monoterpenes <= 5 ~ "medium-medium",
+    type == "both" & isoprene <= 30 & monoterpenes <= 5.1 ~ "medium-medium",
     type == "both" & isoprene <= 30 ~ "medium-high",
     type == "both" & monoterpenes < 2 ~ "high-low",
-    type == "both" & monoterpenes <= 5 ~ "high-medium",
+    type == "both" & monoterpenes <= 5.1 ~ "high-medium",
     type == "both" ~ "high-high",
     # For NE (not emitting) or others
     TRUE ~ NA_character_
   ))
   
-  result <- result |>  group_by(type, sub_type) |> dplyr::summarise(n = dplyr::n())
+  result <- result #|>  group_by(type, sub_type) |> dplyr::summarise(n = dplyr::n())
   return(result)
   
   
@@ -1816,5 +1819,74 @@ PieDonut_custom_colors_v2 <- function(data,
 
 
 
-
+#' Title
+#'
+#' @param df all compounds, all samples sdt
+#'
+#' @returns plots for the 6 species emitters of both, might need to make it nicer
+#' @export
+#'
+#' @examples
+plot_species_both_internal_tradeoff <- function(df, save_path = here::here("figures", "screening", "internal_trade_off_both.png")) {
+  
+  #df = compounds_samples_spagg_to_keep
+  # Load required libraries
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  
+  # Species code to full name mapping
+  species_names <- c(
+    "ptre" = "Populus tremula",
+    "rcat" = "Rhamnus cathartica",
+    "sele" = "Salix eleagnos",
+    "spen" = "Salix pentandra",
+    "spur" = "Salix purpurea",
+    "scin" = "Salix cinerea"
+  )
+  
+  # Ensure sample columns are numeric
+  df[, 5:ncol(df)] <- lapply(df[, 5:ncol(df)], as.numeric)
+  
+  # Reshape to long format, extract species code, and add full species name
+  df_long <- df %>%
+    select(class, 5:ncol(df)) %>%
+    pivot_longer(-class, names_to = "sample", values_to = "value") %>%
+    mutate(species_code = substr(sample, 1, 4)) %>%
+    filter(species_code %in% names(species_names)) %>%
+    mutate(species = species_names[species_code])
+  
+  # Sum by sample and class, then widen to get Isoprene and Monoterpene columns
+  df_sum <- df_long %>%
+    group_by(sample, species, class) %>%
+    summarise(sum = sum(value, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = class, values_from = sum)
+  
+  # Create the plot
+  p <- ggplot(df_sum, aes(x = Isoprene, y = `Oxygenated-monoterpenes` + Monoterpenes)) +
+    geom_point(alpha = 0.7, size = 2, color = "black") +          # nicer points
+    facet_wrap(~species, scales = "free") +                            # use full names
+    labs(
+      x = expression("Isoprene EF (" * mu * "g .g"^{-1} * " .h"^{-1} * ")"),
+      y = expression("Monoterpenes EF (" * mu * "g .g"^{-1} * " .h"^{-1} * ")"),
+      title = "Trade-off between isoprene and monoterpene emissions"
+    ) +
+    theme_bw(base_size = 12) +                                         # clean theme, larger text
+    theme(                # subtle facet background
+      strip.text = element_text(face = "italic"),                      # species names in italics
+      panel.grid.minor = element_blank(),                              # remove minor grid lines
+      plot.title = element_text(hjust = 0.5)                           # center title
+    )
+  
+  # Sauvegarde si un chemin est fourni (non NULL)
+  if (!is.null(save_path)) {
+    # Créer le dossier si nécessaire
+    dir.create(dirname(save_path), showWarnings = FALSE, recursive = TRUE)
+    ggsave(filename = save_path, plot = p, width = 8, height = 6, dpi = 300)
+    message("Graphique sauvegardé dans : ", save_path)
+  }
+  
+  
+  return(p)
+}
 

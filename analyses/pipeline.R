@@ -83,8 +83,8 @@ list(
 
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
   
-  tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "traits_imputed_liquidambar.csv" ), format = "file"),
-  tar_target(imputed.traits_3T,utils::read.csv(imputed_traits_file, sep = ",") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
+  tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "integradiv_trees_gragg_imputed_genera.csv" ), format = "file"),
+  tar_target(imputed.traits,utils::read.csv(imputed_traits_file, sep = ";") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
 
   #liste des paradise reports
    #mono
@@ -262,7 +262,7 @@ tar_target(
         dplyr::distinct(spagg, .keep_all = TRUE),
       by = "spagg"
     )),
-tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = TRUE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
+tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
 tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
 
 ## emission standardisées pour chaque samples screening

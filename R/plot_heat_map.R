@@ -29,6 +29,7 @@ rename_mean_columns <- function(data, sp_screening) {
 
 my_compound_order <- c(
   "α-Terpinene",
+  "Myrcene",
   "α-Terpineol",
   "γ-Terpinene", 
   "Limonene",
@@ -53,7 +54,7 @@ my_compound_order <- c(
  "p-Cymene",
  "Sabinene",
  "1,8-Cineole",
- "Myrcene",
+ 
  "Camphor")
 
 
@@ -235,7 +236,7 @@ create_bubble_heatmap <- function(table, log_relative_prop = FALSE,
       labels = color_labels,
       guide = ggplot2::guide_colorbar(
         barwidth = 0.8,
-        barheight = 12,
+        barheight = 8,
         ticks.colour = "white",
         frame.colour = "black"
       )
@@ -267,7 +268,7 @@ create_bubble_heatmap <- function(table, log_relative_prop = FALSE,
       plot.title = ggplot2::element_text(hjust = 0.5, size = 14, face = "bold"),
       legend.title = ggplot2::element_text(size = 10),
       legend.text = ggplot2::element_text(size = 8),
-      legend.margin = ggplot2::margin(l = 10, r = 5),
+      legend.margin = ggplot2::margin(l = 10, r = 8),
       legend.spacing = ggplot2::unit(10, "pt")
     ) +
     ggplot2::labs(
@@ -292,16 +293,11 @@ create_bubble_heatmap_2 <- function(data,
                                     bubble_sizes_isoprene = c(1,10,500),
                                     bubble_labels_isoprene = NULL,
                                     legend_position = "right",
-                                    compound_groups = NULL,
-                                    group_labels = NULL,
-                                    bracket_left_offset = 0.35,
-                                    bracket_tick_length = 0.12,
-                                    bracket_text_offset = 0.25,
                                     save_plot = FALSE,
                                     file_name = "bubble_heatmap.png",
                                     dpi = 300,
-                                    width = 210,
-                                    height = 160) {
+                                    width = 170,
+                                    height = 210) {
   
   library(dplyr)
   library(tidyr)
@@ -309,7 +305,7 @@ create_bubble_heatmap_2 <- function(data,
   library(ggnewscale)
   
   #-----------------------------
-  # COMPOUNDS THAT NEED *
+  # STARRED COMPOUNDS
   #-----------------------------
   
   starred_compounds <- c(
@@ -339,7 +335,6 @@ create_bubble_heatmap_2 <- function(data,
       emission_rate_numeric = ifelse(is.na(emission_rate_numeric),0,emission_rate_numeric)
     )
   
-  # Add "*" to selected compounds
   data_long <- data_long %>%
     mutate(
       compound = ifelse(compound %in% starred_compounds,
@@ -361,7 +356,7 @@ create_bubble_heatmap_2 <- function(data,
     filter(emission_rate_numeric > 0)
   
   #-----------------------------
-  # COMPOUND ORDER
+  # ORDERING
   #-----------------------------
   
   if(!is.null(compound_order)){
@@ -371,58 +366,48 @@ create_bubble_heatmap_2 <- function(data,
                              compound_order)
     
     existing_compounds <- unique(data_filtered$compound)
-    
     compound_order <- compound_order[compound_order %in% existing_compounds]
     
     missing_compounds <- setdiff(existing_compounds,compound_order)
-    
     compound_order <- c(compound_order,missing_compounds)
     
     data_filtered$compound <- factor(data_filtered$compound,
                                      levels=compound_order)
-    
   } else {
     
     data_filtered$compound <- factor(data_filtered$compound)
-    
   }
-  
-  #-----------------------------
-  # SPECIES ORDER
-  #-----------------------------
   
   if(!is.null(species_order)){
     
     existing_species <- unique(data_filtered$species)
-    
     species_order <- species_order[species_order %in% existing_species]
     
     missing_species <- setdiff(existing_species,species_order)
-    
     species_order <- c(species_order,missing_species)
     
     data_filtered$species <- factor(data_filtered$species,
                                     levels=species_order)
-    
   } else {
     
     data_filtered$species <- factor(data_filtered$species)
-    
   }
   
-  # numeric coordinates
+  #-----------------------------
+  # NUMERIC COORDINATES (SWAPPED)
+  #-----------------------------
   
   data_filtered <- data_filtered %>%
     mutate(
-      x_num = as.numeric(species),
-      y_num = as.numeric(compound)
+      x_num = as.numeric(compound),
+      y_num = as.numeric(species)
     )
   
   isoprene_data <- data_filtered %>% filter(compound %in% isoprene_compound)
   other_data <- data_filtered %>% filter(!(compound %in% isoprene_compound))
   
   #-----------------------------
-  # BUBBLE SIZE LABELS
+  # BUBBLE LABELS
   #-----------------------------
   
   if(is.null(bubble_labels))
@@ -451,7 +436,6 @@ create_bubble_heatmap_2 <- function(data,
     
     color_breaks <- log10(c(1,10,100)+1)
     color_labels <- c("1%","10%","100%")
-    
   }
   
   #-----------------------------
@@ -466,8 +450,7 @@ create_bubble_heatmap_2 <- function(data,
       
       p <- p + geom_point(
         data=other_data,
-        aes(x=x_num,
-            y=y_num,
+        aes(x=x_num,y=y_num,
             size=log10(emission_rate_numeric+1),
             color=log_color),
         alpha=0.8)
@@ -476,22 +459,25 @@ create_bubble_heatmap_2 <- function(data,
       
       p <- p + geom_point(
         data=other_data,
-        aes(x=x_num,
-            y=y_num,
+        aes(x=x_num,y=y_num,
             size=log10(emission_rate_numeric+1),
             color=relative_proportion),
         alpha=0.8)
-      
     }
     
     p <- p +
       scale_size_continuous(
         name="Log Monoterpenes EF\n(µg·g⁻¹·h⁻¹)",
-        range=c(2,10),
+        range=c(0.5,5),
         breaks=reference_sizes,
-        labels=bubble_labels
+        labels=bubble_labels, 
+        guide = guide_legend(
+          ncol = 1,
+          nrow = 3,
+          byrow = TRUE, 
+          title.position = "top"
+        )
       )
-    
   }
   
   if(nrow(isoprene_data)>0){
@@ -502,8 +488,7 @@ create_bubble_heatmap_2 <- function(data,
       
       p <- p + geom_point(
         data=isoprene_data,
-        aes(x=x_num,
-            y=y_num,
+        aes(x=x_num,y=y_num,
             size=log10(emission_rate_numeric+1),
             color=log_color),
         alpha=0.8)
@@ -512,22 +497,24 @@ create_bubble_heatmap_2 <- function(data,
       
       p <- p + geom_point(
         data=isoprene_data,
-        aes(x=x_num,
-            y=y_num,
+        aes(x=x_num,y=y_num,
             size=log10(emission_rate_numeric+1),
             color=relative_proportion),
         alpha=0.8)
-      
     }
     
     p <- p +
       scale_size_continuous(
         name="Log Isoprene EF\n(µg·g⁻¹·h⁻¹)",
-        range=c(2,8),
+        range=c(0.5,5),
         breaks=reference_sizes_isoprene,
-        labels=bubble_labels_isoprene
+        labels=bubble_labels_isoprene, 
+        guide = guide_legend(
+          ncol = 1,
+          nrow = 3,
+          byrow = TRUE, title.position = "top"
+        )
       )
-    
   }
   
   #-----------------------------
@@ -542,7 +529,12 @@ create_bubble_heatmap_2 <- function(data,
         option="inferno",
         direction=-1,
         breaks=color_breaks,
-        labels=color_labels)
+        labels=color_labels, 
+        guide = guide_colorbar(
+          direction = "horizontal",
+          barwidth = unit(3,"cm"),
+          barheight = unit(0.5,"cm"), title.position = "top"
+        ))
     
   } else {
     
@@ -552,23 +544,22 @@ create_bubble_heatmap_2 <- function(data,
         option="inferno",
         direction=-1,
         limits=c(0,100))
-    
   }
   
   #-----------------------------
-  # AXES
+  # AXES (SWAPPED)
   #-----------------------------
   
   p <- p +
     scale_x_continuous(
-      breaks=sort(unique(data_filtered$x_num)),
-      labels=levels(data_filtered$species),
-      expand=c(0,0)
+      breaks = sort(unique(data_filtered$x_num)),
+      labels = levels(data_filtered$compound),
+      expand = expansion(mult = 0, add = 0.4)
     ) +
     scale_y_continuous(
-      breaks=sort(unique(data_filtered$y_num)),
-      labels=levels(data_filtered$compound),
-      expand=c(0,0)
+      breaks = sort(unique(data_filtered$y_num)),
+      labels = levels(data_filtered$species),
+      expand = expansion(mult = 0, add = 0.4)
     )
   
   #-----------------------------
@@ -576,22 +567,24 @@ create_bubble_heatmap_2 <- function(data,
   #-----------------------------
   
   p <- p +
+    coord_cartesian(clip = "off") +
     theme_minimal() +
     theme(
-      axis.text.x = element_text(angle=45,hjust=1,size=8),
-      axis.text.y = element_text(size=7),
+      axis.text.x = element_text(angle = 90, hjust=1,size=8),
+      axis.text.y = element_text(size=8),
       legend.position = legend_position,
-      plot.margin = margin(l=70,r=5,t=5,b=5),
-      plot.title = element_text(hjust=0.5,face="bold",size=14)
+      legend.box = "horizontal",
+      legend.box.just = "center",
+      plot.title = element_text(hjust=0.5,face="bold",size=8)
     ) +
     labs(
-      x="Species",
-      y="Isoprenoid compounds",
+      x="Isoprenoid compounds",
+      y="Species",
       title=title
     )
   
   #-----------------------------
-  # SAVE PLOT
+  # SAVE
   #-----------------------------
   
   if(save_plot){
@@ -606,20 +599,21 @@ create_bubble_heatmap_2 <- function(data,
       dpi=dpi,
       bg="white"
     )
-    
   }
   
   return(p)
 }
 
+
+
 my_groups <- list(
-  c("α-Terpinene", "α-Terpineol", "γ-Terpinene", "Limonene", "Linalool", "β-Phellandrene"),
+  c("α-Terpinene","Myrcene", "α-Terpineol", "γ-Terpinene", "Limonene", "Linalool", "β-Phellandrene"),
   c("2,3,6-Trimethyl-1,5-heptadiene (ACI)", "Cosmene", "Isoterpinolene", 
     "Neoalloocimene", "Thuja-2,4(10)-diene", "alpha-Phellandrene", 
     "p-Cymenene", "p-Mentha-1,5,8-triene", "unknown monoterpene 1", 
     "3-Carene", "β-Pinene", "α-Pinene", "Camphene", "β-Ocimene", 
     "Isoprene", "Terpinolene", "p-Cymene", "Sabinene"),
-  c("1,8-Cineole", "Myrcene", "Camphor")
+  c("1,8-Cineole", "Camphor")
 )
 
 group_labels <- c("10-11", "10-11", "10-12")
@@ -652,9 +646,11 @@ proportion_relative <- function(data) {
 
 calculer_somme_terpenes <- function(df) {
   # Identifier les indices des terpènes
-  indices <- which(df$compound %in% c("α-Terpinene", "alpha-Phellandrene", "Myrcene", "α-Terpineol", 
-                                      "γ-Terpinene", "Limonene", "Linalool", 
-                                      "β-Phellandrene", "β-Ocimene", "Sabinene"))
+  # indices <- which(df$compound %in% c("α-Terpinene","Myrcene", "α-Terpineol", 
+  #                                     "γ-Terpinene", "Limonene", "Linalool", 
+  #                                     "β-Phellandrene"))
+  # 
+  indices <- which(df$compound %in% c("p-Cymenene","p-Cymene"))
   
   # Calculer les sommes
   sommes_especes <- colSums(df[indices, -1], na.rm = TRUE)
@@ -680,6 +676,7 @@ calculer_somme_terpenes <- function(df) {
 #                                                                        isoprene_compound = "Isoprene",
 #                                                                         bubble_sizes_isoprene = c(1,10,500),
 #                                                                         bubble_labels_isoprene = NULL,
-#                                                                        legend_position = "bottom")
+#                                                                        legend_position = "bottom", 
+#                                   save_plot = TRUE)
 # print(test)
 
