@@ -1,0 +1,550 @@
+---
+title: "07_PCA_isoprenoids"
+format: html
+editor: visual
+---
+
+```{r}
+#| warning: false
+#| echo: false
+targets::tar_source(here::here("R/analysis_internship.R"))
+targets::tar_source(here::here("R/plot_exploration_article1.R"))
+targets::tar_load(imputed.traits)
+targets::tar_load(DB_bvocs_iso_mono_EF)
+targets::tar_load(tree)
+targets::tar_load(woodiv_species)
+
+#in the trait database there is no imputed values for liquidambar orientalis SLA and StemSpecDens
+
+#Creation d'un indice qui renseigne sur le possibilité d'une espèce a brak le trade off iso/mono
+
+data_traits_EF <-merge_trait_EF(imputed.traits, DB_bvocs_iso_mono_EF)  
+
+```
+
+Les valeurs de SLA sont en mm\^2.mg-1 et sembloe être dans les bons ordres de grandeurs pour les arbres
+
+#PCA \## Mise en place des data set et PCA object in order to plot the trait space from the different subdata set to ubderstand the trade-offs between the different functional traits in the medit region
+
+```{r}
+#| include: false
+
+data_traits_EF <- subset(data_traits_EF, select = -c(SeedMass, DispMode, Sum, total, p_isoprene, p_monoterpenes, prct_isoprene, prct_monoterpenes, isoprene_mod, binaire, BloomBreadth  )) 
+
+#subset 101 sp pour les quelle son les isoprenoids + les taux en trait continus
+data_traits_sp_iso_EF <- data_traits_EF|> dplyr::filter(BVOCsData == 1) |>subset( select = -c(BVOCsData, type)) |>  normaliser_dataframe() 
+
+
+funspace::funspaceDim(data_traits_sp_iso_EF)## retain PC1 and 2
+pca.trait_isoprenoids <- princomp(data_traits_sp_iso_EF, cor=TRUE)
+summary(pca.trait_isoprenoids)
+
+```
+
+```{r}
+
+#| echo: false
+par(mfrow = c(1, 1))
+# 6. PCA avec les isoprénoïdes
+trait_space_iso <-funspace::funspace(pca.trait_isoprenoids, PCs = c(1,2) )
+
+
+## Ajouter des noms d'espèces
+species_coords <- trait_space_iso$originalX$scores 
+noms_a_afficher <- c( "Quercus_crenata", "Ulmus_glabra", "Tamarix_africana", "Frangula_alnus", "Abies_alba")
+
+
+plot(trait_space_iso, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+# Extraire les coordonnées des espèces à afficher
+coords_a_afficher <- species_coords[rownames(species_coords) %in% noms_a_afficher, c("Comp.1", "Comp.2")]
+
+# Tracer les points précis pour chaque espèce
+points(coords_a_afficher[, "Comp.1"], coords_a_afficher[, "Comp.2"],
+       pch = 19, col = "blue", cex = 1.2)
+
+# Appliquer un jitter global aux coordonnées des étiquettes
+coords_jittered <- jitter(as.matrix(coords_a_afficher), amount = 0.02)
+
+# Ajouter les étiquettes avec le jitter global
+text(coords_jittered[, 1], coords_jittered[, 2],
+     labels = rownames(coords_jittered),
+     cex = 0.8, col = "black", pos = 3)
+
+
+
+
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(ggrepel)
+library(tibble)
+
+# --- 1. Trait space
+trait_space_iso <- funspace::funspace(pca.trait_isoprenoids, PCs = c(1,2))
+
+# --- 2. Extract quantile grid (this is what you actually have)
+TPD <- trait_space_iso$global$images$TPD.quantiles |>
+  reshape2::melt() |>
+  rename(PC1 = Var1, PC2 = Var2)
+
+# Remove NA (important!)
+TPD <- TPD |> filter(!is.na(value))
+
+# --- 3. Contour levels (same logic as your working code)
+contour_levels <- quantile(TPD$value,
+                           probs = c(0, 0.25, 0.5, 0.99),
+                           na.rm = TRUE)
+
+# --- 4. Species
+species_coords <- as.data.frame(trait_space_iso$originalX$scores) |>
+  rownames_to_column("species")
+
+noms_a_afficher <- c("Quercus_crenata", "Ulmus_glabra",
+                     "Tamarix_africana", "Frangula_alnus", "Abies_alba")
+
+species_sel <- species_coords |>
+  filter(species %in% noms_a_afficher)
+
+# --- 5. Arrows
+arrows <- as.data.frame(trait_space_iso$PCAInfo$fit$arrows) |>
+  rownames_to_column("variable")
+
+arrow_scale <- 0.9
+arrows <- arrows |>
+  mutate(Comp.1 = Comp.1 * arrow_scale,
+         Comp.2 = Comp.2 * arrow_scale)
+
+
+# --- 7. Plot
+p <- ggplot() +
+
+  # --- Quantile surface (NO interpolation)
+  geom_raster(data = TPD,
+              aes(x = PC1, y = PC2, fill = value),
+              alpha = 0.35) +
+
+  scale_fill_gradientn(
+    colors = c("red", "orange", "yellow", "white"),
+    values = scales::rescale(c(0, 0.25, 0.5, 0.99)),
+    name = "Quantile space",
+    na.value = "white"
+  ) +
+
+  # --- Contours
+  geom_contour(data = TPD,
+               aes(x = PC1, y = PC2, z = value),
+               breaks = contour_levels,
+               color = "black",
+               linewidth = 0.4,
+               alpha = 0.6) +
+
+  ggnewscale::new_scale_fill() +
+
+  # --- Background species
+  geom_point(data = species_coords,
+             aes(x = Comp.1, y = Comp.2),
+             color = "grey80",
+             size = 1) +
+
+  # --- Selected species
+  geom_point(data = species_sel,
+             aes(x = Comp.1, y = Comp.2),
+             shape = 21,
+             fill = "blue",
+             color = "black",
+             size = 3) +
+
+  geom_text_repel(data = species_sel,
+                  aes(x = Comp.1, y = Comp.2, label = species),
+                  size = 4,
+                  box.padding = 0.4) +
+
+  # --- Arrows
+  geom_segment(data = arrows,
+               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+               arrow = arrow(length = unit(0.2, "cm")),
+               color = "black") +
+
+  geom_text_repel(data = arrows,
+                  aes(x = Comp.1, y = Comp.2, label = variable),
+                  size = 4) +
+
+  # --- Axes
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+
+  coord_equal() +
+
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid = element_blank(),
+    plot.background = element_rect(fill = "white", color = NA)
+  )
+
+print(p)
+```
+
+```{r}
+scores <- trait_space_iso$originalX$scores[, c("Comp.1", "Comp.2")]
+library(ks)
+
+kde_res <- kde(x = scores)
+TPD <- expand.grid(
+  PC1 = kde_res$eval.points[[1]],
+  PC2 = kde_res$eval.points[[2]]
+)
+
+TPD$z <- as.vector(kde_res$estimate)
+
+TPD <- TPD |>
+  arrange(desc(z)) |>
+  mutate(cumprob = cumsum(z) / sum(z))
+levels <- c(0.25, 0.5, 0.99)
+
+
+ggplot(TPD, aes(x = PC1, y = PC2)) +
+
+  geom_raster(aes(fill = z), alpha = 0.3) +
+
+  geom_contour(aes(z = cumprob),
+               breaks = levels,
+               color = "black",
+               linewidth = 0.6) +
+
+  coord_equal() +
+  theme_minimal()
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(ggrepel)
+library(tibble)
+library(ggnewscale)
+library(ks)  # for kernel density
+
+# --- 1. Trait space (assuming pca.trait_isoprenoids is already computed)
+trait_space_iso <- funspace::funspace(pca.trait_isoprenoids, PCs = c(1,2))
+
+# --- 2. Compute kernel density (matching funspace)
+scores <- trait_space_iso$originalX$scores[, c("Comp.1", "Comp.2")]
+kde_res <- ks::kde(x = scores)
+
+TPD <- expand.grid(
+  PC1 = kde_res$eval.points[[1]],
+  PC2 = kde_res$eval.points[[2]]
+)
+TPD$z <- as.vector(kde_res$estimate)
+
+# --- 3. Cumulative probability for contours
+TPD <- TPD |>
+  arrange(desc(z)) |>
+  mutate(cumprob = cumsum(z) / sum(z))
+
+# --- 4. Probability levels (as in funspace)
+prob_levels <- c(0.25, 0.5, 0.99)
+
+# --- 5. Species coordinates
+species_coords <- as.data.frame(trait_space_iso$originalX$scores) |>
+  rownames_to_column("species")
+
+noms_a_afficher <- c("Quercus_crenata",
+                     "Tamarix_africana", "Frangula_alnus", "Abies_alba")
+
+species_sel <- species_coords |>
+  filter(species %in% noms_a_afficher) |>
+  mutate(species_label = gsub("_", " ", species))  # Replace underscore with space
+
+# --- 6. Arrows (PCA loadings)
+arrows <- as.data.frame(trait_space_iso$PCAInfo$fit$arrows) |>
+  rownames_to_column("variable")
+
+arrow_scale <- 1.0
+arrows <- arrows |>
+  mutate(Comp.1 = Comp.1 * arrow_scale,
+         Comp.2 = Comp.2 * arrow_scale)
+
+# --- 7. Prepare manual label positions for arrow labels
+# Start with tip coordinates
+arrow_labels <- arrows %>%
+  select(variable, tip_x = Comp.1, tip_y = Comp.2)
+
+# Override positions for variables that need fine‑tuning
+manual_labels <- arrow_labels %>%
+  mutate(
+    label_x = tip_x,
+    label_y = tip_y,
+    # Adjust X positions
+    label_x = case_when(
+      variable == "LeafArea"     ~ tip_x - 0.9,
+      variable == "StemSpecDens" ~ tip_x + 0.3,
+      variable == "isoprene"     ~ tip_x - 0.1,
+      variable == "SLA"          ~ tip_x - 0.1,
+      TRUE                       ~ tip_x
+    ),
+    # Adjust Y positions
+    label_y = case_when(
+      variable == "LeafArea"     ~ tip_y + 0.3,
+      variable == "isoprene"     ~ tip_y - 0.4,
+      variable == "StemSpecDens" ~ tip_y - 0.4,
+      variable == "HeightMax"    ~ tip_y + 0.3,
+      variable == "monoterpenes" ~ tip_y + 0.3,
+      variable == "SLA"          ~ tip_y + 0.3,
+      TRUE                       ~ tip_y
+    )
+  )
+
+# --- 8. Determine expanded plot limits to avoid clipping
+x_range <- range(c(species_coords$Comp.1, arrows$Comp.1))
+y_range <- range(c(species_coords$Comp.2, arrows$Comp.2))
+
+x_pad <- diff(x_range) * 0.2   # 20% extra space on each side
+y_pad <- diff(y_range) * 0.2
+
+x_lim <- c(x_range[1] - x_pad, x_range[2] + x_pad)
+y_lim <- c(y_range[1] - y_pad, y_range[2] + y_pad)
+
+# --- 9. Build the final plot
+set.seed(123)
+p <- ggplot() +
+
+  # Density raster
+  geom_raster(data = TPD,
+              aes(x = PC1, y = PC2, fill = z),
+              alpha = 0.5) +
+
+  # Gradient: high density = red, low density = white
+  scale_fill_gradientn(
+    colors = c("white", "yellow", "orange", "red"),
+    name = "Density"
+  ) +
+
+  # Probability contours
+  geom_contour(data = TPD,
+               aes(x = PC1, y = PC2, z = cumprob),
+               breaks = prob_levels,
+               color = "grey80",
+               linewidth = 1.5) +
+
+  ggnewscale::new_scale_fill() +
+
+  # Background species
+  geom_point(data = species_coords,
+             aes(x = Comp.1, y = Comp.2),
+             colour = "grey60", size = 5) +
+
+  # Selected species
+  geom_point(data = species_sel,
+             aes(x = Comp.1, y = Comp.2),
+             shape = 21, fill = "#75b047", colour = "#0b4417", size = 10) +
+
+  # Species labels: formatted with spaces and italics
+  geom_text_repel(data = species_sel,
+                  aes(x = Comp.1, y = Comp.2, label = species_label),
+                  fontface = "italic",
+                  size = 12, box.padding = 0.8,
+                  max.overlaps = 20) +
+
+  # Arrows
+  geom_segment(data = arrows,
+               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+               arrow = arrow(length = unit(0.5, "cm")),
+               colour = "grey30") +
+
+  # Arrow labels – using geom_text with manual positions
+  geom_text(data = manual_labels,
+            aes(x = label_x, y = label_y, label = variable),
+            size = 15) +
+
+  # Axes
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+
+  coord_equal() +
+  scale_x_continuous(limits = x_lim) +
+  scale_y_continuous(limits = y_lim) +
+
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid = element_blank(),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
+
+# Display the plot
+print(p)
+
+
+ggsave("trait_space_plot.png", plot = p, width = 40, height = 40 * (diff(y_lim)/diff(x_lim)), dpi = 300, units = "cm")
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(ggrepel)
+library(tibble)
+library(ggnewscale)
+library(ks)  # for kernel density
+
+# --- 1. Trait space (assuming pca.trait_isoprenoids is already computed)
+trait_space_iso <- funspace::funspace(pca.trait_isoprenoids, PCs = c(1,3))
+
+# --- 2. Compute kernel density (matching funspace)
+scores <- trait_space_iso$originalX$scores[, c("Comp.1", "Comp.3")]
+kde_res <- ks::kde(x = scores)
+
+TPD <- expand.grid(
+  PC1 = kde_res$eval.points[[1]],
+  PC3 = kde_res$eval.points[[2]]
+)
+TPD$z <- as.vector(kde_res$estimate)
+
+# --- 3. Cumulative probability for contours
+TPD <- TPD |>
+  arrange(desc(z)) |>
+  mutate(cumprob = cumsum(z) / sum(z))
+
+# --- 4. Probability levels (as in funspace)
+prob_levels <- c(0.25, 0.5, 0.99)
+
+# --- 5. Species coordinates
+species_coords <- as.data.frame(trait_space_iso$originalX$scores) |>
+  rownames_to_column("species")
+
+noms_a_afficher <- c("Quercus_crenata",
+                     "Tamarix_africana", "Frangula_alnus", "Abies_alba")
+
+species_sel <- species_coords |>
+  filter(species %in% noms_a_afficher) |>
+  mutate(species_label = gsub("_", " ", species))  # Replace underscore with space
+
+# --- 6. Arrows (PCA loadings)
+arrows <- as.data.frame(trait_space_iso$PCAInfo$fit$arrows) |>
+  rownames_to_column("variable")
+
+arrow_scale <- 1.0
+arrows <- arrows |>
+  mutate(Comp.1 = Comp.1 * arrow_scale,
+         Comp.3 = Comp.3 * arrow_scale)
+
+# --- 7. Prepare manual label positions for arrow labels
+# Start with tip coordinates
+arrow_labels <- arrows %>%
+  select(variable, tip_x = Comp.1, tip_y = Comp.3)
+
+# Override positions for variables that need fine‑tuning
+manual_labels <- arrow_labels %>%
+  mutate(
+    label_x = tip_x,
+    label_y = tip_y,
+    # Adjust X positions
+    label_x = case_when(
+      variable == "LeafArea"     ~ tip_x - 0.9,
+      variable == "StemSpecDens" ~ tip_x + 0.3,
+      variable == "isoprene"     ~ tip_x - 0.1,
+      variable == "SLA"          ~ tip_x - 0.1,
+      TRUE                       ~ tip_x
+    ),
+    # Adjust Y positions
+    label_y = case_when(
+      variable == "LeafArea"     ~ tip_y + 0.3,
+      variable == "isoprene"     ~ tip_y - 0.4,
+      variable == "StemSpecDens" ~ tip_y - 0.4,
+      variable == "HeightMax"    ~ tip_y + 0.3,
+      variable == "monoterpenes" ~ tip_y + 0.3,
+      variable == "SLA"          ~ tip_y + 0.3,
+      TRUE                       ~ tip_y
+    )
+  )
+
+# --- 8. Determine expanded plot limits to avoid clipping
+x_range <- range(c(species_coords$Comp.1, arrows$Comp.1))
+y_range <- range(c(species_coords$Comp.3, arrows$Comp.3))
+
+x_pad <- diff(x_range) * 0.2   # 20% extra space on each side
+y_pad <- diff(y_range) * 0.2
+
+x_lim <- c(x_range[1] - x_pad, x_range[2] + x_pad)
+y_lim <- c(y_range[1] - y_pad, y_range[2] + y_pad)
+
+# --- 9. Build the final plot
+set.seed(123)
+p <- ggplot() +
+
+  # Density raster
+  geom_raster(data = TPD,
+              aes(x = PC1, y = PC3, fill = z),
+              alpha = 0.5) +
+
+  # Gradient: high density = red, low density = white
+  scale_fill_gradientn(
+    colors = c("white", "yellow", "orange", "red"),
+    name = "Density"
+  ) +
+
+  # Probability contours
+  geom_contour(data = TPD,
+               aes(x = PC1, y = PC3, z = cumprob),
+               breaks = prob_levels,
+               color = "grey80",
+               linewidth = 1.5) +
+
+  ggnewscale::new_scale_fill() +
+
+  # Background species
+  geom_point(data = species_coords,
+             aes(x = Comp.1, y = Comp.3),
+             colour = "grey60", size = 5) +
+
+  # Selected species
+  geom_point(data = species_sel,
+             aes(x = Comp.1, y = Comp.3),
+             shape = 21, fill = "#75b047", colour = "#0b4417", size = 10) +
+
+  # Species labels: formatted with spaces and italics
+  geom_text_repel(data = species_sel,
+                  aes(x = Comp.2, y = Comp.3, label = species_label),
+                  fontface = "italic",
+                  size = 12, box.padding = 0.8,
+                  max.overlaps = 20) +
+
+  # Arrows
+  geom_segment(data = arrows,
+               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.3),
+               arrow = arrow(length = unit(0.5, "cm")),
+               colour = "grey30") +
+
+  # Arrow labels – using geom_text with manual positions
+  geom_text(data = manual_labels,
+            aes(x = label_x, y = label_y, label = variable),
+            size = 15) +
+
+  # Axes
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+
+  coord_equal() +
+  scale_x_continuous(limits = x_lim) +
+  scale_y_continuous(limits = y_lim) +
+
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid = element_blank(),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
+
+# Display the plot
+print(p)
+
+
+ggsave("trait_space_plot2.png", plot = p, width = 40, height = 40 * (diff(y_lim)/diff(x_lim)), dpi = 300, units = "cm")
+
+```

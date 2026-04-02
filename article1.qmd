@@ -1,0 +1,149 @@
+---
+title: "analysis_article1"
+format: html
+editor: visual
+---
+
+```{r}
+#| warning: false
+#| echo: false
+targets::tar_source(here::here("R/analysis_internship.R"))
+targets::tar_source(here::here("R/plot_exploration_article1.R"))
+targets::tar_load(imputed.traits)
+targets::tar_load(DB_bvocs_iso_mono_EF)
+targets::tar_load(tree)
+targets::tar_load(woodiv_species)
+
+#in the trait database there is no imputed values for liquidambar orientalis SLA and StemSpecDens
+
+
+data_traits_EF <-merge_trait_EF(imputed.traits, DB_bvocs_iso_mono_EF) 
+
+ data_traits_EF <- data_traits_EF|> dplyr::mutate (index_milena = (pmin(prct_isoprene, prct_monoterpenes) /   pmax(prct_isoprene, prct_monoterpenes))) |> dplyr::mutate(index_manu = (pmin(prct_isoprene, prct_monoterpenes)/50))
+
+```
+
+Creation d'un indice qui renseigne sur le possibilité d'une espèce a brake le trade off iso/mono
+
+## Data format for PCA
+
+```{r}
+
+#| include: false
+
+data_traits_EF <- subset(data_traits_EF, select = -c(SeedMass, BloomBreadth, DispMode, Sum, total, p_isoprene, p_monoterpenes, prct_isoprene, prct_monoterpenes, isoprene_mod, binaire, index_milena, index_manu)) 
+
+  
+
+#subset 101 sp pour lesquelles son les isoprenoids
+data_traits_sp_iso <- data_traits_EF|> dplyr::filter(BVOCsData == 1) |> subset( select = -c(isoprene, monoterpenes, BVOCsData, type)) 
+
+data_traits_sp_iso_N <- data_traits_sp_iso |> normaliser_dataframe()
+#ajouter en groupe vec type to create a subset for each type
+
+
+
+
+funspace::funspaceDim(data_traits_sp_iso_N)## retains only the first compoenent ?
+
+pca.trait_usual_iso <- princomp(data_traits_sp_iso_N)
+
+summary(pca.trait_usual_iso)
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+
+# 2. PCA avec traits usuels subset 101 isoprenoids data
+trait_space_subset <-funspace::funspace(pca.trait_usual_iso, PCs = c(1,2))
+
+
+plot(trait_space_subset, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+matrice_correlation_spearmann(data_traits_sp_iso)
+```
+
+```{r}
+#| include: false
+merged_data_3T <- merge(data_traits_EF, trait_space_subset$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE) |>  
+  tibble::column_to_rownames(var = "Row.names")
+
+trait_space_subset$PCAInfo
+
+#maintenet le tree c'est avec spagg plus name complete il faut changer les rownames de merged data 3T
+
+merged_data_3T <- merged_data_3T |> tibble::rownames_to_column( var = "rowname") |>  dplyr::left_join(woodiv_species, by = c( "rowname"="full_scientific_name" )) |>  tibble::column_to_rownames(var = "gragg") |> dplyr::mutate(Sum = isoprene+ monoterpenes)
+
+```
+
+Calcul de l'indice d'équitabilité et et du brake_trade_off
+
+```{r}
+merged_data_3T <- merged_data_3T |> mutate(equitabilite = pmin(merged_data_3T$isoprene * 100 / merged_data_3T$Sum,
+                               merged_data_3T$monoterpenes * 100 / merged_data_3T$Sum) / 50)
+
+
+ggplot(merged_data_3T, aes(x = isoprene, y = monoterpenes, color = equitabilite)) +
+  geom_point(size = 2, alpha = 0.7) +
+  scale_color_viridis_c(option = "plasma", name = "Équitabilité") +
+  labs(x = "Isoprène", y = "Monoterpènes") +
+  theme_minimal()
+hist(merged_data_3T$equitabilite)
+```
+
+Test rho de spermann/ SES
+
+Sensibilité window size pour les trois combinaisons avec Sum en x :
+
+```{r}
+#| warning: false
+
+rho_simul_SLA_SSD <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "StemSpecDens")
+rho_simul_SLA_H <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "HeightMax")
+rho_simul_SLA_LA <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "LeafArea")
+
+plot_spearman_sensibility(rho_simul_SLA_SSD, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~Stemdens")
+plot_spearman_sensibility(rho_simul_SLA_H, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~Hauteur")
+plot_spearman_sensibility(rho_simul_SLA_LA, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~LA")
+
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "StemSpecDens",
+                                   size = 25, step = 1, rho_simul_SLA_SSD,
+                                   ordination = "Sum")
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "HeightMax",
+                                   size = 25, step = 1, rho_simul_SLA_H ,
+                                   ordination = "Sum")
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "LeafArea",
+                                   size = 25, step = 1, rho_simul_SLA_LA ,
+                                   ordination = "Sum")
+```
+
+# Même mécanisme avec l'indice d'équitabilité iso/mono
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "StemSpecDens",
+                                   size = 25, step = 1, rho_simul_SLA_SSD,
+                                   ordination = "equitabilite")
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "HeightMax",
+                                   size = 25, step = 1, rho_simul_SLA_H ,
+                                   ordination = "equitabilite")
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "LeafArea",
+                                   size = 25, step = 1, rho_simul_SLA_LA ,
+                                   ordination = "equitabilite")
+```

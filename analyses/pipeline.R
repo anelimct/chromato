@@ -84,7 +84,7 @@ list(
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
   
   tar_target(imputed_traits_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS", "integradiv_trees_gragg_imputed_genera.csv" ), format = "file"),
-  tar_target(imputed.traits,utils::read.csv(imputed_traits_file, sep = ";") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
+  tar_target(imputed.traits,utils::read.csv(imputed_traits_file, sep = ",") |> data.table::setnames( old = 1, new = "row_names") |>  tibble::column_to_rownames(var = "row_names")),
 
   #liste des paradise reports
    #mono
