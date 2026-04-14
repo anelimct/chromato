@@ -78,38 +78,75 @@ plot_spearman_sensibility <- function(resultats, title = NULL) {
   return(p)
 }
 
-
 moving_window_spearman <- function(data, trait1 = "SLA", trait2 = "HeightMax",
                                    size = 20, step = 1, resultat,
-                                   ordination = "Sum", decreasing = FALSE) {
+                                   ordination = "Sum", decreasing = FALSE,
+                                   plot_scatter_windows = FALSE,
+                                   max_windows = NULL) {
   
   # 1. Ordonner selon la variable d'ordination
   data <- data[order(data[[ordination]], decreasing = decreasing), ]
   
-  # 2. Garder uniquement les lignes avec les deux traits renseignés
+  # 2. Nettoyage des données
   data_clean <- na.omit(data[, c(trait1, trait2, ordination)])
   
   n_total <- nrow(data_clean)
   if (size > n_total) stop("La taille de la fenêtre dépasse le nombre d'espèces disponibles.")
   
-  # 3. Indices de début des fenêtres
-  start_indices <- seq(1, n_total - size + 1, by = step) # list des indexes de position de départ de la moving window, de 1 audernier indice où une fenêtre de taille size peut commencer sans dépasser la longueur totale des données.
+  # 3. Fenêtres
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
   
-  # 4. Calcul des corrélations et médianes
-  rho_obs <- numeric(length(start_indices)) #initialisation des vecteurs
-  median_ord <- numeric(length(start_indices))
+  # 4. Initialisation
+  rho_obs <- numeric(n_windows)
+  median_ord <- numeric(n_windows)
   
+  mean_trait1 <- numeric(n_windows)
+  min_trait1  <- numeric(n_windows)
+  max_trait1  <- numeric(n_windows)
+  sd_trait1   <- numeric(n_windows)
+  
+  mean_trait2 <- numeric(n_windows)
+  min_trait2  <- numeric(n_windows)
+  max_trait2  <- numeric(n_windows)
+  sd_trait2   <- numeric(n_windows)
+  
+  mean_global_trait1 <- mean(data_clean[[trait1]], na.rm = TRUE)
+  mean_global_trait2 <- mean(data_clean[[trait2]], na.rm = TRUE)
+  
+  if (plot_scatter_windows) windows_data <- list()
+  
+  # 5. Boucle
   for (i in seq_along(start_indices)) {
-    idx <- start_indices[i]:(start_indices[i] + size - 1) # position de départ et de fin de la moving window
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
     subset <- data_clean[idx, ]
+    
     rho_obs[i] <- cor(subset[[trait1]], subset[[trait2]], method = "spearman")
     median_ord[i] <- median(subset[[ordination]])
+    
+    # Trait 1
+    mean_trait1[i] <- mean(subset[[trait1]], na.rm = TRUE)
+    min_trait1[i]  <- min(subset[[trait1]], na.rm = TRUE)
+    max_trait1[i]  <- max(subset[[trait1]], na.rm = TRUE)
+    sd_trait1[i]   <- sd(subset[[trait1]], na.rm = TRUE)
+    
+    # Trait 2
+    mean_trait2[i] <- mean(subset[[trait2]], na.rm = TRUE)
+    min_trait2[i]  <- min(subset[[trait2]], na.rm = TRUE)
+    max_trait2[i]  <- max(subset[[trait2]], na.rm = TRUE)
+    sd_trait2[i]   <- sd(subset[[trait2]], na.rm = TRUE)
+    
+    if (plot_scatter_windows) {
+      subset$window_id <- i
+      windows_data[[i]] <- subset
+    }
   }
   
-  # 5. Récupérer les valeurs simulées pour cette taille de fenêtre, a partir du bootstrap
+  # 6. Références simulées
   res_row <- resultat[resultat$sample_size == size, ]
+  
   if (nrow(res_row) == 0) {
-    warning("La taille de fenêtre n'est pas dans 'resultat' ; les lignes de référence seront absentes.")
+    warning("Pas de référence simulée")
     mean_rho <- NA
     sd_rho <- NA
   } else {
@@ -117,40 +154,269 @@ moving_window_spearman <- function(data, trait1 = "SLA", trait2 = "HeightMax",
     sd_rho   <- res_row$sd_rho
   }
   
-  # 6. Calcul du SES si possible, sinon NA
+  # 7. SES
   if (!is.na(mean_rho) && !is.na(sd_rho) && sd_rho > 0) {
     ses <- (rho_obs - mean_rho) / sd_rho
   } else {
-    ses <- rep(NA, length(rho_obs))
+    ses <- rep(NA, n_windows)
   }
   
-  
-  # ---- Graphique 1 : ρ observé + références simulées ----
-  plot(median_ord, rho_obs, type = "p", pch = 16, col = "blue",
-       xlab = paste("Médiane de", ordination, "dans la fenêtre"),
+  # -------- GRAPH 1 : Corrélation --------
+  plot(median_ord, rho_obs, pch = 16, col = "blue",
+       xlab = paste("Médiane de", ordination),
        ylab = expression("ρ de Spearman"),
-       main = paste("Corrélation glissante :", trait1, "~", trait2,
-                    "\nTaille =", size, ", pas =", step))
+       main = paste("Corrélation glissante :", trait1, "~", trait2))
   abline(h = 0, lty = 2, col = "gray")
+  
   if (!is.na(mean_rho)) {
     abline(h = mean_rho, col = "red", lwd = 2)
     abline(h = mean_rho + 1.96 * sd_rho, col = "red", lty = 2)
     abline(h = mean_rho - 1.96 * sd_rho, col = "red", lty = 2)
-    legend("topright",  inset = c(-0.2, 0), xpd = TRUE,legend = c("ρ observé", "moyenne simulée", "moyenne ± 1,96σ"),
-           col = c("blue", "red", "red"), lty = c(NA, 1, 2), lwd = c(1, 2, 1),
-           pch = c(16, NA, NA), bty = "n")
-  } else {
-    legend("topright", legend = "ρ observé", col = "blue", pch = 16, bty = "n")
   }
   
-  # ---- Graphique 2 : SES ----
-  plot(median_ord, ses, type = "p", pch = 16, col = "blue",
-       xlab = paste("Médiane de", ordination, "dans la fenêtre"),
-       ylab = "SES (effet standardisé)",
-       main = paste("SES de la corrélation glissante\nTaille =", size, ", pas =", step))
+  # -------- GRAPH 2 : SES --------
+  plot(median_ord, ses, pch = 16, col = "blue",
+       xlab = paste("Médiane de", ordination),
+       ylab = "SES",
+       main = "SES de la corrélation")
   abline(h = 0, lty = 2, col = "gray")
-
   
-  # Retour silencieux des données
-  invisible(data.frame(median_ord = median_ord, rho_obs = rho_obs, ses = ses))
+  # -------- GRAPH 3 : Scatter (optionnel) --------
+  if (plot_scatter_windows) {
+    if (!is.null(max_windows)) windows_data <- windows_data[1:max_windows]
+    
+    for (i in seq_along(windows_data)) {
+      sub <- windows_data[[i]]
+      plot(sub[[trait1]], sub[[trait2]],
+           main = paste("Fenêtre", i),
+           xlab = trait1, ylab = trait2,
+           pch = 16, col = "darkgreen")
+    }
+  }
+  
+  # -------- GRAPH 4 : Mean + min/max (trait1) --------
+  plot(median_ord, mean_trait1, pch = 16, col = "blue",
+       ylim = range(c(min_trait1, max_trait1)),
+       xlab = paste("Médiane de", ordination),
+       ylab = trait1,
+       main = paste("Mean + range -", trait1))
+  
+  arrows(median_ord, min_trait1, median_ord, max_trait1,
+         code = 3, angle = 90, length = 0.05, col = "gray")
+  abline(h = mean_global_trait1, col = "red", lty = 2)
+  
+  # -------- GRAPH 5 : Mean + min/max (trait2) --------
+  plot(median_ord, mean_trait2, pch = 16, col = "blue",
+       ylim = range(c(min_trait2, max_trait2)),
+       xlab = paste("Médiane de", ordination),
+       ylab = trait2,
+       main = paste("Mean + range -", trait2))
+  
+  arrows(median_ord, min_trait2, median_ord, max_trait2,
+         code = 3, angle = 90, length = 0.05, col = "gray")
+  abline(h = mean_global_trait2, col = "red", lty = 2)
+  
+  # -------- GRAPH 6 : SD trait1 --------
+  plot(median_ord, sd_trait1, pch = 16, col = "purple",
+       xlab = paste("Médiane de", ordination),
+       ylab = paste("SD de", trait1),
+       main = paste("Dispersion -", trait1))
+  abline(h = mean(sd_trait1), col = "red", lty = 2)
+  
+  # -------- GRAPH 7 : SD trait2 --------
+  plot(median_ord, sd_trait2, pch = 16, col = "purple",
+       xlab = paste("Médiane de", ordination),
+       ylab = paste("SD de", trait2),
+       main = paste("Dispersion -", trait2))
+  abline(h = mean(sd_trait2), col = "red", lty = 2)
+  
+  # -------- OUTPUT --------
+  invisible(data.frame(
+    median_ord = median_ord,
+    rho_obs = rho_obs,
+    ses = ses,
+    mean_trait1 = mean_trait1,
+    min_trait1 = min_trait1,
+    max_trait1 = max_trait1,
+    sd_trait1 = sd_trait1,
+    mean_trait2 = mean_trait2,
+    min_trait2 = min_trait2,
+    max_trait2 = max_trait2,
+    sd_trait2 = sd_trait2
+  ))
+}
+
+moving_window_medians <- function(data, 
+                                       ordination = "Sum", 
+                                       var1 = "isoprene", 
+                                       var2 = "monoterpenes",
+                                       size = 20, 
+                                       step = 1) {
+  
+  # 1. Ordonner selon la variable d'ordination
+  data <- data[order(data[[ordination]]), ]
+  
+  # 2. Garder uniquement les lignes complètes pour les trois colonnes
+  data_clean <- na.omit(data[, c(ordination, var1, var2)])
+  
+  n_total <- nrow(data_clean)
+  if (size > n_total) stop("La taille de la fenêtre dépasse le nombre d'observations.")
+  
+  # 3. Indices de début des fenêtres
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  # 4. Initialisation
+  median_ord <- numeric(n_windows)
+  median_var1 <- numeric(n_windows)
+  median_var2 <- numeric(n_windows)
+  
+  # 5. Boucle
+  for (i in seq_along(start_indices)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    subset <- data_clean[idx, ]
+    
+    median_ord[i]  <- median(subset[[ordination]], na.rm = TRUE)
+    median_var1[i] <- median(subset[[var1]], na.rm = TRUE)
+    median_var2[i] <- median(subset[[var2]], na.rm = TRUE)
+  }
+  
+  # 6. Graphiques
+  # Graphique 1 : médiane isoprène
+  plot(median_ord, median_var1, 
+       pch = 16, col = "blue",
+       xlab = paste("Médiane de", ordination),
+       ylab = paste("Médiane de", var1),
+       main = paste("Évolution de la médiane de", var1))
+  abline(h = mean(median_var1), lty = 2, col = "red")
+  
+  # Graphique 2 : médiane monoterpènes
+  plot(median_ord, median_var2, 
+       pch = 16, col = "darkgreen",
+       xlab = paste("Médiane de", ordination),
+       ylab = paste("Médiane de", var2),
+       main = paste("Évolution de la médiane de", var2))
+  abline(h = mean(median_var2), lty = 2, col = "red")
+  
+  # 7. Retourne un data.frame (invisible)
+  invisible(data.frame(
+    median_ordination = median_ord,
+    median_isoprene   = median_var1,
+    median_monoterpenes = median_var2
+  ))
+}
+
+
+
+
+moving_window_convex <- function(data, ordination = "Sum", 
+                                        size = 25, step = 1, col_scores, col_traits){
+  
+  # 1. Ordonner selon la variable d'ordination
+  data <- data[order(data[[ordination]]), ]
+  
+  # 2. Garder uniquement les lignes avec la variable renseignée
+  data_clean <- data[!is.na(data[[ordination]]), ]
+  
+
+  n_total <- nrow(data_clean)
+  
+  # 3. Indices de début des fenêtres
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  # Centroïde global
+  coords <- as.matrix(data_clean[, c(col_scores)])
+  centroid <- colMeans(coords)
+  
+  # Initialiser vecteur résultat
+  volumes <- numeric(n_windows)
+  var_dist <- numeric(n_windows)
+  f_dis <- numeric(n_windows)
+  originality <- numeric(n_windows)
+  dimentionality <- numeric(n_windows)
+  
+  ordinations <- numeric(n_windows)
+  
+  
+  
+  
+  for (i in seq_along(start_indices)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    subset <- data_clean[idx, ]
+    
+    subset_coords <- as.matrix(
+      subset[c(col_scores)]
+    )
+    #richesse = volume convex hull
+    volumes[i] <- convhulln(subset_coords, options = "FA")$vol
+    
+    #Régularité
+    mat_dist <- dist(subset_coords)
+    
+    var_dist[i] <- var(as.vector(mat_dist))
+    
+    #diversity = functional dipersion (laliberté 2010)
+    f_dis[i] <- fundiversity::fd_fdis(subset_coords)$FDis
+    
+    #originalité 
+    centoids_points <- colMeans(subset_coords)
+    originality[i] <- distance <- sqrt(sum((centoids_points - centroid )^2))
+    
+    #dimensionalité
+    
+    subset_traits <- as.data.frame (
+      subset[c(col_traits)]
+    )
+    
+    subset_traits_N <- subset_traits |> normaliser_dataframe()
+    pca.traits<- princomp(subset_traits_N)
+    
+    dimentionality[i] <-var(pca.traits$sdev^2)
+    
+    ##valeur ordination
+    valeurs_ord <- subset[[ordination]] 
+    ordinations[i] <- median(valeurs_ord)
+    
+  }
+  
+  results <- setNames(
+    data.frame(volumes, var_dist, f_dis, originality, dimentionality, ordinations),
+    c("Richness", "regularity", "functional_dispersion", "originality", "dimensionality", paste0("median_", ordination))
+  )
+   
+  return(results) 
+}
+
+
+plot_moving_window_convex <- function(data) {
+  
+  if (!is.data.frame(data)) stop("L'objet 'data' doit être un data.frame")
+  if (ncol(data) < 2) stop("Le data.frame doit contenir au moins 2 colonnes")
+  
+  x_var <- names(data)[ncol(data)]                     # dernière colonne = variable x
+  y_vars <- names(data)[1:min(5, ncol(data)-1)]        # métriques (max 5)
+  
+  # Liste pour stocker les graphiques
+  plots <- list()
+  
+  for (y_var in y_vars) {
+    p <- ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+      geom_point(size = 2, alpha = 0.7, color = "steelblue") +
+      labs(
+        title = paste("Évolution de", y_var, "en fonction de", x_var),
+        x = x_var,
+        y = y_var
+      ) +
+      theme_minimal() +
+      theme(
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)
+      )
+    
+    plots[[y_var]] <- p   # stocker avec le nom de la métrique
+  }
+  
+  # Retourner la liste (l'utilisateur pourra afficher ou sauvegarder chaque plot)
+  return(plots)
 }
