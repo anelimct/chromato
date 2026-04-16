@@ -228,7 +228,7 @@ create_bubble_heatmap <- function(table, log_relative_prop = FALSE,
   # Ajouter échelle de couleurs
   if(log_relative_prop) {
     p <- p + ggplot2::scale_color_viridis_c(
-      name = "Log-transformed relative abundance (%)",
+      name = "Relative abundance",
       option = "inferno",
       direction = -1,
       limits = c(min_val, max_val),
@@ -467,7 +467,7 @@ create_bubble_heatmap_2 <- function(data,
     
     p <- p +
       scale_size_continuous(
-        name="Log Monoterpenes EF\n(µg·g⁻¹·h⁻¹)",
+        name="Monoterpenes EF\n(µg·g⁻¹·h⁻¹)",
         range=c(0.5,5),
         breaks=reference_sizes,
         labels=bubble_labels, 
@@ -505,7 +505,7 @@ create_bubble_heatmap_2 <- function(data,
     
     p <- p +
       scale_size_continuous(
-        name="Log Isoprene EF\n(µg·g⁻¹·h⁻¹)",
+        name="Isoprene EF\n(µg·g⁻¹·h⁻¹)",
         range=c(0.5,5),
         breaks=reference_sizes_isoprene,
         labels=bubble_labels_isoprene, 
@@ -525,7 +525,7 @@ create_bubble_heatmap_2 <- function(data,
     
     p <- p +
       scale_color_viridis_c(
-        name="Log relative abundance (%)",
+        name="Relative abundance",
         option="inferno",
         direction=-1,
         breaks=color_breaks,
@@ -570,7 +570,7 @@ create_bubble_heatmap_2 <- function(data,
     coord_cartesian(clip = "off") +
     theme_minimal() +
     theme(
-      axis.text.x = element_text(angle = 90, hjust=1,size=8),
+      axis.text.x = element_text(angle = 45, hjust=1,size=8),
       axis.text.y = element_text(size=8),
       legend.position = legend_position,
       legend.box = "horizontal",

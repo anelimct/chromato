@@ -247,11 +247,11 @@ moving_window_spearman <- function(data, trait1 = "SLA", trait2 = "HeightMax",
 }
 
 moving_window_medians <- function(data, 
-                                       ordination = "Sum", 
-                                       var1 = "isoprene", 
-                                       var2 = "monoterpenes",
-                                       size = 20, 
-                                       step = 1) {
+                                  ordination = "Sum", 
+                                  var1 = "isoprene", 
+                                  var2 = "monoterpenes",
+                                  size = 20, 
+                                  step = 1) {
   
   # 1. Ordonner selon la variable d'ordination
   data <- data[order(data[[ordination]]), ]
@@ -270,6 +270,8 @@ moving_window_medians <- function(data,
   median_ord <- numeric(n_windows)
   median_var1 <- numeric(n_windows)
   median_var2 <- numeric(n_windows)
+  sd_var1 <- numeric(n_windows)
+  sd_var2 <- numeric(n_windows)
   
   # 5. Boucle
   for (i in seq_along(start_indices)) {
@@ -279,30 +281,48 @@ moving_window_medians <- function(data,
     median_ord[i]  <- median(subset[[ordination]], na.rm = TRUE)
     median_var1[i] <- median(subset[[var1]], na.rm = TRUE)
     median_var2[i] <- median(subset[[var2]], na.rm = TRUE)
+    sd_var1[i]     <- sd(subset[[var1]], na.rm = TRUE)
+    sd_var2[i]     <- sd(subset[[var2]], na.rm = TRUE)
   }
   
-  # 6. Graphiques
-  # Graphique 1 : médiane isoprène
+  # 6. Graphiques avec barres d'erreur (médiane ± écart-type)
+  
+  # Graphique 1 : médiane isoprène ± sd
+  ylim1 <- range(c(median_var1 - sd_var1, median_var1 + sd_var1), na.rm = TRUE)
   plot(median_ord, median_var1, 
        pch = 16, col = "blue",
        xlab = paste("Médiane de", ordination),
        ylab = paste("Médiane de", var1),
-       main = paste("Évolution de la médiane de", var1))
+       main = paste("Évolution de la médiane de", var1, "± écart-type"),
+       ylim = ylim1)
+  # Barres d'erreur : médiane ± écart-type
+  segments(x0 = median_ord, y0 = median_var1 - sd_var1, 
+           x1 = median_ord, y1 = median_var1 + sd_var1, 
+           col = "gray60", lwd = 1.5)
+  points(median_ord, median_var1, pch = 16, col = "blue")
   abline(h = mean(median_var1), lty = 2, col = "red")
   
-  # Graphique 2 : médiane monoterpènes
+  # Graphique 2 : médiane monoterpènes ± sd
+  ylim2 <- range(c(median_var2 - sd_var2, median_var2 + sd_var2), na.rm = TRUE)
   plot(median_ord, median_var2, 
        pch = 16, col = "darkgreen",
        xlab = paste("Médiane de", ordination),
        ylab = paste("Médiane de", var2),
-       main = paste("Évolution de la médiane de", var2))
+       main = paste("Évolution de la médiane de", var2, "± écart-type"),
+       ylim = ylim2)
+  segments(x0 = median_ord, y0 = median_var2 - sd_var2, 
+           x1 = median_ord, y1 = median_var2 + sd_var2, 
+           col = "gray60", lwd = 1.5)
+  points(median_ord, median_var2, pch = 16, col = "darkgreen")
   abline(h = mean(median_var2), lty = 2, col = "red")
   
-  # 7. Retourne un data.frame (invisible)
+  # 7. Retourne un data.frame (invisible) incluant les écart-types
   invisible(data.frame(
     median_ordination = median_ord,
     median_isoprene   = median_var1,
-    median_monoterpenes = median_var2
+    sd_isoprene       = sd_var1,
+    median_monoterpenes = median_var2,
+    sd_monoterpenes     = sd_var2
   ))
 }
 
@@ -349,7 +369,7 @@ moving_window_convex <- function(data, ordination = "Sum",
       subset[c(col_scores)]
     )
     #richesse = volume convex hull
-    volumes[i] <- convhulln(subset_coords, options = "FA")$vol
+    volumes[i] <- geometry::convhulln(subset_coords, options = "FA")$vol
     
     #Régularité
     mat_dist <- dist(subset_coords)
@@ -388,8 +408,7 @@ moving_window_convex <- function(data, ordination = "Sum",
   return(results) 
 }
 
-
-plot_moving_window_convex <- function(data) {
+plot_moving_window_convex <- function(data, ncol = 2) {
   
   if (!is.data.frame(data)) stop("L'objet 'data' doit être un data.frame")
   if (ncol(data) < 2) stop("Le data.frame doit contenir au moins 2 colonnes")
@@ -404,19 +423,41 @@ plot_moving_window_convex <- function(data) {
     p <- ggplot(data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
       geom_point(size = 2, alpha = 0.7, color = "steelblue") +
       labs(
-        title = paste("Évolution de", y_var, "en fonction de", x_var),
+        title = y_var,  # Titre simplifié : juste le nom de la métrique
         x = x_var,
         y = y_var
       ) +
       theme_minimal() +
       theme(
         panel.grid.minor = element_blank(),
-        plot.title = element_text(hjust = 0.5)
+        plot.title = element_text(
+          hjust = 0.5,
+          background = element_rect(fill = "gray90", color = "gray70", 
+                                    linetype = "solid", linewidth = 0.5),
+          margin = margin(t = 2, b = 2, l = 5, r = 5)
+        )
       )
     
-    plots[[y_var]] <- p   # stocker avec le nom de la métrique
+    plots[[y_var]] <- p
   }
   
-  # Retourner la liste (l'utilisateur pourra afficher ou sauvegarder chaque plot)
-  return(plots)
+  # Affichage en grille
+  if (length(plots) > 0) {
+    n_plots <- length(plots)
+    nrow_ <- ceiling(n_plots / ncol)
+    
+    # Vérifier si gridExtra est disponible
+    if (!requireNamespace("gridExtra", quietly = TRUE)) {
+      warning("Le package 'gridExtra' n'est pas installé. Affichage individuel des plots.")
+      for (p in plots) print(p)
+    } else {
+      # Option : ouvrir une fenêtre plus grande (fonctionne dans certains environnements)
+      if (interactive() && .Platform$OS.type != "windows") {
+        try(dev.new(width = 12, height = 8), silent = TRUE)
+      }
+      gridExtra::grid.arrange(grobs = plots, ncol = ncol, nrow = nrow_)
+    }
+  }
+  
+  invisible(plots)
 }

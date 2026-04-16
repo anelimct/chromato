@@ -1508,7 +1508,7 @@ PieDonut_custom_colors_v2 <- function(data,
   # Calculate totals for each type (inner ring)
   type_totals <- df %>%
     group_by(type) %>%
-    summarise(total = sum(n)) %>%
+    summarise(total = n()) %>%
     ungroup() %>%
     mutate(
       proportion = total / sum(total),
@@ -1534,7 +1534,7 @@ PieDonut_custom_colors_v2 <- function(data,
   # Calculate counts for subtypes
   subtype_counts <- df %>%
     group_by(type, sub_type) %>%
-    summarise(count = sum(n), .groups = "drop")
+    summarise(count = n(), .groups = "drop")
   
   # Apply custom ordering of subtypes if specified
   if (!is.null(subtype_order)) {
