@@ -1889,4 +1889,3 @@ plot_species_both_internal_tradeoff <- function(df, save_path = here::here("figu
   
   return(p)
 }
-

@@ -330,7 +330,7 @@ moving_window_medians <- function(data,
 
 
 moving_window_convex <- function(data, ordination = "Sum", 
-                                        size = 25, step = 1, col_scores, col_traits){
+                                        size = 25, step = 1, col_scores, col_traits, col_species = "rowname"){
   
   # 1. Ordonner selon la variable d'ordination
   data <- data[order(data[[ordination]]), ]
@@ -358,12 +358,17 @@ moving_window_convex <- function(data, ordination = "Sum",
   
   ordinations <- numeric(n_windows)
   
-  
+  # Liste pour stocker les espèces de chaque fenêtre
+  species_lists <- vector("list", n_windows)
   
   
   for (i in seq_along(start_indices)) {
     idx <- start_indices[i]:(start_indices[i] + size - 1)
     subset <- data_clean[idx, ]
+    
+    
+    species_lists[[i]] <- as.character(subset[[col_species]])
+    
     
     subset_coords <- as.matrix(
       subset[c(col_scores)]
@@ -392,7 +397,7 @@ moving_window_convex <- function(data, ordination = "Sum",
     subset_traits_N <- subset_traits |> normaliser_dataframe()
     pca.traits<- princomp(subset_traits_N)
     
-    dimentionality[i] <-var(pca.traits$sdev^2)
+    dimentionality[i] <- var(pca.traits$sdev^2)
     
     ##valeur ordination
     valeurs_ord <- subset[[ordination]] 
@@ -401,9 +406,27 @@ moving_window_convex <- function(data, ordination = "Sum",
   }
   
   results <- setNames(
-    data.frame(volumes, var_dist, f_dis, originality, dimentionality, ordinations),
-    c("Richness", "regularity", "functional_dispersion", "originality", "dimensionality", paste0("median_", ordination))
+    data.frame(volumes, var_dist, f_dis, originality, dimentionality, ordinations, species_list = I(species_lists)),
+    c("Richness", "regularity_inv", "functional_dispersion", "originality", "dimensionality_inv", paste0("median_", ordination), "sp_list")
   )
+  
+  results <- results |> 
+    dplyr::mutate(
+      regularity = 1 - (
+        (regularity_inv - min(regularity_inv)) /
+          (max(regularity_inv) - min(regularity_inv))
+      )
+    ) |> dplyr::mutate(dimensionality =  1 - (
+                           (dimensionality_inv - min(dimensionality_inv)) /
+                             (max(dimensionality_inv) - min(dimensionality_inv))
+                           ))|>  dplyr::select(-regularity_inv, -dimensionality_inv)
+  
+  col_to_move <- paste0("median_", ordination)
+  
+  results <- results |>
+    dplyr::relocate(all_of(col_to_move), .after = dplyr::last_col()) |>
+    dplyr::relocate(sp_list, .after = dplyr::last_col())
+  
    
   return(results) 
 }
@@ -413,8 +436,8 @@ plot_moving_window_convex <- function(data, ncol = 2) {
   if (!is.data.frame(data)) stop("L'objet 'data' doit être un data.frame")
   if (ncol(data) < 2) stop("Le data.frame doit contenir au moins 2 colonnes")
   
-  x_var <- names(data)[ncol(data)]                     # dernière colonne = variable x
-  y_vars <- names(data)[1:min(5, ncol(data)-1)]        # métriques (max 5)
+  x_var <- names(data)[ncol(data) -1]                     # dernière colonne = variable x
+  y_vars <- names(data)[1:min(5, ncol(data)-2)]        # métriques (max 5)
   
   # Liste pour stocker les graphiques
   plots <- list()
@@ -460,4 +483,201 @@ plot_moving_window_convex <- function(data, ncol = 2) {
   }
   
   invisible(plots)
+}
+
+
+moving_window_categories <- function(data,
+                                     ordination = "Sum",
+                                     var1 = "isoprene",
+                                     var2 = "monoterpenes",
+                                     size = 20,
+                                     step = 1,
+                                     threshold_iso_emit = 1,
+                                     threshold_mono_emit = 0.1) {
+  
+  # Vérification de ggplot2
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("La fonction nécessite le package 'ggplot2'. Installez-le avec install.packages('ggplot2').")
+  }
+  library(ggplot2)
+  
+  # Seuils pour les niveaux d'émission (définis par l'utilisateur dans sa question)
+  seuil_iso_low <- 10
+  seuil_iso_medium <- 30
+  seuil_mono_low <- 2
+  seuil_mono_medium <- 5.1
+  
+  # 1. Ordonner selon la variable d'ordination
+  data <- data[order(data[[ordination]]), ]
+  
+  # 2. Garder uniquement les lignes complètes pour les trois colonnes
+  data_clean <- na.omit(data[, c(ordination, var1, var2)])
+  
+  n_total <- nrow(data_clean)
+  if (size > n_total) stop("La taille de la fenêtre dépasse le nombre d'observations.")
+  
+  # 3. Indices de début des fenêtres
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  # 4. Fonction de classification d'une observation
+  classer <- function(iso, mono) {
+    emit_iso <- !is.na(iso) && iso > threshold_iso_emit
+    emit_mono <- !is.na(mono) && mono > threshold_mono_emit
+    
+    # Cas NE
+    if (!emit_iso && !emit_mono) return("NE")
+    
+    # Niveaux pour iso et mono
+    niveau_iso <- if (emit_iso) {
+      if (iso < seuil_iso_low) "low"
+      else if (iso <= seuil_iso_medium) "medium"
+      else "high"
+    } else NA
+    
+    niveau_mono <- if (emit_mono) {
+      if (mono < seuil_mono_low) "low"
+      else if (mono <= seuil_mono_medium) "medium"
+      else "high"
+    } else NA
+    
+    # Cas iso seulement
+    if (emit_iso && !emit_mono) return(paste0("iso_", niveau_iso))
+    # Cas mono seulement
+    if (!emit_iso && emit_mono) return(paste0("mono_", niveau_mono))
+    # Cas both
+    if (emit_iso && emit_mono) return(paste0("both_", niveau_iso, "-", niveau_mono))
+  }
+  
+  # Liste de toutes les sous-catégories possibles (ordre pour le graphique)
+  all_subtypes <- c("NE",
+                    "iso_low", "iso_medium", "iso_high",
+                    "mono_low", "mono_medium", "mono_high",
+                    "both_low-low", "both_low-medium", "both_low-high",
+                    "both_medium-low", "both_medium-medium", "both_medium-high",
+                    "both_high-low", "both_high-medium", "both_high-high")
+  
+  # Couleurs fournies par l'utilisateur
+  subtype_colors <- c(
+    "NE" = "#fce72e",
+    "both_high-high" = "#c34f70",
+    "both_high-medium" = "#eba5b5",
+    "both_high-low" = "#f4c2cd",
+    "both_medium-high" = "#eba5b5",      # approximation, non spécifiée
+    "both_medium-medium" = "#eba5b5",
+    "both_medium-low" = "#eba5b5",
+    "both_low-high" = "#f4c2cd",
+    "both_low-medium" = "#f4c2cd",
+    "both_low-low" = "#f4c2cd",
+    "iso_high" = "#59ac24",
+    "iso_medium" = "#adda96",
+    "iso_low" = "#adda96",               # non spécifiée, on prend medium
+    "mono_high" = "#2c52c4",
+    "mono_medium" = "#91a2e9",
+    "mono_low" = "#b7c2f3"
+  )
+  # Compléter les couleurs manquantes pour les both non listés
+  both_missing <- setdiff(grep("^both_", all_subtypes, value = TRUE), names(subtype_colors))
+  for (b in both_missing) {
+    if (grepl("high-", b)) subtype_colors[b] <- "#c34f70"
+    else if (grepl("medium-", b)) subtype_colors[b] <- "#eba5b5"
+    else if (grepl("low-", b)) subtype_colors[b] <- "#f4c2cd"
+  }
+  
+  # 5. Initialisation
+  median_ord <- numeric(n_windows)
+  # Matrice des proportions : lignes = sous-catégories, colonnes = fenêtres
+  prop_matrix <- matrix(0, nrow = length(all_subtypes), ncol = n_windows,
+                        dimnames = list(all_subtypes, NULL))
+  
+  # 6. Boucle sur les fenêtres
+  for (i in seq_len(n_windows)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    subset <- data_clean[idx, ]
+    
+    # Classification de chaque observation
+    classes <- mapply(classer, subset[[var1]], subset[[var2]], SIMPLIFY = TRUE)
+    
+    # Tableau des fréquences pour toutes les catégories possibles
+    tab <- table(factor(classes, levels = all_subtypes))
+    
+    # Proportion dans cette fenêtre
+    prop_matrix[, i] <- as.vector(tab) / sum(tab)
+    
+    # Médiane de l'ordination
+    median_ord[i] <- median(subset[[ordination]], na.rm = TRUE)
+  }
+  
+  # 7. Création du data.frame pour ggplot2
+  df_plot <- data.frame(
+    window = rep(seq_len(n_windows), each = length(all_subtypes)),
+    median_ordination = rep(median_ord, each = length(all_subtypes)),
+    subtype = rep(all_subtypes, times = n_windows),
+    proportion = as.vector(prop_matrix)
+  )
+  
+  # Supprimer les lignes avec proportion nulle (optionnel, mais allège)
+  df_plot <- df_plot[df_plot$proportion > 0, ]
+  
+  # 8. Graphique en barres empilées
+  p <- ggplot(df_plot, aes(x = median_ordination, y = proportion, fill = subtype)) +
+    geom_col(width = diff(range(median_ord)) / (n_windows * 1.2), 
+             position = "stack", color = "black", size = 0.2) +
+    scale_fill_manual(values = subtype_colors, name = "Sous-catégorie") +
+    labs(x = paste("Médiane de", ordination),
+         y = "Proportion",
+         title = paste("Types d'émetteurs par fenêtre glissante\n(taille =", size, ", pas =", step, ")"),
+         fill = "Catégorie") +
+    theme_minimal() +
+    theme(legend.position = "bottom",
+          legend.text = element_text(size = 8),
+          legend.key.size = unit(0.4, "cm"))
+  
+  print(p)
+  
+  # 9. Retour invisible des données
+  invisible(list(proportions = prop_matrix,
+                 median_ordination = median_ord,
+                 data_plot = df_plot,
+                 all_subtypes = all_subtypes))
+}
+
+
+
+
+extraire_especes_threshold <- function(sum_df, var_ordination, 
+                                        lower, upper) {
+  # Vérifications
+  if (!is.data.frame(sum_df)) stop("sum_df doit être un data.frame")
+  if (!var_ordination %in% colnames(sum_df)) 
+    stop(paste("La variable", var_ordination, "n'est pas dans sum_df"))
+  if (!"sp_list" %in% colnames(sum_df)) 
+    stop("sum_df doit contenir une colonne 'sp_list' (liste d'espèces par fenêtre)")
+  
+  # 1. Sous-ensembles de fenêtres selon la valeur de la variable d'ordination
+  low_windows <- sum_df[sum_df[[var_ordination]] < lower, ]
+  high_windows <- sum_df[sum_df[[var_ordination]] > upper, ]
+  mid_windows  <- sum_df[sum_df[[var_ordination]] >= lower & 
+                           sum_df[[var_ordination]] <= upper, ]
+  
+  # 2. Fonction pour extraire les espèces uniques d'un data.frame de fenêtres
+  get_unique_species <- function(df) {
+    if (nrow(df) == 0) return(character(0))
+    unique(unlist(df$sp_list))
+  }
+  
+  species_low  <- get_unique_species(low_windows)
+  species_high <- get_unique_species(high_windows)
+  species_mid  <- get_unique_species(mid_windows)
+  
+  # 3. Espèces exclusives à chaque zone (présentes dans une seule)
+  low_exclusive  <- setdiff(species_low,  union(species_high, species_mid))
+  high_exclusive <- setdiff(species_high, union(species_low,  species_mid))
+  
+  # Retourner une liste nommée
+  return(list(
+    pre_seuil  = low_exclusive,
+    seuil      = species_mid ,
+    post_seuil = high_exclusive
+  ))
 }

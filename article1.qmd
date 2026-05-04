@@ -8,6 +8,7 @@ editor: visual
 #| warning: false
 #| echo: false
 targets::tar_source(here::here("R/analysis_internship.R"))
+targets::tar_source(here::here("R/function_article_1.R"))
 targets::tar_source(here::here("R/plot_exploration_article1.R"))
 targets::tar_load(imputed.traits)
 targets::tar_load(DB_bvocs_iso_mono_EF)
@@ -62,6 +63,12 @@ trait_space_subset <-funspace::funspace(pca.trait_usual_iso, PCs = c(1,2))
 
 plot(trait_space_subset, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
 
+
+trait_space_subset <-funspace::funspace(pca.trait_usual_iso, PCs = c(2,3))
+
+
+plot(trait_space_subset, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
 matrice_correlation_spearmann(data_traits_sp_iso)
 ```
 
@@ -75,6 +82,44 @@ trait_space_subset$PCAInfo
 #maintenet le tree c'est avec spagg plus name complete il faut changer les rownames de merged data 3T
 
 merged_data_3T <- merged_data_3T |> tibble::rownames_to_column( var = "rowname") |>  dplyr::left_join(woodiv_species, by = c( "rowname"="full_scientific_name" )) |>  tibble::column_to_rownames(var = "gragg") |> dplyr::mutate(Sum = isoprene+ monoterpenes)
+
+```
+
+```{r}
+
+#| include: false
+#| 
+ data_traits_EF_2 <-merge_trait_EF(imputed.traits, DB_bvocs_iso_mono_EF)
+
+data_traits_EF_2 <- subset(data_traits_EF_2, select = -c(SeedMass, BloomBreadth, DispMode, Sum, total, p_isoprene, p_monoterpenes, prct_isoprene, prct_monoterpenes, isoprene_mod, binaire)) 
+
+  
+
+#subset 101 sp pour lesquelles son les isoprenoids
+data_traits_sp_iso_isoprenoids <- data_traits_EF_2|> dplyr::filter(BVOCsData == 1) |> dplyr::mutate(Sum = isoprene + monoterpenes) |> subset( select = -c( BVOCsData, type)) 
+
+data_traits_sp_iso_isoprenoids_N <- data_traits_sp_iso_isoprenoids |> normaliser_dataframe()
+#ajouter en groupe vec type to create a subset for each type
+
+
+
+
+funspace::funspaceDim(data_traits_sp_iso_isoprenoids_N)## retains only the first compoenent ?
+
+pca.trait_iso <- princomp(data_traits_sp_iso_isoprenoids_N)
+
+summary(pca.trait_iso )
+
+# 3. PCA avec traits usuels subset 101 isoprenoids data + isoprenoid traits
+trait_space_subset_iso_isoprenoid <-funspace::funspace(pca.trait_iso, PCs = c(1,2))
+
+
+plot(trait_space_subset_iso_isoprenoid, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+trait_space_subset_iso_isoprenoid <-funspace::funspace(pca.trait_iso, PCs = c(2,3))
+
+
+plot(trait_space_subset_iso_isoprenoid, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
 
 ```
 
@@ -111,39 +156,125 @@ plot_spearman_sensibility(rho_simul_SLA_LA, title = "Sensibilité de la corréla
 ```
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "StemSpecDens",
+
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_SLA = log(SLA))|> dplyr::mutate(log_StemSpecDens = log(StemSpecDens)) |> dplyr::mutate(log_Sum = log(Sum +0.01))
+
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_StemSpecDens",
                                    size = 25, step = 1, rho_simul_SLA_SSD,
-                                   ordination = "Sum")
+                                   ordination = "log_Sum", plot_scatter_windows = FALSE )
 ```
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "HeightMax",
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_HeightMax = log(HeightMax))
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_HeightMax",
                                    size = 25, step = 1, rho_simul_SLA_H ,
-                                   ordination = "Sum")
+                                   ordination = "log_Sum")
 ```
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "LeafArea",
+moving_window_medians (merged_data_3T, ordination = "log_Sum",size = 25, step = 1 )
+```
+
+```{r}
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_LeafArea = log(LeafArea))
+moving_window_spearman (merged_data_3T, trait1 = "log_Sum", trait2 = "log_LeafArea",
                                    size = 25, step = 1, rho_simul_SLA_LA ,
-                                   ordination = "Sum")
+                                   ordination = "log_Sum")
 ```
 
 # Même mécanisme avec l'indice d'équitabilité iso/mono
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "StemSpecDens",
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_equitabilite = log(equitabilite+0.01))
+
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_StemSpecDens",
                                    size = 25, step = 1, rho_simul_SLA_SSD,
                                    ordination = "equitabilite")
 ```
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "HeightMax",
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_HeightMax",
                                    size = 25, step = 1, rho_simul_SLA_H ,
                                    ordination = "equitabilite")
 ```
 
 ```{r}
-moving_window_spearman (merged_data_3T, trait1 = "SLA", trait2 = "LeafArea",
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafArea",
                                    size = 25, step = 1, rho_simul_SLA_LA ,
                                    ordination = "equitabilite")
+```
+
+# Même mécanisme avec l'indice brake trade-off
+
+```{r}
+normaliser_minmax <- function(x) {
+  (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+}
+
+merged_data_3T <- merged_data_3T |>
+  dplyr::mutate(equitabilite_N = normaliser_minmax(equitabilite))
+merged_data_3T <- merged_data_3T |>
+  dplyr::mutate(Sum_N = normaliser_minmax(Sum))
+
+hist(merged_data_3T$equitabilite_N)
+hist(merged_data_3T$Sum_N)
+
+
+merged_data_3T <- merged_data_3T |>
+  dplyr::mutate(brake_trade_off = equitabilite_N*Sum_N)
+hist(merged_data_3T$brake_trade_off)
+
+ggplot(merged_data_3T, aes(x = isoprene, y = monoterpenes, color = brake_trade_off)) +
+  geom_point() +
+  scale_color_continuous() +
+  theme_minimal() + 
+  labs(title = "equitabilite_N*Sum_N")
+```
+
+```{r}
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_brake_trade_off = log(brake_trade_off+0.01))
+hist(merged_data_3T$log_brake_trade_off)
+
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_StemSpecDens",
+                                   size = 25, step = 1, rho_simul_SLA_SSD,
+                                   ordination = "brake_trade_off")
+```
+
+```{r}
+moving_window_medians (merged_data_3T, ordination = "brake_trade_off" ,size = 25, step = 1 )
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_HeightMax",
+                                   size = 25, step = 1, rho_simul_SLA_H ,
+                                   ordination = "brake_trade_off")
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafArea",
+                                   size = 25, step = 1, rho_simul_SLA_LA ,
+                                   ordination = "brake_trade_off")
+```
+
+# Moving window espace functionnel
+
+```{r}
+test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_Sum")
+
+plot_moving_window_convex(test)
+
+
+
+```
+
+```{r}
+test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "equitabilite")
+
+plot_moving_window_convex(test)
+```
+
+```{r}
+test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "brake_trade_off")
+
+plot_moving_window_convex(test)
 ```
