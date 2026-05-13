@@ -286,6 +286,16 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
  
 
 
+### ARTICLE 1
+tar_target(sum_df_file, here::here("data", "article1", "sum_df.rds"), format = "file"),
+tar_target(sum_df, readRDS(sum_df_file)),
+
+tar_target(equitabilite_file, here::here("data", "article1", "equitabilite_df.rds"), format = "file"),
+tar_target(equitabilite_df, readRDS(equitabilite_file)),
+
+tar_target(brake_trade_off_file, here::here("data", "article1", "brake_trade_off_df.rds"), format = "file"),
+tar_target(brake_trade_off_df, readRDS(brake_trade_off_file)),
+
   ##SPATIAL maps
 #Dans le working file c'est bien les occuerence de woodiv v2
   tar_target(working_file, {
