@@ -174,6 +174,9 @@ moving_window_spearman <- function(data, trait1 = "SLA", trait2 = "HeightMax",
     abline(h = mean_rho - 1.96 * sd_rho, col = "red", lty = 2)
   }
   
+  # Capturer le premier graphique
+  first_plot <- recordPlot()
+  
   # -------- GRAPH 2 : SES --------
   plot(median_ord, ses, pch = 16, col = "blue",
        xlab = paste("Médiane de", ordination),
@@ -231,19 +234,22 @@ moving_window_spearman <- function(data, trait1 = "SLA", trait2 = "HeightMax",
   abline(h = mean(sd_trait2), col = "red", lty = 2)
   
   # -------- OUTPUT --------
-  invisible(data.frame(
-    median_ord = median_ord,
-    rho_obs = rho_obs,
-    ses = ses,
-    mean_trait1 = mean_trait1,
-    min_trait1 = min_trait1,
-    max_trait1 = max_trait1,
-    sd_trait1 = sd_trait1,
-    mean_trait2 = mean_trait2,
-    min_trait2 = min_trait2,
-    max_trait2 = max_trait2,
-    sd_trait2 = sd_trait2
-  ))
+    invisible(list(
+      data = data.frame(
+        median_ord = median_ord,
+        rho_obs = rho_obs,
+        ses = ses,
+        mean_trait1 = mean_trait1,
+        min_trait1 = min_trait1,
+        max_trait1 = max_trait1,
+        sd_trait1 = sd_trait1,
+        mean_trait2 = mean_trait2,
+        min_trait2 = min_trait2,
+        max_trait2 = max_trait2,
+        sd_trait2 = sd_trait2
+      ),
+      first_plot = first_plot
+    ))
 }
 
 moving_window_medians <- function(data, 
@@ -680,4 +686,174 @@ extraire_especes_threshold <- function(sum_df, var_ordination,
     seuil      = species_mid ,
     post_seuil = high_exclusive
   ))
+}
+
+moving_window_categories_2<- function(data,
+                                                               ordination = "Sum",
+                                                               var1 = "isoprene",
+                                                               var2 = "monoterpenes",
+                                                               size = 20,
+                                                               step = 1,
+                                                               threshold_iso_emit = 1,
+                                                               threshold_mono_emit = 0.1,
+                                                               plot_type = c("area", "bar"),
+                                                               category_order = c("NE", "mono", "iso", "both"),
+                                                               show_legend = FALSE) {
+  
+  plot_type <- match.arg(plot_type)
+  
+  # Vérification des packages
+  if (plot_type == "area" && !requireNamespace("areaplot", quietly = TRUE)) {
+    stop("Le mode 'area' nécessite le package 'areaplot'.")
+  }
+  if (plot_type == "bar" && !requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Le mode 'bar' nécessite le package 'ggplot2'.")
+  }
+  
+  # Seuils d'émission
+  seuil_iso_low <- 10
+  seuil_iso_medium <- 30
+  seuil_mono_low <- 2
+  seuil_mono_medium <- 5.1
+  
+  # Tri et nettoyage
+  data <- data[order(data[[ordination]]), ]
+  data_clean <- na.omit(data[, c(ordination, var1, var2)])
+  n_total <- nrow(data_clean)
+  if (size > n_total) stop("La taille de la fenêtre dépasse le nombre d'observations.")
+  
+  # Fenêtres glissantes
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  # Classification
+  classer <- function(iso, mono) {
+    emit_iso <- !is.na(iso) && iso > threshold_iso_emit
+    emit_mono <- !is.na(mono) && mono > threshold_mono_emit
+    
+    if (!emit_iso && !emit_mono) return("NE")
+    
+    niveau_iso <- if (emit_iso) {
+      if (iso < seuil_iso_low) "low"
+      else if (iso <= seuil_iso_medium) "medium"
+      else "high"
+    } else NA
+    
+    niveau_mono <- if (emit_mono) {
+      if (mono < seuil_mono_low) "low"
+      else if (mono <= seuil_mono_medium) "medium"
+      else "high"
+    } else NA
+    
+    if (emit_iso && !emit_mono) return(paste0("iso_", niveau_iso))
+    if (!emit_iso && emit_mono) return(paste0("mono_", niveau_mono))
+    return(paste0("both_", niveau_iso, "-", niveau_mono))
+  }
+  
+  # Noms des sous-catégories
+  niveaux <- c("low", "medium", "high")
+  all_mono <- paste0("mono_", niveaux)
+  all_iso  <- paste0("iso_", niveaux)
+  all_both <- paste0("both_", rep(niveaux, each = 3), "-", rep(niveaux, times = 3))
+  
+  # Ordre des catégories
+  ordered_subtypes <- c()
+  if ("NE" %in% category_order) ordered_subtypes <- c(ordered_subtypes, "NE")
+  if ("mono" %in% category_order) ordered_subtypes <- c(ordered_subtypes, all_mono)
+  if ("iso" %in% category_order)  ordered_subtypes <- c(ordered_subtypes, all_iso)
+  if ("both" %in% category_order) ordered_subtypes <- c(ordered_subtypes, all_both)
+  
+  # Palette de couleurs : tous les both ont la même couleur
+  col_palette <- c(
+    "NE" = "#fce72e",
+    "iso_low" = "#adda96",
+    "iso_medium" = "#adda96",
+    "iso_high" = "#59ac24",
+    "mono_low" = "#b7c2f3",
+    "mono_medium" = "#91a2e9",
+    "mono_high" = "#2c52c4"
+  )
+  both_color <- "#c34f70"   # couleur unique pour tous les both
+  for (b in all_both) col_palette[b] <- both_color
+  subtype_colors <- col_palette[ordered_subtypes]
+  
+  # Calcul des proportions par fenêtre
+  median_ord <- numeric(n_windows)
+  prop_matrix <- matrix(0, nrow = length(ordered_subtypes), ncol = n_windows,
+                        dimnames = list(ordered_subtypes, NULL))
+  
+  for (i in seq_len(n_windows)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    subset <- data_clean[idx, ]
+    classes <- mapply(classer, subset[[var1]], subset[[var2]], SIMPLIFY = TRUE)
+    tab <- table(factor(classes, levels = ordered_subtypes))
+    prop_matrix[, i] <- tab / sum(tab)
+    median_ord[i] <- median(subset[[ordination]], na.rm = TRUE)
+  }
+  
+  # --- Correction des doublons sur l'axe des x ---
+  # Agrégation des fenêtres ayant la même médiane (moyenne des proportions)
+  df_temp <- data.frame(median = median_ord, t(prop_matrix))
+  df_agg <- aggregate(. ~ median, data = df_temp, FUN = mean)
+  x_vals <- df_agg$median
+  y_mat <- as.matrix(df_agg[, -1])
+  colnames(y_mat) <- ordered_subtypes  # garantir les noms
+  
+  # Tri par médiane croissante
+  ord_idx <- order(x_vals)
+  x_vals <- x_vals[ord_idx]
+  y_mat <- y_mat[ord_idx, , drop = FALSE]
+  
+  # Vérification finale (plus aucun doublon normalement)
+  if (any(duplicated(x_vals))) stop("Il reste des doublons dans les abscisses.")
+  
+  # Tracé
+  if (plot_type == "area") {
+    old_par <- par(mar = c(7, 4, 4, 2) + 0.1)
+    on.exit(par(old_par))
+    
+    areaplot::areaplot(x = x_vals, y = y_mat,
+                       prop = FALSE, rev = FALSE,
+                       col = subtype_colors, border = NA,
+                       xlab = paste("Médiane de", ordination),
+                       ylab = "Proportion",
+                       main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"))
+    
+    if (show_legend) {
+      non_zero <- colSums(y_mat) > 0
+      legend_labels <- ordered_subtypes[non_zero]
+      legend_cols <- subtype_colors[non_zero]
+      ncol_leg <- min(6, length(legend_labels))
+      legend("bottom", inset = c(0, -0.25), legend = legend_labels,
+             fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8, xpd = NA)
+    }
+  } else { # barres avec ggplot2
+    library(ggplot2)
+    n_windows_agg <- nrow(y_mat)
+    df_plot <- data.frame(
+      median_ordination = rep(x_vals, each = length(ordered_subtypes)),
+      subtype = rep(ordered_subtypes, times = n_windows_agg),
+      proportion = as.vector(t(y_mat))
+    )
+    df_plot <- df_plot[df_plot$proportion > 0, ]
+    df_plot$subtype <- factor(df_plot$subtype, levels = ordered_subtypes)
+    
+    p <- ggplot(df_plot, aes(x = median_ordination, y = proportion, fill = subtype)) +
+      geom_col(width = diff(range(x_vals)) / (n_windows_agg * 1.2),
+               position = "stack", color = "black", size = 0.2) +
+      scale_fill_manual(values = subtype_colors, name = "Catégorie") +
+      labs(x = paste("Médiane de", ordination), y = "Proportion",
+           title = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")")) +
+      theme_minimal() +
+      theme(legend.position = if(show_legend) "bottom" else "none",
+            legend.text = element_text(size = 8),
+            legend.key.size = unit(0.4, "cm"))
+    print(p)
+  }
+  
+  invisible(list(proportions = prop_matrix,
+                 median_ordination = median_ord,
+                 aggregated_x = x_vals,
+                 aggregated_prop = y_mat,
+                 ordered_subtypes = ordered_subtypes))
 }

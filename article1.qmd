@@ -1,4 +1,5 @@
 ---
+targest---
 title: "analysis_article1"
 format: html
 editor: visual
@@ -36,7 +37,7 @@ data_traits_EF <- subset(data_traits_EF, select = -c(SeedMass, BloomBreadth, Dis
 
   
 
-#subset 101 sp pour lesquelles son les isoprenoids
+#subset 101 sp pour lesquelles on a les isoprenoids
 data_traits_sp_iso <- data_traits_EF|> dplyr::filter(BVOCsData == 1) |> subset( select = -c(isoprene, monoterpenes, BVOCsData, type)) 
 
 data_traits_sp_iso_N <- data_traits_sp_iso |> normaliser_dataframe()
@@ -149,6 +150,9 @@ rho_simul_SLA_SSD <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "
 rho_simul_SLA_H <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "HeightMax")
 rho_simul_SLA_LA <-simulate_spearman(merged_data_3T, trait1 = "SLA", trait2 = "LeafArea")
 
+
+rho_simul_H_SSD <-simulate_spearman(merged_data_3T, trait1 = "StemSpecDens", trait2 = "HeightMax")
+
 plot_spearman_sensibility(rho_simul_SLA_SSD, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~Stemdens")
 plot_spearman_sensibility(rho_simul_SLA_H, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~Hauteur")
 plot_spearman_sensibility(rho_simul_SLA_LA, title = "Sensibilité de la corrélation de Spearman à la taille d'échantillon, SLA~LA")
@@ -172,12 +176,29 @@ moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_Height
 ```
 
 ```{r}
+merged_data_3T <- merged_data_3T |> dplyr::mutate(log_HeightMax = log(HeightMax))
+
+moving_window_spearman (merged_data_3T, trait1 = "log_StemSpecDens", trait2 = "log_HeightMax",
+                                   size = 25, step = 1, rho_simul_H_SSD ,
+                                   ordination = "log_Sum")
+```
+
+```{r}
 moving_window_medians (merged_data_3T, ordination = "log_Sum",size = 25, step = 1 )
+
+moving_window_categories(merged_data_3T, ordination = "log_Sum",size = 25, step = 1 )
+
+```
+
+```{r}
+moving_window_categories_2(merged_data_3T, ordination = "log_Sum", size = 25, step = 1)
+abline(v = 1.93, lty = 2, col = "red")
 ```
 
 ```{r}
 merged_data_3T <- merged_data_3T |> dplyr::mutate(log_LeafArea = log(LeafArea))
-moving_window_spearman (merged_data_3T, trait1 = "log_Sum", trait2 = "log_LeafArea",
+
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafArea",
                                    size = 25, step = 1, rho_simul_SLA_LA ,
                                    ordination = "log_Sum")
 ```
@@ -186,6 +207,9 @@ moving_window_spearman (merged_data_3T, trait1 = "log_Sum", trait2 = "log_LeafAr
 
 ```{r}
 merged_data_3T <- merged_data_3T |> dplyr::mutate(log_equitabilite = log(equitabilite+0.01))
+
+hist(merged_data_3T$log_equitabilite)
+hist(merged_data_3T$equitabilite)
 
 moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_StemSpecDens",
                                    size = 25, step = 1, rho_simul_SLA_SSD,
@@ -200,8 +224,33 @@ moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_Height
 
 ```{r}
 moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafArea",
-                                   size = 25, step = 1, rho_simul_SLA_LA ,
+                                   size = 25, step = 1, rho_simul_SLA_H ,
                                    ordination = "equitabilite")
+```
+
+```{r}
+moving_window_medians (merged_data_3T, ordination = "equitabilite",size = 25, step = 1 )
+
+moving_window_categories(merged_data_3T, ordination = "equitabilite", size = 25, step = 1 )
+
+moving_window_medians (merged_data_3T, ordination = "log_equitabilite",size = 25, step = 1 )
+
+moving_window_categories(merged_data_3T, ordination = "log_equitabilite", size = 25, step = 1 )
+
+```
+
+```{r}
+moving_window_categories_2(merged_data_3T, ordination = "equitabilite", size = 25, step = 1 )
+abline(v = 0.06, lty = 2, col = "red")
+```
+
+```         
+```
+
+```{r}
+moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafArea",
+                                   size = 25, step = 1, rho_simul_SLA_LA ,
+                                   ordination = "log_equitabilite")
 ```
 
 # Même mécanisme avec l'indice brake trade-off
@@ -229,6 +278,17 @@ ggplot(merged_data_3T, aes(x = isoprene, y = monoterpenes, color = brake_trade_o
   scale_color_continuous() +
   theme_minimal() + 
   labs(title = "equitabilite_N*Sum_N")
+
+moving_window_medians (merged_data_3T, ordination = "brake_trade_off",size = 25, step = 1 )
+
+moving_window_categories(merged_data_3T, ordination = "brake_trade_off", size = 25, step = 1 )
+
+```
+
+```{r}
+moving_window_categories_2(merged_data_3T, ordination = "brake_trade_off", size = 25, step = 1 )
+
+abline(v = 0.0018, lty = 2, col = "red")
 ```
 
 ```{r}
@@ -259,22 +319,837 @@ moving_window_spearman (merged_data_3T, trait1 = "log_SLA", trait2 = "log_LeafAr
 # Moving window espace functionnel
 
 ```{r}
-test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_Sum")
+sum_df <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_Sum")
 
-plot_moving_window_convex(test)
+
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df.rds"))
+
+plot_moving_window_convex(sum_df)
 
 
 
 ```
 
 ```{r}
-test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "equitabilite")
+equitabilite_df <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "equitabilite")
 
-plot_moving_window_convex(test)
+
+saveRDS(equitabilite_df, file = here::here("data", "article1", "equitabilite_df.rds"))
+
+
+plot_moving_window_convex(equitabilite_df)
 ```
 
 ```{r}
-test <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "brake_trade_off")
+brake_trade_off_df <- moving_window_convex (merged_data_3T, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "brake_trade_off")
 
-plot_moving_window_convex(test)
+
+saveRDS(brake_trade_off_df, file = here::here("data", "article1", "brake_trade_off_df.rds"))
+
+plot_moving_window_convex(brake_trade_off_df)
+```
+
+```{r}
+test <- extraire_especes_threshold (sum_df, "median_log_Sum", 1.93967981, 1.89879048 )
+
+# ======================================================================
+# COMPARAISON DES MÉTRIQUES FONCTIONNELLES ENTRE GROUPES PRÉ‑SEUIL ET POST‑SEUIL
+# Avec test de Mann‑Whitney et graphique annoté
+# ======================================================================
+
+# 0. Installation des packages si nécessaire (à décommenter)
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "ggpubr"))
+
+# Chargement des packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(geometry)      # pour convhulln
+library(fundiversity)  # pour fd_fdis
+library(ggpubr)        # pour ajouter les p-values sur le graphique
+
+# ----------------------------------------------------------------------
+# Fonction qui calcule les métriques pour un échantillon aléatoire d'espèces
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                           scores_cols, traits_cols, global_centroid) {
+  
+  # Garder uniquement les espèces présentes dans data et sans NA sur scores et traits
+  available <- intersect(species_list, data$rowname)
+  if (length(available) < size) {
+    stop("Pas assez d'espèces disponibles dans le groupe pour un échantillon de taille ", size)
+  }
+  
+  # Tirage aléatoire sans remise
+  selected <- sample(available, size, replace = FALSE)
+  
+  # Sous-ensemble des données
+  sub_data <- data[data$rowname %in% selected, ]
+  sub_scores <- as.matrix(sub_data[, scores_cols])
+  sub_traits <- sub_data[, traits_cols]
+  
+  # 1. Volume du convex hull (Richness)
+  vol <- tryCatch(convhulln(sub_scores, options = "FA")$vol,
+                  error = function(e) NA)
+  
+  # 2. Dispersion fonctionnelle (FDis)
+  fdis <- fd_fdis(sub_scores)$FDis
+  
+  # 3. Originalité : distance du centroïde du sous‑ensemble au centroïde global
+  centroid_sub <- colMeans(sub_scores)
+  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
+  
+  # 4. Régularité (inverse) : variance des distances dans l'espace des scores
+  dist_mat <- dist(sub_scores)
+  regularity_inv <- var(as.vector(dist_mat))
+  
+  # 5. Dimensionalité (inverse) : variance des valeurs propres de la PCA sur traits
+  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
+  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  dimensionality_inv <- var(pca_traits$sdev^2)
+  
+  # Retourner un vecteur nommé
+  c(Richness = vol,
+    FDis = fdis,
+    Originality = orig,
+    regularity_inv = regularity_inv,
+    dimensionality_inv = dimensionality_inv)
+}
+
+# ----------------------------------------------------------------------
+# Fonction principale qui répète l'échantillonnage pour un groupe
+# ----------------------------------------------------------------------
+iterate_group <- function(species_list, data, size = 25, n_iter = 100,
+                          scores_cols, traits_cols, global_centroid) {
+  
+  results <- replicate(n_iter, {
+    sample_metrics(species_list, data, size,
+                   scores_cols, traits_cols, global_centroid)
+  }, simplify = FALSE)
+  
+  # Transformer la liste en data.frame
+  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
+  df$iteration <- 1:n_iter
+  df
+}
+
+# ======================================================================
+# 1. PRÉPARATION DES DONNÉES
+# ======================================================================
+
+# Listes d'espèces (à adapter selon votre objet)
+pre_list <- test$pre_seuil
+post_list <- test$post_seuil
+
+# Données des espèces
+data <- merged_data_3T
+
+# Colonnes à utiliser
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+# Garder uniquement les espèces ayant toutes les valeurs nécessaires
+complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
+pre_available <- intersect(pre_list, complete_species)
+post_available <- intersect(post_list, complete_species)
+
+cat("Espèces pré‑seuil disponibles :", length(pre_available), "\n")
+cat("Espèces post‑seuil disponibles :", length(post_available), "\n")
+
+if (length(pre_available) < 25 | length(post_available) < 25) {
+  stop("Il faut au moins 25 espèces disponibles dans chaque groupe.")
+}
+
+# Centroïde global (calculé sur toutes les espèces disponibles)
+global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
+global_centroid <- colMeans(global_scores)
+
+# ======================================================================
+# 2. LANCER LES ITÉRATIONS (n_iter = 100, taille = 25)
+# ======================================================================
+n_iter <- 100
+set.seed(123)  # pour reproductibilité
+
+pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
+                             scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "pre_seuil")
+
+post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
+                              scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "post_seuil")
+
+# Fusionner les deux groupes
+all_results <- bind_rows(pre_results, post_results)
+all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+# ======================================================================
+# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY
+# ======================================================================
+min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
+max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
+min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
+max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
+
+all_results <- all_results %>%
+  mutate(
+    regularity = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
+    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
+  ) %>%
+  select(-regularity_inv, -dimensionality_inv)
+
+# ======================================================================
+# 4. TEST DE MANN‑WHITNEY (WILCOXON) POUR CHAQUE MÉTRIQUE (tableau)
+# ======================================================================
+metrics_to_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
+
+mannwhitney_results <- data.frame(
+  Metric = character(),
+  W = numeric(),
+  p_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (m in metrics_to_test) {
+  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
+  post_vals <- all_results[all_results$groupe == "post_seuil", m]
+  test <- wilcox.test(pre_vals, post_vals, exact = FALSE, correct = TRUE)
+  mannwhitney_results <- rbind(mannwhitney_results,
+                               data.frame(Metric = m,
+                                          W = test$statistic,
+                                          p_value = test$p.value))
+}
+
+# Ajout de la significativité
+mannwhitney_results$signif <- ifelse(mannwhitney_results$p_value < 0.001, "***",
+                                     ifelse(mannwhitney_results$p_value < 0.01, "**",
+                                            ifelse(mannwhitney_results$p_value < 0.05, "*", "ns")))
+
+# Renommer les métriques pour un affichage clair
+mannwhitney_results$Metric <- factor(mannwhitney_results$Metric,
+                                     levels = metrics_to_test,
+                                     labels = c("Convex hull volume",
+                                                "Functional dispersion (FDis)",
+                                                "Originality",
+                                                "Regularity",
+                                                "Dimensionality"))
+
+# Afficher le tableau des résultats
+cat("\n===== TEST DE MANN‑WHITNEY (comparaison pre_seuil vs post_seuil) =====\n")
+print(mannwhitney_results)
+
+# ======================================================================
+# 5. MISE EN FORME LONGUE POUR LE GRAPHIQUE
+# ======================================================================
+long_results <- all_results %>%
+  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
+               names_to = "metric", values_to = "value")
+
+# Libellés des facettes en anglais
+metric_labels_en <- c(
+  Richness = "Convex hull volume",
+  FDis = "Functional dispersion (FDis)",
+  Originality = "Originality",
+  regularity = "Regularity",
+  dimensionality = "Dimensionality"
+)
+
+# ======================================================================
+# 6. BOXPLOT AVEC P‑VALUES (TEST DE MANN‑WHITNEY intégré)
+# ======================================================================
+p <- ggplot(long_results, aes(x = groupe, y = value, fill = groupe)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
+  facet_wrap(~ metric, scales = "free_y",
+             labeller = labeller(metric = metric_labels_en)) +
+  stat_compare_means(method = "wilcox.test", label = "p.format", size = 3,
+                     comparisons = list(c("pre_seuil", "post_seuil"))) +
+  scale_fill_manual(values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon")) +
+  labs(x = "Group", y = "Metric value", title = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "gray90", color = NA),
+        strip.text = element_text(face = "bold"))
+
+# Afficher le graphique
+print(p)
+
+```
+
+```{r}
+
+pre_list <- test$pre_seuil
+post_list <- test$post_seuil
+
+
+## pre seuil 
+sub_data_pre <- merged_data_3T[merged_data_3T$rowname %in% pre_list, ]
+
+traits_pre <- sub_data_pre[,  c("SLA", "StemSpecDens",
+                 "HeightMax", "LeafArea")]
+
+traits_pre_N <- traits_pre |> normaliser_dataframe()
+
+pca.trait_pre <- princomp(traits_pre_N)
+
+summary(pca.trait_pre )
+
+
+# 2. PCA avec traits usuels subset sp pre seuil
+trait_space_pre <-funspace::funspace(pca.trait_pre, PCs = c(1,2))
+
+
+plot(trait_space_pre , quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+
+trait_space_pre  <-funspace::funspace(pca.trait_pre, PCs = c(2,3))
+
+
+plot(trait_space_pre, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+matrice_correlation_spearmann(traits_pre)
+```
+
+```{r}
+## post seuil 
+sub_data_post <- merged_data_3T[merged_data_3T$rowname %in% post_list, ]
+
+traits_post <- sub_data_post[,  c("SLA", "StemSpecDens",
+                 "HeightMax", "LeafArea")]
+
+traits_post_N <- traits_post |> normaliser_dataframe()
+
+pca.trait_post <- princomp(traits_post_N)
+
+summary(pca.trait_post )
+
+
+# 2. PCA avec traits usuels subset sp pre seuil
+trait_space_post <-funspace::funspace(pca.trait_post, PCs = c(1,2))
+
+
+plot(trait_space_post , quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+
+trait_space_post <-funspace::funspace(pca.trait_post, PCs = c(2,3))
+
+
+plot(trait_space_post, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+
+matrice_correlation_spearmann(traits_post)
+```
+
+```{r}
+test <- extraire_especes_threshold (equitabilite_df, "median_equitabilite", 0.06149885, 0.06870541 )
+
+# ======================================================================
+# COMPARAISON DES MÉTRIQUES FONCTIONNELLES ENTRE GROUPES PRÉ‑SEUIL ET POST‑SEUIL
+# Avec test de Mann‑Whitney et graphique annoté
+# ======================================================================
+
+# 0. Installation des packages si nécessaire (à décommenter)
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "ggpubr"))
+
+# Chargement des packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(geometry)      # pour convhulln
+library(fundiversity)  # pour fd_fdis
+library(ggpubr)        # pour ajouter les p-values sur le graphique
+
+# ----------------------------------------------------------------------
+# Fonction qui calcule les métriques pour un échantillon aléatoire d'espèces
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                           scores_cols, traits_cols, global_centroid) {
+  
+  # Garder uniquement les espèces présentes dans data et sans NA sur scores et traits
+  available <- intersect(species_list, data$rowname)
+  if (length(available) < size) {
+    stop("Pas assez d'espèces disponibles dans le groupe pour un échantillon de taille ", size)
+  }
+  
+  # Tirage aléatoire sans remise
+  selected <- sample(available, size, replace = FALSE)
+  
+  # Sous-ensemble des données
+  sub_data <- data[data$rowname %in% selected, ]
+  sub_scores <- as.matrix(sub_data[, scores_cols])
+  sub_traits <- sub_data[, traits_cols]
+  
+  # 1. Volume du convex hull (Richness)
+  vol <- tryCatch(convhulln(sub_scores, options = "FA")$vol,
+                  error = function(e) NA)
+  
+  # 2. Dispersion fonctionnelle (FDis)
+  fdis <- fd_fdis(sub_scores)$FDis
+  
+  # 3. Originalité : distance du centroïde du sous‑ensemble au centroïde global
+  centroid_sub <- colMeans(sub_scores)
+  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
+  
+  # 4. Régularité (inverse) : variance des distances dans l'espace des scores
+  dist_mat <- dist(sub_scores)
+  regularity_inv <- var(as.vector(dist_mat))
+  
+  # 5. Dimensionalité (inverse) : variance des valeurs propres de la PCA sur traits
+  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
+  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  dimensionality_inv <- var(pca_traits$sdev^2)
+  
+  # Retourner un vecteur nommé
+  c(Richness = vol,
+    FDis = fdis,
+    Originality = orig,
+    regularity_inv = regularity_inv,
+    dimensionality_inv = dimensionality_inv)
+}
+
+# ----------------------------------------------------------------------
+# Fonction principale qui répète l'échantillonnage pour un groupe
+# ----------------------------------------------------------------------
+iterate_group <- function(species_list, data, size = 25, n_iter = 100,
+                          scores_cols, traits_cols, global_centroid) {
+  
+  results <- replicate(n_iter, {
+    sample_metrics(species_list, data, size,
+                   scores_cols, traits_cols, global_centroid)
+  }, simplify = FALSE)
+  
+  # Transformer la liste en data.frame
+  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
+  df$iteration <- 1:n_iter
+  df
+}
+
+# ======================================================================
+# 1. PRÉPARATION DES DONNÉES
+# ======================================================================
+
+# Listes d'espèces (à adapter selon votre objet)
+pre_list <- test$pre_seuil
+post_list <- test$post_seuil
+
+# Données des espèces
+data <- merged_data_3T
+
+# Colonnes à utiliser
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+# Garder uniquement les espèces ayant toutes les valeurs nécessaires
+complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
+pre_available <- intersect(pre_list, complete_species)
+post_available <- intersect(post_list, complete_species)
+
+cat("Espèces pré‑seuil disponibles :", length(pre_available), "\n")
+cat("Espèces post‑seuil disponibles :", length(post_available), "\n")
+
+if (length(pre_available) < 25 | length(post_available) < 25) {
+  stop("Il faut au moins 25 espèces disponibles dans chaque groupe.")
+}
+
+# Centroïde global (calculé sur toutes les espèces disponibles)
+global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
+global_centroid <- colMeans(global_scores)
+
+# ======================================================================
+# 2. LANCER LES ITÉRATIONS (n_iter = 100, taille = 25)
+# ======================================================================
+n_iter <- 100
+set.seed(123)  # pour reproductibilité
+
+pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
+                             scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "pre_seuil")
+
+post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
+                              scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "post_seuil")
+
+# Fusionner les deux groupes
+all_results <- bind_rows(pre_results, post_results)
+all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+# ======================================================================
+# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY
+# ======================================================================
+min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
+max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
+min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
+max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
+
+all_results <- all_results %>%
+  mutate(
+    regularity = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
+    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
+  ) %>%
+  select(-regularity_inv, -dimensionality_inv)
+
+# ======================================================================
+# 4. TEST DE MANN‑WHITNEY (WILCOXON) POUR CHAQUE MÉTRIQUE (tableau)
+# ======================================================================
+metrics_to_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
+
+mannwhitney_results <- data.frame(
+  Metric = character(),
+  W = numeric(),
+  p_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (m in metrics_to_test) {
+  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
+  post_vals <- all_results[all_results$groupe == "post_seuil", m]
+  test <- wilcox.test(pre_vals, post_vals, exact = FALSE, correct = TRUE)
+  mannwhitney_results <- rbind(mannwhitney_results,
+                               data.frame(Metric = m,
+                                          W = test$statistic,
+                                          p_value = test$p.value))
+}
+
+# Ajout de la significativité
+mannwhitney_results$signif <- ifelse(mannwhitney_results$p_value < 0.001, "***",
+                                     ifelse(mannwhitney_results$p_value < 0.01, "**",
+                                            ifelse(mannwhitney_results$p_value < 0.05, "*", "ns")))
+
+# Renommer les métriques pour un affichage clair
+mannwhitney_results$Metric <- factor(mannwhitney_results$Metric,
+                                     levels = metrics_to_test,
+                                     labels = c("Convex hull volume",
+                                                "Functional dispersion (FDis)",
+                                                "Originality",
+                                                "Regularity",
+                                                "Dimensionality"))
+
+# Afficher le tableau des résultats
+cat("\n===== TEST DE MANN‑WHITNEY (comparaison pre_seuil vs post_seuil) =====\n")
+print(mannwhitney_results)
+
+# ======================================================================
+# 5. MISE EN FORME LONGUE POUR LE GRAPHIQUE
+# ======================================================================
+long_results <- all_results %>%
+  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
+               names_to = "metric", values_to = "value")
+
+# Libellés des facettes en anglais
+metric_labels_en <- c(
+  Richness = "Convex hull volume",
+  FDis = "Functional dispersion (FDis)",
+  Originality = "Originality",
+  regularity = "Regularity",
+  dimensionality = "Dimensionality"
+)
+
+# ======================================================================
+# 6. BOXPLOT AVEC P‑VALUES (TEST DE MANN‑WHITNEY intégré)
+# ======================================================================
+p <- ggplot(long_results, aes(x = groupe, y = value, fill = groupe)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
+  facet_wrap(~ metric, scales = "free_y",
+             labeller = labeller(metric = metric_labels_en)) +
+  stat_compare_means(method = "wilcox.test", label = "p.format", size = 3,
+                     comparisons = list(c("pre_seuil", "post_seuil"))) +
+  scale_fill_manual(values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon")) +
+  labs(x = "Group", y = "Metric value", title = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "gray90", color = NA),
+        strip.text = element_text(face = "bold"))
+
+# Afficher le graphique
+print(p)
+
+```
+
+```{r}
+
+# test <- extraire_especes_threshold (equitabilite_df, "median_equitabilite", 0.06149885, 0.06870541 )
+# pre_list <- test$pre_seuil
+# post_list <- test$post_seuil
+# 
+# 
+# ## pre seuil 
+# sub_data_pre <- merged_data_3T[merged_data_3T$rowname %in% pre_list, ]
+# 
+# traits_pre <- sub_data_pre[,  c("SLA", "StemSpecDens",
+#                  "HeightMax", "LeafArea")]
+# 
+# traits_pre_N <- traits_pre |> normaliser_dataframe()
+# 
+# pca.trait_pre <- princomp(traits_pre_N)
+# 
+# summary(pca.trait_pre )
+# 
+# 
+# # 2. PCA avec traits usuels subset sp pre seuil
+# trait_space_pre <-funspace::funspace(pca.trait_pre, PCs = c(1,2))
+# 
+# 
+# plot(trait_space_pre , quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+# 
+# 
+# trait_space_pre  <-funspace::funspace(pca.trait_pre, PCs = c(2,3))
+# 
+# 
+# plot(trait_space_pre, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+# 
+# matrice_correlation_spearmann(traits_pre)
+```
+
+```{r}
+## post seuil 
+# sub_data_post <- merged_data_3T[merged_data_3T$rowname %in% post_list, ]
+# 
+# traits_post <- sub_data_post[,  c("SLA", "StemSpecDens",
+#                  "HeightMax", "LeafArea")]
+# 
+# traits_post_N <- traits_post |> normaliser_dataframe()
+# 
+# pca.trait_post <- princomp(traits_post_N)
+# 
+# summary(pca.trait_post )
+# 
+# 
+# # 2. PCA avec traits usuels subset sp pre seuil
+# trait_space_post <-funspace::funspace(pca.trait_post, PCs = c(1,2))
+# 
+# 
+# plot(trait_space_post , quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+# 
+# 
+# trait_space_post <-funspace::funspace(pca.trait_post, PCs = c(2,3))
+# 
+# 
+# plot(trait_space_post, quant.plot = TRUE, arrows = TRUE, arrows.length = 0.9)
+# 
+# matrice_correlation_spearmann(traits_post)
+```
+
+```{r}
+test <- extraire_especes_threshold (brake_trade_off_df, "median_brake_trade_off", 0.001488002, 0.002635193 )
+
+# ======================================================================
+# COMPARAISON DES MÉTRIQUES FONCTIONNELLES ENTRE GROUPES PRÉ‑SEUIL ET POST‑SEUIL
+# Avec test de Mann‑Whitney et graphique annoté
+# ======================================================================
+
+# 0. Installation des packages si nécessaire (à décommenter)
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "ggpubr"))
+
+# Chargement des packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(geometry)      # pour convhulln
+library(fundiversity)  # pour fd_fdis
+library(ggpubr)        # pour ajouter les p-values sur le graphique
+
+# ----------------------------------------------------------------------
+# Fonction qui calcule les métriques pour un échantillon aléatoire d'espèces
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                           scores_cols, traits_cols, global_centroid) {
+  
+  # Garder uniquement les espèces présentes dans data et sans NA sur scores et traits
+  available <- intersect(species_list, data$rowname)
+  if (length(available) < size) {
+    stop("Pas assez d'espèces disponibles dans le groupe pour un échantillon de taille ", size)
+  }
+  
+  # Tirage aléatoire sans remise
+  selected <- sample(available, size, replace = FALSE)
+  
+  # Sous-ensemble des données
+  sub_data <- data[data$rowname %in% selected, ]
+  sub_scores <- as.matrix(sub_data[, scores_cols])
+  sub_traits <- sub_data[, traits_cols]
+  
+  # 1. Volume du convex hull (Richness)
+  vol <- tryCatch(convhulln(sub_scores, options = "FA")$vol,
+                  error = function(e) NA)
+  
+  # 2. Dispersion fonctionnelle (FDis)
+  fdis <- fd_fdis(sub_scores)$FDis
+  
+  # 3. Originalité : distance du centroïde du sous‑ensemble au centroïde global
+  centroid_sub <- colMeans(sub_scores)
+  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
+  
+  # 4. Régularité (inverse) : variance des distances dans l'espace des scores
+  dist_mat <- dist(sub_scores)
+  regularity_inv <- var(as.vector(dist_mat))
+  
+  # 5. Dimensionalité (inverse) : variance des valeurs propres de la PCA sur traits
+  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
+  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  dimensionality_inv <- var(pca_traits$sdev^2)
+  
+  # Retourner un vecteur nommé
+  c(Richness = vol,
+    FDis = fdis,
+    Originality = orig,
+    regularity_inv = regularity_inv,
+    dimensionality_inv = dimensionality_inv)
+}
+
+# ----------------------------------------------------------------------
+# Fonction principale qui répète l'échantillonnage pour un groupe
+# ----------------------------------------------------------------------
+iterate_group <- function(species_list, data, size = 25, n_iter = 100,
+                          scores_cols, traits_cols, global_centroid) {
+  
+  results <- replicate(n_iter, {
+    sample_metrics(species_list, data, size,
+                   scores_cols, traits_cols, global_centroid)
+  }, simplify = FALSE)
+  
+  # Transformer la liste en data.frame
+  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
+  df$iteration <- 1:n_iter
+  df
+}
+
+# ======================================================================
+# 1. PRÉPARATION DES DONNÉES
+# ======================================================================
+
+# Listes d'espèces (à adapter selon votre objet)
+pre_list <- test$pre_seuil
+post_list <- test$post_seuil
+
+# Données des espèces
+data <- merged_data_3T
+
+# Colonnes à utiliser
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+# Garder uniquement les espèces ayant toutes les valeurs nécessaires
+complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
+pre_available <- intersect(pre_list, complete_species)
+post_available <- intersect(post_list, complete_species)
+
+cat("Espèces pré‑seuil disponibles :", length(pre_available), "\n")
+cat("Espèces post‑seuil disponibles :", length(post_available), "\n")
+
+if (length(pre_available) < 25 | length(post_available) < 25) {
+  stop("Il faut au moins 25 espèces disponibles dans chaque groupe.")
+}
+
+# Centroïde global (calculé sur toutes les espèces disponibles)
+global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
+global_centroid <- colMeans(global_scores)
+
+# ======================================================================
+# 2. LANCER LES ITÉRATIONS (n_iter = 100, taille = 25)
+# ======================================================================
+n_iter <- 100
+set.seed(123)  # pour reproductibilité
+
+pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
+                             scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "pre_seuil")
+
+post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
+                              scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "post_seuil")
+
+# Fusionner les deux groupes
+all_results <- bind_rows(pre_results, post_results)
+all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+# ======================================================================
+# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY
+# ======================================================================
+min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
+max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
+min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
+max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
+
+all_results <- all_results %>%
+  mutate(
+    regularity = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
+    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
+  ) %>%
+  select(-regularity_inv, -dimensionality_inv)
+
+# ======================================================================
+# 4. TEST DE MANN‑WHITNEY (WILCOXON) POUR CHAQUE MÉTRIQUE (tableau)
+# ======================================================================
+metrics_to_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
+
+mannwhitney_results <- data.frame(
+  Metric = character(),
+  W = numeric(),
+  p_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (m in metrics_to_test) {
+  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
+  post_vals <- all_results[all_results$groupe == "post_seuil", m]
+  test <- wilcox.test(pre_vals, post_vals, exact = FALSE, correct = TRUE)
+  mannwhitney_results <- rbind(mannwhitney_results,
+                               data.frame(Metric = m,
+                                          W = test$statistic,
+                                          p_value = test$p.value))
+}
+
+# Ajout de la significativité
+mannwhitney_results$signif <- ifelse(mannwhitney_results$p_value < 0.001, "***",
+                                     ifelse(mannwhitney_results$p_value < 0.01, "**",
+                                            ifelse(mannwhitney_results$p_value < 0.05, "*", "ns")))
+
+# Renommer les métriques pour un affichage clair
+mannwhitney_results$Metric <- factor(mannwhitney_results$Metric,
+                                     levels = metrics_to_test,
+                                     labels = c("Convex hull volume",
+                                                "Functional dispersion (FDis)",
+                                                "Originality",
+                                                "Regularity",
+                                                "Dimensionality"))
+
+# Afficher le tableau des résultats
+cat("\n===== TEST DE MANN‑WHITNEY (comparaison pre_seuil vs post_seuil) =====\n")
+print(mannwhitney_results)
+
+# ======================================================================
+# 5. MISE EN FORME LONGUE POUR LE GRAPHIQUE
+# ======================================================================
+long_results <- all_results %>%
+  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
+               names_to = "metric", values_to = "value")
+
+# Libellés des facettes en anglais
+metric_labels_en <- c(
+  Richness = "Convex hull volume",
+  FDis = "Functional dispersion (FDis)",
+  Originality = "Originality",
+  regularity = "Regularity",
+  dimensionality = "Dimensionality"
+)
+
+# ======================================================================
+# 6. BOXPLOT AVEC P‑VALUES (TEST DE MANN‑WHITNEY intégré)
+# ======================================================================
+p <- ggplot(long_results, aes(x = groupe, y = value, fill = groupe)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
+  facet_wrap(~ metric, scales = "free_y",
+             labeller = labeller(metric = metric_labels_en)) +
+  stat_compare_means(method = "wilcox.test", label = "p.format", size = 3,
+                     comparisons = list(c("pre_seuil", "post_seuil"))) +
+  scale_fill_manual(values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon")) +
+  labs(x = "Group", y = "Metric value", title = NULL) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "gray90", color = NA),
+        strip.text = element_text(face = "bold"))
+
+# Afficher le graphique
+print(p)
+
 ```
