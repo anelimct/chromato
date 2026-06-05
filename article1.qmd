@@ -191,8 +191,9 @@ moving_window_categories(merged_data_3T, ordination = "log_Sum",size = 25, step 
 ```
 
 ```{r}
-moving_window_categories_2(merged_data_3T, ordination = "log_Sum", size = 25, step = 1)
+info_sum <- moving_window_categories_2(merged_data_3T, ordination = "log_Sum", size = 25, step = 1, return_window_info = T, plot_type = c("area", "bar"))
 abline(v = 1.93, lty = 2, col = "red")
+print(info_sum)
 ```
 
 ```{r}
