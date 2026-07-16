@@ -61,3 +61,4 @@ carte_notion_embed <- function(data, taxon_selectionne, nom_fichier = NULL) {
   
   return(carte)
 }
+

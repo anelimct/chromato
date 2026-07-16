@@ -66,6 +66,9 @@ list(
   tar_target(bvocs_samples_file, here::here("data", "BVOCs_samples.csv" ), format = "file"),
   tar_target(bvocs_samples_raw,utils::read.csv(bvocs_samples_file, sep = ";")),
   
+  tar_target(bvocs_samples_pop_file, here::here("data", "BVOCs_samples_origin_pop.csv" ), format = "file"),
+  tar_target(bvocs_samples_origin_pop, utils::read.csv(bvocs_samples_pop_file, sep = ";")),
+  
   
   ##Ranger les chromato par batch 
   tar_target(create_files_batch_2023, organize_gc_files_by_batch(subset_2023, "2023" )),
@@ -78,8 +81,6 @@ list(
   tar_target(woodiv_trait_file, here::here("data", "WOODIV_DB_release_v2", "TRAITS",  "WOODIV_v2_Trait_data.csv"), format = "file"), 
   tar_target(woodiv_trait, utils::read.csv(woodiv_trait_file, header = TRUE)),
 
-  
-  
 
   tar_target(tree, ape::read.tree( paste0( here::here("data", "WOODIV_DB_release_v2", "PHYLOGENY") , "/WOODIV_v2_Phylogeny_gragg.tree" ))),
   
@@ -190,14 +191,14 @@ list(
   
   
   tar_target(DB_bvocs_ES, standardisation (DB_bvocs_filtered)),
-  tar_target(DB_bvocs_ES_all_L_T, standardisation (DB_bvocs_filtered)),
+  tar_target(DB_bvocs_ES_all_L_T, standardisation_2 (DB_bvocs_filtered_all_L_T)),
   
   ## Library CAS
 
   tar_target(RI_file, here::here("data", "library_cas_ri.xlsx" ), format = "file"),
-  tar_target(RI_th,  readxl::read_xlsx(RI_file, sheet = 1)), 
-  tar_files(CAS_files, list.files(here::here("data", "web_requests_CAS"), full.names = TRUE)
-  ), 
+  tar_target(RI_th,  readxl::read_xlsx(RI_file, sheet = 1)),
+  
+  tar_files(CAS_files, list.files(here::here("data", "web_requests_CAS"), full.names = TRUE)),
   
   tar_target(library_CAS, create_library(CAS_files), pattern = map(CAS_files)),
   tar_target(library_CAS_RI, update_lib(library_CAS, RI_th)),
@@ -237,7 +238,7 @@ list(
   tar_target(times_compound_sp, times_compound_per_species(compounds_table, valid_samples_mono)),
   tar_target(compare_standardisation , plot_compare_standardisation(compounds_table_standardized, valid_samples_mono, times_compound_sp, bvocs_samples)),
 
-  tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
+  tar_target(field_EF ,  compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |> merge_datasets( bvocs_samples,bvocs_samples_origin_pop, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_")), 
 
 ##ici filter outs tartu parce que 'il ya une conversion que je n'arriva aps a faire 
   tar_target(merged_EF, boxplot_EF(DB_bvocs_ES , tree, field_EF) |>  plot_EF_sp() ),
@@ -251,6 +252,8 @@ list(
 tar_target(all_data_mean_EF_taxon, merged_EF |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
 #DB_bvocs_iso_mono_EF is with rownames adapted to phylogeny
 tar_target(DB_bvocs_iso_mono_EF, all_data_mean_EF_taxon |> tibble::column_to_rownames(var = "name_complete") |>  dplyr::mutate(Sum = isoprene + monoterpenes) |> dplyr::select("isoprene", "monoterpenes", "Sum")), 
+
+tar_target(all_data_ITV_EF_taxon, merged_EF |> compute_total_ITV (woodiv_species) ),
 
 
 ##Screening paper
@@ -287,8 +290,17 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
 
 
 ### ARTICLE 1
-tar_target(sum_df_file, here::here("data", "article1", "sum_df.rds"), format = "file"),
-tar_target(sum_df, readRDS(sum_df_file)),
+tar_target(sum_df_file_25, here::here("data", "article1", "sum_df_25.rds"), format = "file"),
+tar_target(sum_df_25, readRDS(sum_df_file_25)),
+
+tar_target(sum_df_file_20, here::here("data", "article1", "sum_df_20.rds"), format = "file"),
+tar_target(sum_df_20, readRDS(sum_df_file_20)),
+
+tar_target(sum_df_file_30, here::here("data", "article1", "sum_df_30.rds"), format = "file"),
+tar_target(sum_df_30, readRDS(sum_df_file_30)),
+
+tar_target(sum_df_file_15, here::here("data", "article1", "sum_df_15.rds"), format = "file"),
+tar_target(sum_df_15, readRDS(sum_df_file_15)),
 
 tar_target(equitabilite_file, here::here("data", "article1", "equitabilite_df.rds"), format = "file"),
 tar_target(equitabilite_df, readRDS(equitabilite_file)),

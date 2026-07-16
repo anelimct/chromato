@@ -246,7 +246,7 @@ select_std_or_standardisable_3 <- function(data) {
     dplyr::filter( Standardization_algo_type %in% c("T+L" ,  "T+L/ T"))
   
   data_back_transform <- data |> dplyr::filter(Standardized == "true")|>
-    dplyr::filter(Standardization_algo_ref != "S97") |> dplyr::filter( Standardization_algo_type == "T" ) |> 
+    dplyr::filter(Standardization_algo_ref != "T80" & Standardization_algo_ref != "T91" & Standardization_algo_ref != "S97") |> dplyr::filter( Standardization_algo_type == "T" ) |> 
     dplyr::filter(
       
       Compound == "monoterpenes" &  ((Temperature != "NA" & PAR != "NA") | 
@@ -463,6 +463,21 @@ std_iso_G93 <- function(L, T, E) {
 }
 
 # Définition de la fonction
+std_mono_G93_reverse <- function(T, ES, beta = 0.09) {
+  # Définition des constantes
+  TS <- 303
+  
+  # Calcul de CT
+  CT <- exp(beta * (T - TS))
+  
+  # Calcul de E à partir de ES
+  
+  E <- ES * CT
+  return(E)
+}
+
+
+
 std_mono_G93 <- function(T, E, beta = 0.09) {
   # Définition des constantes
   TS <- 303
@@ -475,6 +490,9 @@ std_mono_G93 <- function(T, E, beta = 0.09) {
   
   return(ES)
 }
+
+
+
 
 apply_standardization <- function(data) {
   # Appliquer l'algorithme pour l'isoprène si Standardized est différent de "true"
@@ -491,10 +509,81 @@ apply_standardization <- function(data) {
   data <- data |> 
     dplyr::mutate(ES_sesqui_G93 = dplyr::if_else(Standardized != "true", std_mono_G93(T = T_algo_K, E = Emission, beta = 0.13 ), NA_real_)) # 0.13 = value from bourtsoukis meta analysis on sesquiterpenes (yes it is the same as the mono, yes their are two different studies)
   
-
   
   return(data)
 }
+
+
+
+
+
+apply_standardization_2 <- function(data) {
+  
+  # 1. ES_iso_G93 : toutes les conditions en une seule fois
+  data <- data |> 
+    dplyr::mutate(
+      ES_iso_G93 = dplyr::case_when(
+        # Cas 1 : Standardized == "false" (utilisation directe de std_iso_G93)
+        Standardized == "false" ~ std_iso_G93(L = PAR_algo, T = T_algo_K, E = Emission),
+        
+        # Cas 2 : Standardized == "true" & T_only & monoterpenes
+        Standardized == "true" & 
+          Standardization_algo_type == "T" & 
+          Compound == "monoterpenes" ~ 
+          std_iso_G93(
+            L = PAR_algo,
+            T = T_algo_K,
+            E = std_mono_G93_reverse(
+              T = T_algo_K,
+              ES = Emission,
+              beta = dplyr::if_else(
+                !is.na(Standardization_beta) & Standardization_beta != "NA",
+                as.numeric(Standardization_beta),
+                0.09
+              )
+            )
+          ),
+        
+        # Tout autre cas -> NA
+        TRUE ~ NA_real_
+      )
+    )
+  
+  # 2. ES_mono_G93 (pas d'écrasement ici, mais si vous l'utilisez ailleurs, faites attention)
+  data <- data |> 
+    dplyr::mutate(
+      ES_mono_G93 = dplyr::if_else(
+        Standardized != "true",
+        std_mono_G93(T = T_algo_K, E = Emission),
+        NA_real_
+      )
+    )
+  
+  # 3. ES_mono_G93_bourtsoukidis
+  data <- data |> 
+    dplyr::mutate(
+      ES_mono_G93_bourtsoukidis = dplyr::if_else(
+        Standardized != "true",
+        std_mono_G93(T = T_algo_K, E = Emission, beta = 0.13),
+        NA_real_
+      )
+    )
+  
+  # 4. ES_sesqui_G93
+  data <- data |> 
+    dplyr::mutate(
+      ES_sesqui_G93 = dplyr::if_else(
+        Standardized != "true",
+        std_mono_G93(T = T_algo_K, E = Emission, beta = 0.13),
+        NA_real_
+      )
+    )
+  
+  return(data)
+}
+
+
+
 
 
 
@@ -506,11 +595,46 @@ standardisation <- function(data){
   
   data |>  dplyr:: mutate(EF = dplyr::case_when(
     Standardized == "true" & !is.na(Emission) ~ Emission,
-    #Stockage == "oui" & Compound =="monoterpenes" & !is.na(ES_mono_G93) ~ ES_mono_G93,
-    TRUE ~ ES_iso_G93
+    Standardized == "false" ~ ES_iso_G93,
+    TRUE ~ NA_real_
   )) 
   
 }
+
+
+standardisation_2 <- function(data){
+  data <- apply_standardization_2(data)
+  
+  # 1- Keep Emission when it was already standardized
+  # 2- Take ES_isi_93 by default, if coumpound is monoterpenes and storing species take mono_93
+  
+  data <- data |> 
+    dplyr::mutate(
+      EF = dplyr::case_when(
+        # Cas T+L : on prend Emission
+        Standardized == "true" & 
+          !is.na(Emission) & 
+          Standardization_algo_type %in% c("T+L", "T+L/ T") ~ Emission,
+        
+        # Cas T seul : on prend ES_iso_G93 (déjà calculé)
+        Standardized == "true" & 
+          Standardization_algo_type == "T" & 
+          Compound == "monoterpenes" ~ ES_iso_G93,
+        
+        # Cas false : on prend Emission (ou NA si vous préférez)
+        Standardized == "false" ~ ES_iso_G93,
+        
+        # Sinon NA
+        TRUE ~ NA_real_
+      )
+    )
+  
+  
+  
+  
+}
+
+
 
 
 count_available <- function (data, minimum_nb_origin_pop){

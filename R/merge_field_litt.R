@@ -102,7 +102,10 @@ trouver_top_samples <- function(table_statut, table_quantites) {
 
 
 
-merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER){
+merge_datasets <- function(compounds_table, bvocs_samples, bvocs_samples_origin_pop, valid_samples_mono, paradise_reports_mono_ER){
+  
+  origin_pop <- bvocs_samples_origin_pop |>  dplyr::select(ID, Origin_pop) |>  mutate(Origin_pop = as.character(Origin_pop))
+  
   #samples pour lesquels les mono ont été analysés (.cdf)
   rows_to_plot <- names( fusionner_listes(paradise_reports_mono_ER))[grepl("^[a-zA-Z]{4}_", names( fusionner_listes(paradise_reports_mono_ER)))] 
   #samples qui repectect les condition <43 °C , PAR min (pas.cdf avec des majuscules)
@@ -122,9 +125,9 @@ merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, p
   cols_PAR <- c("PAR.début.1",        "PAR.début.2",       "PAR.milieu.1",     
                 "PAR.milieu.2",  "PAR.milieu.3", "PAR.milieu.4",  "PAR.milieu.5", "PAR.milieu.6", "PAR.fin.1",     "PAR.fin.2")
 
-  bvocs_samples_ER <- merge(bvocs_samples, df, by = "ID") |> dplyr::filter(!is.na(Leaves_DM)) |>    dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(PAR_algo = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |> 
-    dplyr::mutate(mean_T = purrr::map_dbl(values_T_in, ~ mean(.x))) |> dplyr::mutate(T_algo_K = mean_T + 273,15) |> 
-    dplyr::select(ID, Monoterpenes, Isoprene, Taxon, PAR_algo, T_algo_K, Latitude..WGS84.,Longitude..WGS84.  ) |>  tidyr::pivot_longer(cols = c(Isoprene, Monoterpenes),names_to = "Compound",values_to = "Emission") |> dplyr::mutate(Standardized = TRUE) |> dplyr::mutate(Compound = stringr::str_to_lower(Compound))
+  bvocs_samples_ER <- merge(df, bvocs_samples, by = "ID") |> dplyr::filter(!is.na(Leaves_DM)) |>    dplyr::mutate(across(all_of(cols_PAR), as.numeric)) |>  dplyr::mutate(PAR_algo = rowMeans(dplyr::across( all_of(cols_PAR)), na.rm = TRUE)) |> 
+    dplyr::mutate(mean_T = purrr::map_dbl(values_T_in, ~ mean(.x))) |> dplyr::mutate(T_algo_K = mean_T + 273.15) |> 
+    dplyr::select(ID, Monoterpenes, Isoprene, Taxon, PAR_algo, T_algo_K  ) |>  tidyr::pivot_longer(cols = c(Isoprene, Monoterpenes),names_to = "Compound",values_to = "Emission") |> dplyr::mutate(Standardized = TRUE) |> dplyr::mutate(Compound = stringr::str_to_lower(Compound))
   
   data_mono <- bvocs_samples_ER |>  dplyr::filter(Compound == "monoterpenes")
   data_iso <- bvocs_samples_ER |>  dplyr::filter(Compound == "isoprene")
@@ -137,9 +140,8 @@ merge_datasets <- function(compounds_table, bvocs_samples, valid_samples_mono, p
     aes(x = T_algo_K - 273,15, y = Emission)+
     geom_point(color = "blue", size = 2, alpha = 0.7)
   
-  bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_valid ) |>  dplyr::mutate(EF = Emission) |>   dplyr::mutate(Origin_pop = paste( Latitude..WGS84.,Longitude..WGS84., sep="_"))|>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K, Origin_pop ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_"))
+  bvocs_samples_EF <- bvocs_samples_ER |>  dplyr::left_join(origin_pop, by = "ID") |> dplyr::filter( ID %in% rows_valid ) |>  dplyr::mutate(EF = Emission) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K , Origin_pop) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_"))
   
-  ## bvocs_samples_EF <-bvocs_samples_ER |> dplyr::filter( ID %in% rows_to_keep ) |>  apply_standardization() |>  dplyr::mutate(EF = ES_iso_G93) |>  dplyr::select(EF, Taxon, Compound, PAR_algo, T_algo_K  ) |> dplyr::mutate(source = "field") |>  dplyr::mutate(Taxon = stringr::str_replace_all(Taxon, " ", "_")) |> dplyr::mutate(EF = EF/1000)
   
 }
 

@@ -142,3 +142,58 @@ create_residual_correlogram <- function(tree, residuals, col_name = "Residuals")
   
   return(correlogram)
 }
+
+
+
+compute_total_ITV <- function(data, woodiv_species) {
+  
+  gragg_to_name <- woodiv_species |>
+    dplyr::distinct(gragg, full_scientific_name) |>
+    dplyr::group_by(gragg) |>
+    dplyr::slice(1) |>
+    dplyr::ungroup()
+  
+  # Total variance across all individuals (all populations pooled)
+  species_stats <- data |>
+    dplyr::group_by(gragg, Compound) |>
+    dplyr::summarise(
+      EF_mean = mean(EF, na.rm = TRUE),
+      EF_var_total = var(EF, na.rm = TRUE),   # <-- total variance
+      EF_sd_total = sd(EF, na.rm = TRUE),     # standard deviation for interpretability
+      n_total = dplyr::n(),                    # total number of measurements
+      .groups = "drop"
+    )
+  
+  # Pivot to wide format (isoprene / monoterpenes)
+  final_table <- species_stats |>
+    tidyr::pivot_wider(
+      names_from = Compound,
+      values_from = c(EF_mean, EF_var_total, EF_sd_total, n_total),
+      names_glue = "{Compound}_{.value}"
+    ) |>
+    dplyr::rename(
+      isoprene_mean = `isoprene_EF_mean`,
+      monoterpenes_mean = `monoterpenes_EF_mean`,
+      isoprene_var = `isoprene_EF_var_total`,
+      monoterpenes_var = `monoterpenes_EF_var_total`,
+      isoprene_sd = `isoprene_EF_sd_total`,
+      monoterpenes_sd = `monoterpenes_EF_sd_total`,
+      n_isoprene = `isoprene_n_total`,
+      n_monoterpenes = `monoterpenes_n_total`
+    ) |>
+    dplyr::left_join(gragg_to_name, by = "gragg") |>
+    dplyr::select(
+      name_complete = full_scientific_name, 
+      gragg, 
+      isoprene_mean, monoterpenes_mean,
+      isoprene_var, monoterpenes_var,
+      isoprene_sd, monoterpenes_sd,
+      n_isoprene, n_monoterpenes
+    ) |>
+    dplyr::mutate(name_complete = dplyr::case_when(
+      name_complete == "Juniperus_deltoides" ~ "Juniperus_oxycedrus",
+      TRUE ~ name_complete
+    ))
+  
+  return(final_table)
+}

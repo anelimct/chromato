@@ -380,8 +380,9 @@ moving_window_convex <- function(data, ordination = "Sum",
       subset[c(col_scores)]
     )
     #richesse = volume convex hull
-    volumes[i] <- geometry::convhulln(subset_coords, options = "FA")$vol
+    volumes[i] <- hypervolume::hypervolume( subset_coords, method = "gaussian")@Volume
     
+      # geometry::convhulln(subset_coords, options = "FA")$vol
     #Régularité
     mat_dist <- dist(subset_coords)
     
@@ -688,7 +689,7 @@ extraire_especes_threshold <- function(sum_df, var_ordination,
   ))
 }
 
-moving_window_categories_2 <- function(data,
+moving_window_categories_3 <- function(data,
                                        ordination = "Sum",
                                        var1 = "isoprene",
                                        var2 = "monoterpenes",
@@ -699,7 +700,9 @@ moving_window_categories_2 <- function(data,
                                        plot_type = c("area", "bar"),
                                        category_order = c("NE", "mono", "iso", "both"),
                                        show_legend = FALSE,
-                                       return_window_info = FALSE) {
+                                       return_window_info = FALSE,
+                                       show_intervals = TRUE,
+                                       vlines = NULL) {
   
   plot_type <- match.arg(plot_type)
   
@@ -710,37 +713,39 @@ moving_window_categories_2 <- function(data,
     stop("Le mode 'bar' nécessite le package 'ggplot2'.")
   }
   
+  # Seuils pour les niveaux d'émission
   seuil_iso_low <- 10
   seuil_iso_medium <- 30
   seuil_mono_low <- 2
   seuil_mono_medium <- 5.1
   
+  # Tri et nettoyage
   data <- data[order(data[[ordination]]), ]
   data_clean <- na.omit(data[, c(ordination, var1, var2)])
   n_total <- nrow(data_clean)
   if (size > n_total) stop("La taille de la fenêtre dépasse le nombre d'observations.")
   
+  # Classification (avec "both" unique)
   classer <- function(iso, mono) {
     emit_iso <- !is.na(iso) && iso > threshold_iso_emit
     emit_mono <- !is.na(mono) && mono > threshold_mono_emit
     
     if (!emit_iso && !emit_mono) return("NE")
+    if (emit_iso && emit_mono) return("both")
     
-    niveau_iso <- if (emit_iso) {
-      if (iso < seuil_iso_low) "low"
+    if (emit_iso) {
+      niveau_iso <- if (iso < seuil_iso_low) "low"
       else if (iso <= seuil_iso_medium) "medium"
       else "high"
-    } else NA
+      return(paste0("iso_", niveau_iso))
+    }
     
-    niveau_mono <- if (emit_mono) {
-      if (mono < seuil_mono_low) "low"
+    if (emit_mono) {
+      niveau_mono <- if (mono < seuil_mono_low) "low"
       else if (mono <= seuil_mono_medium) "medium"
       else "high"
-    } else NA
-    
-    if (emit_iso && !emit_mono) return(paste0("iso_", niveau_iso))
-    if (!emit_iso && emit_mono) return(paste0("mono_", niveau_mono))
-    return(paste0("both_", niveau_iso, "-", niveau_mono))
+      return(paste0("mono_", niveau_mono))
+    }
   }
   
   data_clean$categorie <- mapply(classer, data_clean[[var1]], data_clean[[var2]], SIMPLIFY = TRUE)
@@ -748,14 +753,14 @@ moving_window_categories_2 <- function(data,
   niveaux <- c("low", "medium", "high")
   all_mono <- paste0("mono_", niveaux)
   all_iso  <- paste0("iso_", niveaux)
-  all_both <- paste0("both_", rep(niveaux, each = 3), "-", rep(niveaux, times = 3))
   
   ordered_subtypes <- c()
   if ("NE" %in% category_order) ordered_subtypes <- c(ordered_subtypes, "NE")
   if ("mono" %in% category_order) ordered_subtypes <- c(ordered_subtypes, all_mono)
   if ("iso" %in% category_order)  ordered_subtypes <- c(ordered_subtypes, all_iso)
-  if ("both" %in% category_order) ordered_subtypes <- c(ordered_subtypes, all_both)
+  if ("both" %in% category_order) ordered_subtypes <- c(ordered_subtypes, "both")
   
+  # Palette de couleurs
   col_palette <- c(
     "NE" = "#fce72e",
     "iso_low" = "#adda96",
@@ -763,12 +768,12 @@ moving_window_categories_2 <- function(data,
     "iso_high" = "#59ac24",
     "mono_low" = "#b7c2f3",
     "mono_medium" = "#91a2e9",
-    "mono_high" = "#2c52c4"
+    "mono_high" = "#2c52c4",
+    "both" = "#c34f70"
   )
-  both_color <- "#c34f70"
-  for (b in all_both) col_palette[b] <- both_color
   subtype_colors <- col_palette[ordered_subtypes]
   
+  # Fenêtres glissantes
   start_indices <- seq(1, n_total - size + 1, by = step)
   n_windows <- length(start_indices)
   
@@ -802,27 +807,122 @@ moving_window_categories_2 <- function(data,
   x_vals <- x_vals[ord_idx]
   y_mat <- y_mat[ord_idx, , drop = FALSE]
   
-  if (any(duplicated(x_vals))) stop("Il reste des doublons dans les abscisses.")
-  
-  # Tracé (inchangé)
-  if (plot_type == "area") {
-    old_par <- par(mar = c(7, 4, 4, 2) + 0.1)
-    on.exit(par(old_par))
-    areaplot::areaplot(x = x_vals, y = y_mat,
-                       prop = FALSE, rev = FALSE,
-                       col = subtype_colors, border = NA,
-                       xlab = paste("Médiane de", ordination),
-                       ylab = "Proportion",
-                       main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"))
-    if (show_legend) {
-      non_zero <- colSums(y_mat) > 0
-      legend_labels <- ordered_subtypes[non_zero]
-      legend_cols <- subtype_colors[non_zero]
-      ncol_leg <- min(6, length(legend_labels))
-      legend("bottom", inset = c(0, -0.25), legend = legend_labels,
-             fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8, xpd = NA)
+  # Préparation des informations de fenêtres pour les intervalles
+  if (return_window_info || (plot_type == "area" && show_intervals)) {
+    categories_presentes <- intersect(unique(data_clean$categorie), ordered_subtypes)
+    df_windows <- data.frame(
+      categorie = character(),
+      debut_fenetre_ajout = integer(),
+      debut_mediane = numeric(),
+      fin_fenetre_ajout = integer(),
+      fin_mediane = numeric(),
+      stringsAsFactors = FALSE
+    )
+    
+    for (cat in categories_presentes) {
+      indices <- which(data_clean$categorie == cat)
+      if (length(indices) == 0) next
+      first_wins <- data_clean$first_window[indices]
+      debut_fenetre <- min(first_wins)
+      fin_fenetre <- max(first_wins)
+      
+      df_windows <- rbind(df_windows, data.frame(
+        categorie = cat,
+        debut_fenetre_ajout = debut_fenetre,
+        debut_mediane = median_ord[debut_fenetre],
+        fin_fenetre_ajout = fin_fenetre,
+        fin_mediane = median_ord[fin_fenetre]
+      ))
     }
-  } else {
+  }
+  
+  # Fonction utilitaire pour ajouter des lignes verticales
+  add_vlines <- function(vlines) {
+    if (is.null(vlines)) return()
+    if (is.list(vlines)) {
+      # Si c'est une liste avec un élément 'v', on suppose que c'est une seule ligne
+      if (!is.null(vlines$v)) {
+        do.call(abline, vlines)
+      } else {
+        # Sinon, on suppose que c'est une liste de listes
+        for (vl in vlines) {
+          if (is.list(vl) && !is.null(vl$v)) {
+            do.call(abline, vl)
+          }
+        }
+      }
+    }
+  }
+  
+  # Tracé selon le type
+  if (plot_type == "area") {
+    if (show_intervals && requireNamespace("areaplot", quietly = TRUE)) {
+      # Double graphique : area plot + segments horizontaux
+      layout(matrix(c(1,2), nrow=2), heights = c(3,1))
+      par(mar = c(0.5, 4, 4, 2) + 0.1)   # area plot sans marge inférieure
+      
+      areaplot::areaplot(x = x_vals, y = y_mat,
+                         prop = FALSE, rev = FALSE,
+                         col = subtype_colors, border = NA,
+                         xlab = "", ylab = "Proportion",
+                         main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"),
+                         xaxt = "n")
+      
+      # Ajout des lignes verticales
+      add_vlines(vlines)
+      
+      if (show_legend) {
+        non_zero <- colSums(y_mat) > 0
+        legend_labels <- ordered_subtypes[non_zero]
+        legend_cols <- subtype_colors[non_zero]
+        ncol_leg <- min(6, length(legend_labels))
+        legend("topright", legend = legend_labels, fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8)
+      }
+      
+      # Graphique des intervalles (sans étiquettes y)
+      par(mar = c(5, 4, 0.5, 2) + 0.1)
+      categories_interval <- df_windows$categorie
+      debut <- df_windows$debut_mediane
+      fin <- df_windows$fin_mediane
+      ordre_cat <- ordered_subtypes[ordered_subtypes %in% categories_interval]
+      categories_interval <- factor(categories_interval, levels = ordre_cat)
+      ordre_tri <- order(categories_interval, decreasing = FALSE)
+      categories_interval <- categories_interval[ordre_tri]
+      debut <- debut[ordre_tri]
+      fin <- fin[ordre_tri]
+      couleurs <- subtype_colors[as.character(categories_interval)]
+      
+      plot(NA, xlim = range(x_vals), ylim = c(0.5, length(categories_interval) + 0.5),
+           xlab = paste("Médiane de", ordination), ylab = "", yaxt = "n", bty = "n")
+      segments(x0 = debut, y0 = seq_along(categories_interval),
+               x1 = fin, y1 = seq_along(categories_interval),
+               col = couleurs, lwd = 6, lend = 1)
+      points(debut, seq_along(categories_interval), pch = 19, col = couleurs, cex = 0.8)
+      points(fin, seq_along(categories_interval), pch = 19, col = couleurs, cex = 0.8)
+      abline(h = seq_along(categories_interval), lty = 3, col = "lightgray")
+      
+      layout(1)
+    } else {
+      # Comportement original sans intervalles
+      old_par <- par(mar = c(7, 4, 4, 2) + 0.1)
+      on.exit(par(old_par))
+      areaplot::areaplot(x = x_vals, y = y_mat,
+                         prop = FALSE, rev = FALSE,
+                         col = subtype_colors, border = NA,
+                         xlab = paste("Médiane de", ordination),
+                         ylab = "Proportion",
+                         main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"))
+      add_vlines(vlines)
+      if (show_legend) {
+        non_zero <- colSums(y_mat) > 0
+        legend_labels <- ordered_subtypes[non_zero]
+        legend_cols <- subtype_colors[non_zero]
+        ncol_leg <- min(6, length(legend_labels))
+        legend("bottom", inset = c(0, -0.25), legend = legend_labels,
+               fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8, xpd = NA)
+      }
+    }
+  } else {  # plot_type == "bar"
     library(ggplot2)
     n_windows_agg <- nrow(y_mat)
     df_plot <- data.frame(
@@ -842,52 +942,17 @@ moving_window_categories_2 <- function(data,
       theme(legend.position = if(show_legend) "bottom" else "none",
             legend.text = element_text(size = 8),
             legend.key.size = unit(0.4, "cm"))
+    # Pour ggplot2, on pourrait ajouter des geom_vline mais on laisse simple
     print(p)
   }
   
+  # Résultats
   resultats <- list(proportions = prop_matrix,
                     median_ordination = median_ord,
                     aggregated_x = x_vals,
                     aggregated_prop = y_mat,
                     ordered_subtypes = ordered_subtypes)
-  
-  if (return_window_info) {
-    categories_presentes <- intersect(unique(data_clean$categorie), ordered_subtypes)
-    
-    df_windows <- data.frame(
-      categorie = character(),
-      premiere_obs_ordination = numeric(),
-      premiere_obs_fenetre_ajout = integer(),
-      premiere_obs_mediane_ajout = numeric(),
-      derniere_obs_ordination = numeric(),
-      derniere_obs_fenetre_ajout = integer(),
-      derniere_obs_mediane_ajout = numeric(),
-      derniere_obs_fenetre_retrait = integer(),
-      derniere_obs_mediane_retrait = numeric(),
-      stringsAsFactors = FALSE
-    )
-    
-    for (cat in categories_presentes) {
-      indices <- which(data_clean$categorie == cat)
-      if (length(indices) == 0) next
-      
-      # Première observation (min ordination)
-      idx_min <- indices[which.min(data_clean[[ordination]][indices])]
-      # Dernière observation (max ordination)
-      idx_max <- indices[which.max(data_clean[[ordination]][indices])]
-      
-      df_windows <- rbind(df_windows, data.frame(
-        categorie = cat,
-        premiere_obs_ordination = data_clean[[ordination]][idx_min],
-        premiere_obs_fenetre_ajout = data_clean$first_window[idx_min],
-        premiere_obs_mediane_ajout = median_ord[data_clean$first_window[idx_min]],
-        derniere_obs_ordination = data_clean[[ordination]][idx_max],
-        derniere_obs_fenetre_ajout = data_clean$first_window[idx_max],
-        derniere_obs_mediane_ajout = median_ord[data_clean$first_window[idx_max]],
-        derniere_obs_fenetre_retrait = data_clean$last_window[idx_max],
-        derniere_obs_mediane_retrait = median_ord[data_clean$last_window[idx_max]]
-      ))
-    }
+  if (return_window_info || (plot_type == "area" && show_intervals)) {
     resultats$window_info <- df_windows
   }
   
