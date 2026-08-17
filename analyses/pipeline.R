@@ -127,9 +127,9 @@ list(
   tar_target(bvocs_samples, rbind(subset_2023, subset_2024, subset_2025) |> dplyr::select(- Time_T_in, -Time_T_out, -Time_H_in, -Time_H_out, -values_H_out, -start_prelevement, -end_prelevement ) |> var_paradise( paradise_reports_list,paradise_reports_iso_list, calib_quanti)|> paired_samples() |>  calibration_par()),
   
   ##Filter according to a set of conditions
-  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 42, type = "failed", "mono")),#43 Tmax, mean 42
-  tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
-  tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 42, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
+  tar_target(failed_samples, filter_out_samples(bvocs_samples, 43, 43, type = "failed", "mono")),#43 Tmax, mean 42
+  tar_target(valid_samples_mono,  filter_out_samples(bvocs_samples, 43, 43, type = "keep", "mono") |> species_aggregation( woodiv_species, "field")),
+  tar_target(valid_samples_iso,  filter_out_samples(bvocs_samples, 43, 43, type = "keep", "iso") |> species_aggregation( woodiv_species, "field")),
 
  
   tar_target(summary_field, summarize_field (valid_samples_iso, valid_samples_mono)),
@@ -249,11 +249,15 @@ list(
 
 ##Recreate analysis master
 # il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
-tar_target(all_data_mean_EF_taxon, merged_EF |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
+tar_target(all_data_mean_EF_taxon, merged_EF_L_T |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
 #DB_bvocs_iso_mono_EF is with rownames adapted to phylogeny
-tar_target(DB_bvocs_iso_mono_EF, all_data_mean_EF_taxon |> tibble::column_to_rownames(var = "name_complete") |>  dplyr::mutate(Sum = isoprene + monoterpenes) |> dplyr::select("isoprene", "monoterpenes", "Sum")), 
+tar_target(DB_bvocs_iso_mono_EF, 
+           all_data_mean_EF_taxon |> 
+             tibble::column_to_rownames(var = "name_complete")),
 
-tar_target(all_data_ITV_EF_taxon, merged_EF |> compute_total_ITV (woodiv_species) ),
+## la sum ne devrait pas etre faite à ce moment mais avec les sum qui soit vraiment à l'échelle de la population
+
+#tar_target(all_data_ITV_EF_taxon, merged_EF_L_T |> compute_total_ITV (woodiv_species) ),
 
 
 ##Screening paper
@@ -290,23 +294,32 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
 
 
 ### ARTICLE 1
-tar_target(sum_df_file_25, here::here("data", "article1", "sum_df_25.rds"), format = "file"),
-tar_target(sum_df_25, readRDS(sum_df_file_25)),
-
-tar_target(sum_df_file_20, here::here("data", "article1", "sum_df_20.rds"), format = "file"),
-tar_target(sum_df_20, readRDS(sum_df_file_20)),
-
-tar_target(sum_df_file_30, here::here("data", "article1", "sum_df_30.rds"), format = "file"),
-tar_target(sum_df_30, readRDS(sum_df_file_30)),
 
 tar_target(sum_df_file_15, here::here("data", "article1", "sum_df_15.rds"), format = "file"),
 tar_target(sum_df_15, readRDS(sum_df_file_15)),
 
-tar_target(equitabilite_file, here::here("data", "article1", "equitabilite_df.rds"), format = "file"),
-tar_target(equitabilite_df, readRDS(equitabilite_file)),
 
-tar_target(brake_trade_off_file, here::here("data", "article1", "brake_trade_off_df.rds"), format = "file"),
-tar_target(brake_trade_off_df, readRDS(brake_trade_off_file)),
+tar_target(sum_df_file_20, here::here("data", "article1", "sum_df_20.rds"), format = "file"),
+tar_target(sum_df_20, readRDS(sum_df_file_20)),
+
+tar_target(sum_df_file_25, here::here("data", "article1", "sum_df_25.rds"), format = "file"),
+tar_target(sum_df_25, readRDS(sum_df_file_25)),
+
+
+tar_target(sum_df_file_30, here::here("data", "article1", "sum_df_30.rds"), format = "file"),
+tar_target(sum_df_30, readRDS(sum_df_file_30)),
+
+tar_target(sum_df_file_35, here::here("data", "article1", "sum_df_35.rds"), format = "file"),
+tar_target(sum_df_35, readRDS(sum_df_file_35)),
+
+tar_target(sum_df_file_40, here::here("data", "article1", "sum_df_40.rds"), format = "file"),
+tar_target(sum_df_40, readRDS(sum_df_file_40)),
+
+
+tar_target(results_models_threshold_file, here::here("data", "article1", "results_moving_window.rds"), format = "file"),
+tar_target(results_models_threshold, readRDS(results_models_threshold_file)),
+
+
 
   ##SPATIAL maps
 #Dans le working file c'est bien les occuerence de woodiv v2
@@ -336,7 +349,10 @@ tar_target(summary_all_L_T , ranking_species(working_file) |>  dplyr::left_join(
 #tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
 tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1)),
 
-tar_target(simple_maps, select_grids_completed(test, 10, 75) |>  calculate_emission_stats ( working_file, all_data_mean_EF_taxon) |> map_emission_stats ( WOODIV_grid, WOODIV_shape, output_dir = "figures/emission_maps"))
+tar_target(metric_grid, select_grids_completed(test, 10, 75) |>  calculate_emission_stats ( working_file, all_data_mean_EF_taxon)), 
+           
+           
+tar_target(simple_maps, metric_grid |>  map_emission_stats ( WOODIV_grid, WOODIV_shape, output_dir = "figures/emission_maps"))
 
 
 

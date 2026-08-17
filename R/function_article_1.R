@@ -438,6 +438,119 @@ moving_window_convex <- function(data, ordination = "Sum",
   return(results) 
 }
 
+
+#' Title
+#'
+#' @param data 
+#' @param ordination 
+#' @param size 
+#' @param step 
+#' @param col_scores 
+#' @param col_traits 
+#' @param col_species 
+#' @param compute_overlap 
+#'
+#' @returns Même fonction que moving window convex jsute cette focntion la enregistre l'objet hypervolume de la fenêtre précédante pour pouvoir calculer un overlapp avec jaccard 
+#' @export
+#'
+#' @examples
+moving_window_convex_2 <- function(data, ordination = "Sum", 
+                                 size = 25, step = 1, col_scores, col_traits, col_species = "rowname",
+                                 compute_overlap = TRUE){
+  
+  data <- data[order(data[[ordination]]), ]
+  data_clean <- data[!is.na(data[[ordination]]), ]
+  n_total <- nrow(data_clean)
+  
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  coords <- as.matrix(data_clean[, c(col_scores)])
+  centroid <- colMeans(coords)
+  
+  volumes <- numeric(n_windows)
+  var_dist <- numeric(n_windows)
+  f_dis <- numeric(n_windows)
+  originality <- numeric(n_windows)
+  dimentionality <- numeric(n_windows)
+  ordinations <- numeric(n_windows)
+  species_lists <- vector("list", n_windows)
+  
+  # NOUVEAU : stocker les objets hypervolume pour calculer l'overlap ensuite
+  hv_list <- vector("list", n_windows)
+  
+  for (i in seq_along(start_indices)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    subset <- data_clean[idx, ]
+    
+    species_lists[[i]] <- as.character(subset[[col_species]])
+    
+    subset_coords <- as.matrix(subset[c(col_scores)])
+    
+    hv <- hypervolume::hypervolume(subset_coords, method = "gaussian", verbose = FALSE)
+    hv_list[[i]] <- hv          # on garde l'objet complet
+    volumes[i] <- hv@Volume
+    
+    mat_dist <- dist(subset_coords)
+    var_dist[i] <- var(as.vector(mat_dist))
+    
+    f_dis[i] <- fundiversity::fd_fdis(subset_coords)$FDis
+    
+    centoids_points <- colMeans(subset_coords)
+    originality[i] <- sqrt(sum((centoids_points - centroid)^2))
+    
+    subset_traits <- as.data.frame(subset[c(col_traits)])
+    subset_traits_N <- subset_traits |> normaliser_dataframe()
+    pca.traits <- princomp(subset_traits_N)
+    dimentionality[i] <- var(pca.traits$sdev^2)
+    
+    ordinations[i] <- median(subset[[ordination]])
+  }
+  
+  # NOUVEAU : overlap entre fenêtres adjacentes (i et i+1)
+  overlap_sorensen <- rep(NA_real_, n_windows)
+  overlap_jaccard  <- rep(NA_real_, n_windows)
+  
+  if (compute_overlap) {
+    for (i in seq_len(n_windows - 1)) {
+      hv_set <- hypervolume::hypervolume_set(
+        hv_list[[i]], hv_list[[i + 1]],
+        check.memory = FALSE, verbose = FALSE
+      )
+      stats <- hypervolume::hypervolume_overlap_statistics(hv_set)
+      overlap_sorensen[i] <- stats["sorensen"]
+      overlap_jaccard[i]  <- stats["jaccard"]
+    }
+  }
+  
+  results <- setNames(
+    data.frame(volumes, var_dist, f_dis, originality, dimentionality, ordinations,
+               overlap_sorensen, overlap_jaccard,
+               species_list = I(species_lists)),
+    c("Richness", "regularity_inv", "functional_dispersion", "originality", "dimensionality_inv",
+      paste0("median_", ordination), "overlap_sorensen_next", "overlap_jaccard_next", "sp_list")
+  )
+  
+  results <- results |> 
+    dplyr::mutate(
+      regularity = 1 - ((regularity_inv - min(regularity_inv)) / (max(regularity_inv) - min(regularity_inv)))
+    ) |> 
+    dplyr::mutate(
+      dimensionality = 1 - ((dimensionality_inv - min(dimensionality_inv)) / (max(dimensionality_inv) - min(dimensionality_inv)))
+    ) |>  
+    dplyr::select(-regularity_inv, -dimensionality_inv)
+  
+  col_to_move <- paste0("median_", ordination)
+  
+  results <- results |>
+    dplyr::relocate(all_of(col_to_move), .after = dplyr::last_col()) |>
+    dplyr::relocate(sp_list, .after = dplyr::last_col())
+  
+  return(results) 
+}
+
+
+
 plot_moving_window_convex <- function(data, ncol = 2) {
   
   if (!is.data.frame(data)) stop("L'objet 'data' doit être un data.frame")

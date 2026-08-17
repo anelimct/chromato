@@ -14,6 +14,9 @@ select_grids_completed <- function(completeness_df, min_species, min_completenes
 
 calculate_emission_stats <- function(grid_to_plot, working_file, all_data_mean_EF_taxon) {
   
+  
+  all_data_mean_EF_taxon <- all_data_mean_EF_taxon |> mutate(Sum = isoprene + monoterpenes)
+  
   # Filtrer les espèces présentes dans les grilles sélectionnées
   species_in_grids <- working_file |> 
     dplyr::filter(idgrid %in% grid_to_plot) |> 
@@ -38,6 +41,12 @@ calculate_emission_stats <- function(grid_to_plot, working_file, all_data_mean_E
       mean_monoterpenes = mean(monoterpenes, na.rm = TRUE),
       median_monoterpenes = median(monoterpenes, na.rm = TRUE),
       sd_monoterpenes = sd(monoterpenes, na.rm = TRUE),
+      
+      
+      #Statistiques pour Sum
+      mean_Sum = mean(Sum, na.rm = TRUE),
+      median_Sum  = median(Sum, na.rm = TRUE),
+      sd_Sum = sd(Sum, na.rm = TRUE),
       
       # Nombre total d'espèces dans la grille
       total_species_in_grid = dplyr::n(),
@@ -94,7 +103,24 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
       legend.position = "bottom"
     )
   
-  # 3. Carte pour mean_monoterpenes
+  
+  # 3. Carte pour sd_isoprene
+  map_sd_isoprene <- ggplot() +
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = sd_isoprene), color = NA) +
+    scale_fill_gradient(low = "white", high = "#03a219", name = "SD Isoprene (µg g⁻¹ h⁻¹)") +
+    theme_minimal() +
+    labs(title = "SD Isoprene Emission by Grid",
+         fill = "SD Isoprene") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom"
+    )
+  
+  
+  
+  # 4. Carte pour mean_monoterpenes
   map_mean_monoterpenes <- ggplot() +
     geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
     geom_sf(data = emission_stats_sf, aes(fill = mean_monoterpenes), color = NA) +
@@ -108,7 +134,7 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
       legend.position = "bottom"
     )
   
-  # 4. Carte pour median_monoterpenes
+  # 5. Carte pour median_monoterpenes
   map_median_monoterpenes <- ggplot() +
     geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
     geom_sf(data = emission_stats_sf, aes(fill = median_monoterpenes), color = NA) +
@@ -121,6 +147,36 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
       panel.grid.minor = element_blank(),
       legend.position = "bottom"
     )
+  
+  # 6. Carte pour sd_monoterpenes
+  map_sd_monoterpenes <- ggplot() +
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = sd_monoterpenes), color = NA) +
+    scale_fill_gradient(low = "white", high = "#0985e2", name = "SD Monoterpenes (µg g⁻¹ h⁻¹)") +
+    theme_minimal() +
+    labs(title = "SD Monoterpenes Emission by Grid",
+         fill = "SD Monoterpenes") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom"
+    )
+  
+  
+  # 7. Carte pour sd_monoterpenes
+  map_mean_Sum <- ggplot() +
+    geom_sf(data = WOODIV_shape, fill = "lightgrey", color = NA) +
+    geom_sf(data = emission_stats_sf, aes(fill = mean_Sum), color = NA) +
+    scale_fill_gradient(low = "white", high = "#f16700", name = "Mean Sum isoprenoids (µg g⁻¹ h⁻¹)") +
+    theme_minimal() +
+    labs(title = "Mean Sum isoprenoids Emission by Grid",
+         fill = "Sum isoprenoids") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom"
+    )
+  
   
   # Sauvegarder les cartes
   ggsave(
@@ -147,6 +203,27 @@ map_emission_stats <- function(emission_stats_df, WOODIV_grid, WOODIV_shape, out
   ggsave(
     filename = "map_median_monoterpenes.png",
     plot = map_median_monoterpenes,
+    path = output_dir,
+    width = 16, height = 16, units = "cm", bg = "white"
+  )
+  
+  ggsave(
+    filename = "map_sd_monoterpenes.png",
+    plot = map_sd_monoterpenes,
+    path = output_dir,
+    width = 16, height = 16, units = "cm", bg = "white"
+  )
+  
+  ggsave(
+    filename = "map_sd_isoprene.png",
+    plot = map_sd_isoprene,
+    path = output_dir,
+    width = 16, height = 16, units = "cm", bg = "white"
+  )
+  
+  ggsave(
+    filename = "map_mean_Sum.png",
+    plot =   map_mean_Sum,
     path = output_dir,
     width = 16, height = 16, units = "cm", bg = "white"
   )

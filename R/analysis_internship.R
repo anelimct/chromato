@@ -18,35 +18,85 @@ compute_mean_EFtaxon_across_pop <- function(data, woodiv_species) {
     dplyr::group_by(gragg, Origin_pop, Compound) |>
     dplyr::summarise(
       EF_pop_mean = mean(EF, na.rm = TRUE),
-      n_pop = dplyr::n(),  # Nombre d'observations par pop
+      n_by_pop = dplyr::n(),  # Nombre d'observations par pop
+      .groups = "drop"
+    )
+  ## Enregistrer l'objet R en enregistrer les deux sorties sous forme de liste puis selctionné la position del'objet souhaité dans les targets
+  
+  
+  
+  # Table avec isoprene et monoterpenes moyenné à l'échelle de la pop et pour les pop ou il y à la fois isoprene et monoterpenes compute aussi la sum à l'échelle de la pop  
+  pop_wide <- pop_means |>
+    dplyr::select(gragg, Origin_pop, Compound, EF_pop_mean) |> # enlever la colonne de n_by_pop
+    tidyr::pivot_wider(names_from = Compound, values_from = EF_pop_mean) |>
+    dplyr::mutate(
+      sum_isoprenoids_pop = dplyr::if_else(
+        !is.na(isoprene) & !is.na(monoterpenes),
+        isoprene + monoterpenes,
+        NA_real_
+      )
+    )
+  
+  
+  
+  # --- 2. Moyenne/min/max of sum à l'échelle espèce ---
+  # (uniquement sur les pops où la somme a pu être calculée)
+  species_sum <- pop_wide |>
+    dplyr::filter(!is.na(sum_isoprenoids_pop)) |>
+    dplyr::group_by(gragg) |>
+    dplyr::summarise(
+      sum_isoprenoids_mean = mean(sum_isoprenoids_pop, na.rm = TRUE),
+      sum_isoprenoids_min  = min(sum_isoprenoids_pop, na.rm = TRUE),
+      sum_isoprenoids_max  = max(sum_isoprenoids_pop, na.rm = TRUE),
+      n_pop_sum = dplyr::n(),
       .groups = "drop"
     )
   
-  # Moyenne par taxon across population = moyenne des moyennes de pop
+  
+  # --- 3. species_means EF, moyenne des pop dispo iso et mono séparés = EF iso n'est pas forcément compute sur les mêmes pop que mono 
+  # Moyenne par taxon across population = moyenne des moyennes de pop pour iso et pour mono
   # avec compte du nombre de pop utilisées
   species_means <- pop_means |>
     dplyr::group_by(gragg, Compound) |>
     dplyr::summarise(
       EF_species_mean = mean(EF_pop_mean, na.rm = TRUE),
-      n_populations = dplyr::n(),  # Nombre de populations pour ce Taxon-Compound
+      EF_species_min  = min(EF_pop_mean, na.rm = TRUE),
+      EF_species_max  = max(EF_pop_mean, na.rm = TRUE),
+      n_populations = dplyr::n(),
       .groups = "drop"
     )
   
-  #Mise en forme du tableau
+  # --- 4. Mise en forme finale ---
   final_table <- species_means |>
     tidyr::pivot_wider(
       names_from = Compound,
-      values_from = c(EF_species_mean, n_populations),
+      values_from = c(EF_species_mean, EF_species_min, EF_species_max, n_populations),
       names_glue = "{Compound}_{.value}"
     ) |>
-    # Renommer les colonnes pour plus de clarté
     dplyr::rename(
-      isoprene = `isoprene_EF_species_mean`,
-      monoterpenes = `monoterpenes_EF_species_mean`,
-      n_pop_isoprene = `isoprene_n_populations`,
-      n_pop_monoterpenes = `monoterpenes_n_populations`
-    ) |> dplyr::left_join(  gragg_to_name, by = "gragg") |> dplyr::select("full_scientific_name", "gragg", "isoprene", "monoterpenes","n_pop_isoprene", "n_pop_monoterpenes") |> dplyr::rename("name_complete"= "full_scientific_name" )|>    dplyr::mutate(name_complete = dplyr::case_when(name_complete == "Juniperus_deltoides" ~ "Juniperus_oxycedrus",TRUE ~ name_complete))
-    
+      isoprene = isoprene_EF_species_mean,
+      isoprene_min = isoprene_EF_species_min,
+      isoprene_max = isoprene_EF_species_max,
+      monoterpenes = monoterpenes_EF_species_mean,
+      monoterpenes_min = monoterpenes_EF_species_min,
+      monoterpenes_max = monoterpenes_EF_species_max,
+      n_pop_isoprene = isoprene_n_populations,
+      n_pop_monoterpenes = monoterpenes_n_populations
+    ) |>
+    dplyr::left_join(species_sum, by = "gragg") |>          # <- ajout de la somme
+    dplyr::left_join(gragg_to_name, by = "gragg") |>
+    dplyr::select(
+      "full_scientific_name", "gragg",
+      "isoprene", "isoprene_min", "isoprene_max",
+      "monoterpenes", "monoterpenes_min", "monoterpenes_max",
+      "sum_isoprenoids_mean", "sum_isoprenoids_min", "sum_isoprenoids_max",
+      "n_pop_isoprene", "n_pop_monoterpenes", "n_pop_sum"
+    ) |>
+    dplyr::rename("name_complete" = "full_scientific_name") |>
+    dplyr::mutate(name_complete = dplyr::case_when(
+      name_complete == "Juniperus_deltoides" ~ "Juniperus_oxycedrus",
+      TRUE ~ name_complete
+    ))
   
   return(final_table)
 }
@@ -83,32 +133,37 @@ normaliser_dataframe <- function(dataframe) {
 }
 
 
-merge_trait_EF<- function(imputed.traits_3T, DB_bvocs_iso_mono_EF){
+merge_trait_EF <- function(imputed.traits_3T, DB_bvocs_iso_mono_EF){
   
-  merged_data_3T <- merge(imputed.traits_3T, DB_bvocs_iso_mono_EF, by = "row.names", all.x = TRUE) |>  
-    tibble::column_to_rownames(var = "Row.names") |> 
-   # merge(splist_storing_2_, by ="row.names", all.x = TRUE) |> 
-    #tibble::column_to_rownames(var = "Row.names") |> 
-    dplyr::mutate(total = isoprene + monoterpenes,
-           p_isoprene = (isoprene / total),
-           p_monoterpenes = (monoterpenes / total), 
-           prct_isoprene = (isoprene / total) * 100, 
-           prct_monoterpenes = (monoterpenes / total) * 100) |> 
-    dplyr::mutate(isoprene_mod = ifelse(isoprene == 0, 0.00001, isoprene)) |> 
-    dplyr::mutate(BVOCsData = dplyr::case_when(is.na(Sum) == TRUE ~ "0",
-                                 .default = "1")) |> 
-    dplyr::mutate(type = dplyr::if_else(!is.na(Sum), 
-                          ifelse(isoprene >= 1 & monoterpenes > 0.2, "both", 
-                                 ifelse(monoterpenes > 0.2, "mono", 
-                                        ifelse(isoprene > 1, "iso", "NE"))), 
-                          NA_character_)) |> 
-    dplyr::mutate(binaire = ifelse(type == "iso", 1, ifelse(type == "mono", 0, NA))) 
-    # dplyr::mutate(nouveau_type = dplyr::if_else(type == "iso", type,
-    #                               dplyr::if_else(type == "NE", type,
-    #                                       dplyr::if_else(Stockage == "non", type,
-    #                                               dplyr::if_else(Stockage == "oui", paste0(type, "_s"), NA_character_)))))
+  merged_data_3T <- merge(imputed.traits_3T, DB_bvocs_iso_mono_EF, by = "row.names", all.x = TRUE) |>
+    tibble::column_to_rownames(var = "Row.names") |>
+    dplyr::mutate(
+      total = sum_isoprenoids_mean,          # somme calculée au niveau pop, plus fiable que isoprene+monoterpenes recalculé ici
+      p_isoprene = isoprene / total,
+      p_monoterpenes = monoterpenes / total,
+      prct_isoprene = p_isoprene * 100,
+      prct_monoterpenes = p_monoterpenes * 100
+    ) |>
+    dplyr::mutate(isoprene_mod = ifelse(isoprene == 0, 0.00001, isoprene)) |>
+    dplyr::mutate(BVOCsData = dplyr::case_when(
+      is.na(isoprene) & is.na(monoterpenes) ~ "0",   # aucune mesure BVOC du tout
+      .default = "1"
+    )) |>
+    dplyr::mutate(type = dplyr::case_when(
+      is.na(isoprene) & is.na(monoterpenes) ~ NA_character_,
+      isoprene >= 1 & monoterpenes > 0.2 ~ "both",
+      monoterpenes > 0.2 ~ "mono",
+      isoprene > 1 ~ "iso",
+      .default = "NE"
+    )) |>
+    dplyr::mutate(binaire = dplyr::case_when(
+      type == "iso" ~ 1,
+      type == "mono" ~ 0,
+      .default = NA_real_
+    ))
+  
+  return(merged_data_3T)
 }
-
   
 create_residual_correlogram <- function(tree, residuals, col_name = "Residuals") {
   # Vérifier le type de données des résidus
