@@ -38,8 +38,8 @@ boxplot_EF <- function (data, tree, field){
   
   
   p_iso_field <- ggplot(data_isoprene |>  
-                        dplyr::filter(Taxon %in% unique(field$Taxon)), 
-                      aes(x = EF, y = Taxon, color = source)) +
+                          dplyr::filter(Taxon %in% unique(field$Taxon)), 
+                        aes(x = EF, y = Taxon, color = source)) +
     geom_boxplot(aes(color = NULL), color = "grey50") +  # Boxplot neutre
     geom_jitter(width = 0.2, alpha = 0.7, size = 2) +
     scale_color_manual(values = c("field" = "#b51963", "literature" = "#e3b2c1")) +
@@ -55,8 +55,8 @@ boxplot_EF <- function (data, tree, field){
   
   
   p_mono_field <- ggplot(data_mono |>  
-                          dplyr::filter(Taxon %in% unique(field$Taxon)), 
-                        aes(x = EF, y = Taxon, color = source)) +
+                           dplyr::filter(Taxon %in% unique(field$Taxon)), 
+                         aes(x = EF, y = Taxon, color = source)) +
     geom_boxplot(aes(color = NULL), color = "grey50") +  # Boxplot neutre
     geom_jitter(width = 0.2, alpha = 0.7, size = 2) +
     scale_color_manual(values = c("field" = "#b51963", "literature" = "#e3b2c1")) +
@@ -73,10 +73,10 @@ boxplot_EF <- function (data, tree, field){
   
   
   
-  # Préparation des données avec décompte par composé
+  # Préparation des données avec décompte par gragg
   species_stats <-
     data_iso_mono |> 
-    dplyr::group_by(Taxon) |> 
+    dplyr::group_by(gragg) |> 
     dplyr::summarise(
       in_field = any(source == "field"),
       in_literature = any(source == "literature")
@@ -84,7 +84,7 @@ boxplot_EF <- function (data, tree, field){
   
   # Histogramme comparé
   p_sp_count <- ggplot(species_stats, aes(x = interaction(in_field, in_literature), 
-                            fill = interaction(in_field, in_literature))) +
+                                          fill = interaction(in_field, in_literature))) +
     geom_bar() +
     scale_x_discrete(labels = c("Nouvelles espèces", "Littérature seulement", "Les deux")) +
     scale_fill_manual(

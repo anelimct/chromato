@@ -815,9 +815,30 @@ moving_window_categories_3 <- function(data,
                                        show_legend = FALSE,
                                        return_window_info = FALSE,
                                        show_intervals = TRUE,
-                                       vlines = NULL) {
+                                       vlines = NULL,
+                                       font_family = "Arial",
+                                       font_size = 12,
+                                       x_label = expression(
+                                         "Window median" ~ log[10] * "(EF + 0.01)" ~
+                                           "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+                                       ),
+                                       emission_labels = c(
+                                         "NE"          = "Non-emitter",
+                                         "iso_low"     = "Low isoprene emitter",
+                                         "iso_medium"  = "Medium isoprene emitter",
+                                         "iso_high"    = "High isoprene emitter",
+                                         "mono_low"    = "Low monoterpene emitter",
+                                         "mono_medium" = "Medium monoterpene emitter",
+                                         "mono_high"   = "High monoterpene emitter",
+                                         "both"        = "Isoprene and monoterpene emitter"
+                                       )) {
   
   plot_type <- match.arg(plot_type)
+  
+  # --- Police / taille pour tout le plot (graphiques base R), restaurées à la sortie ---
+  op_font <- par(family = font_family, ps = font_size,
+                 cex.axis = 1, cex.lab = 1, cex.main = 1)
+  on.exit(par(op_font), add = TRUE)
   
   if (plot_type == "area" && !requireNamespace("areaplot", quietly = TRUE)) {
     stop("Le mode 'area' nécessite le package 'areaplot'.")
@@ -920,7 +941,10 @@ moving_window_categories_3 <- function(data,
   x_vals <- x_vals[ord_idx]
   y_mat <- y_mat[ord_idx, , drop = FALSE]
   
-  # Préparation des informations de fenêtres pour les intervalles
+  # Version en pourcentage pour l'affichage
+  y_mat_pct <- y_mat * 100
+  
+  # Préparation des informations de fenêtres pour les intervalles (graphique du bas, INCHANGE)
   if (return_window_info || (plot_type == "area" && show_intervals)) {
     categories_presentes <- intersect(unique(data_clean$categorie), ordered_subtypes)
     df_windows <- data.frame(
@@ -949,51 +973,78 @@ moving_window_categories_3 <- function(data,
     }
   }
   
-  # Fonction utilitaire pour ajouter des lignes verticales
-  add_vlines <- function(vlines) {
-    if (is.null(vlines)) return()
-    if (is.list(vlines)) {
-      # Si c'est une liste avec un élément 'v', on suppose que c'est une seule ligne
-      if (!is.null(vlines$v)) {
-        do.call(abline, vlines)
-      } else {
-        # Sinon, on suppose que c'est une liste de listes
-        for (vl in vlines) {
-          if (is.list(vl) && !is.null(vl$v)) {
-            do.call(abline, vl)
-          }
-        }
-      }
+  # ---------------------------------------------------------------------
+  # Extraction seuil + IC a partir de vlines$v : v[1] = seuil, v[2:3] = bornes IC
+  # (le style est impose : seuil noir tirete EPAIS, IC bande grise)
+  # ---------------------------------------------------------------------
+  threshold_val <- NA_real_
+  ci_low  <- NA_real_
+  ci_high <- NA_real_
+  
+  if (!is.null(vlines) && !is.null(vlines$v)) {
+    v <- vlines$v
+    if (length(v) >= 1) threshold_val <- v[1]
+    if (length(v) >= 3) {
+      ci_low  <- min(v[2], v[3])
+      ci_high <- max(v[2], v[3])
     }
+  }
+  
+  # Ajoute la bande IC (grise) et la ligne de seuil (noire, tiretee, epaisse) sur un plot deja actif
+  add_threshold_and_ci <- function() {
+    usr <- par("usr")
+    if (!is.na(ci_low) && !is.na(ci_high)) {
+      rect(xleft = ci_low, xright = ci_high, ybottom = usr[3], ytop = usr[4],
+           col = adjustcolor("grey50", alpha.f = 0.35), border = NA)
+    }
+    if (!is.na(threshold_val)) {
+      abline(v = threshold_val, col = "black", lty = 2, lwd = 2.8)
+    }
+  }
+  
+  # Panneau de légende dédié, dessiné dans sa propre région de layout
+  draw_legend_panel <- function(non_zero) {
+    par(mar = c(0, 0, 0, 0), family = font_family, ps = font_size)
+    plot.new()
+    legend_keys   <- ordered_subtypes[non_zero]
+    legend_labels <- unname(emission_labels[legend_keys])
+    legend_cols   <- subtype_colors[non_zero]
+    legend("center", legend = legend_labels, fill = legend_cols,
+           bty = "n", cex = 1, pt.cex = 1.2,
+           title = "Emitter type", title.font = 2, title.cex = 1,
+           y.intersp = 1.4)
   }
   
   # Tracé selon le type
   if (plot_type == "area") {
     if (show_intervals && requireNamespace("areaplot", quietly = TRUE)) {
-      # Double graphique : area plot + segments horizontaux
-      layout(matrix(c(1,2), nrow=2), heights = c(3,1))
-      par(mar = c(0.5, 4, 4, 2) + 0.1)   # area plot sans marge inférieure
       
-      areaplot::areaplot(x = x_vals, y = y_mat,
-                         prop = FALSE, rev = FALSE,
-                         col = subtype_colors, border = NA,
-                         xlab = "", ylab = "Proportion",
-                         main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"),
-                         xaxt = "n")
-      
-      # Ajout des lignes verticales
-      add_vlines(vlines)
+      non_zero <- colSums(y_mat) > 0
       
       if (show_legend) {
-        non_zero <- colSums(y_mat) > 0
-        legend_labels <- ordered_subtypes[non_zero]
-        legend_cols <- subtype_colors[non_zero]
-        ncol_leg <- min(6, length(legend_labels))
-        legend("topright", legend = legend_labels, fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8)
+        # 2 lignes (area / intervalles) x 2 colonnes (plots / legende), legende sur toute la hauteur
+        layout(matrix(c(1, 3, 2, 3), nrow = 2, byrow = TRUE),
+               widths = c(4.5, 1.4), heights = c(3, 1))
+      } else {
+        layout(matrix(c(1, 2), nrow = 2), heights = c(3, 1))
       }
       
-      # Graphique des intervalles (sans étiquettes y)
-      par(mar = c(5, 4, 0.5, 2) + 0.1)
+      # --- Panneau 1 : area plot, sans cadre ---
+      par(mar = c(0.5, 4, 4, 1) + 0.1, las = 1, bty = "n",
+          family = font_family, ps = font_size)
+      
+      areaplot::areaplot(x = x_vals, y = y_mat_pct,
+                         prop = FALSE, rev = FALSE,
+                         col = subtype_colors, border = NA,
+                         xlab = "", ylab = "Proportion (%)",
+                         main = "",
+                         xaxt = "n", bty = "n")
+      
+      add_threshold_and_ci()
+      
+      # --- Panneau 2 : intervalles par categorie (bas), sans cadre ---
+      par(mar = c(5, 4, 0.5, 1) + 0.1, las = 1, bty = "n",
+          family = font_family, ps = font_size)
       categories_interval <- df_windows$categorie
       debut <- df_windows$debut_mediane
       fin <- df_windows$fin_mediane
@@ -1006,7 +1057,7 @@ moving_window_categories_3 <- function(data,
       couleurs <- subtype_colors[as.character(categories_interval)]
       
       plot(NA, xlim = range(x_vals), ylim = c(0.5, length(categories_interval) + 0.5),
-           xlab = paste("Médiane de", ordination), ylab = "", yaxt = "n", bty = "n")
+           xlab = as.expression(x_label), ylab = "", yaxt = "n", bty = "n")
       segments(x0 = debut, y0 = seq_along(categories_interval),
                x1 = fin, y1 = seq_along(categories_interval),
                col = couleurs, lwd = 6, lend = 1)
@@ -1014,25 +1065,33 @@ moving_window_categories_3 <- function(data,
       points(fin, seq_along(categories_interval), pch = 19, col = couleurs, cex = 0.8)
       abline(h = seq_along(categories_interval), lty = 3, col = "lightgray")
       
+      # --- Panneau 3 : legende, sur toute la hauteur, colonne de droite ---
+      if (show_legend) {
+        draw_legend_panel(non_zero)
+      }
+      
       layout(1)
     } else {
-      # Comportement original sans intervalles
-      old_par <- par(mar = c(7, 4, 4, 2) + 0.1)
-      on.exit(par(old_par))
-      areaplot::areaplot(x = x_vals, y = y_mat,
+      # Comportement sans intervalles : area plot seul + legende a droite
+      non_zero <- colSums(y_mat) > 0
+      
+      if (show_legend) {
+        layout(matrix(c(1, 2), nrow = 1), widths = c(4.5, 1.4))
+      }
+      
+      par(mar = c(5, 4, 4, 1) + 0.1, las = 1, bty = "n",
+          family = font_family, ps = font_size)
+      areaplot::areaplot(x = x_vals, y = y_mat_pct,
                          prop = FALSE, rev = FALSE,
                          col = subtype_colors, border = NA,
-                         xlab = paste("Médiane de", ordination),
-                         ylab = "Proportion",
-                         main = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")"))
-      add_vlines(vlines)
+                         xlab = as.expression(x_label),
+                         ylab = "Proportion (%)",
+                         main = "", bty = "n")
+      add_threshold_and_ci()
+      
       if (show_legend) {
-        non_zero <- colSums(y_mat) > 0
-        legend_labels <- ordered_subtypes[non_zero]
-        legend_cols <- subtype_colors[non_zero]
-        ncol_leg <- min(6, length(legend_labels))
-        legend("bottom", inset = c(0, -0.25), legend = legend_labels,
-               fill = legend_cols, ncol = ncol_leg, bty = "n", cex = 0.8, xpd = NA)
+        draw_legend_panel(non_zero)
+        layout(1)
       }
     }
   } else {  # plot_type == "bar"
@@ -1041,21 +1100,37 @@ moving_window_categories_3 <- function(data,
     df_plot <- data.frame(
       median_ordination = rep(x_vals, each = length(ordered_subtypes)),
       subtype = rep(ordered_subtypes, times = n_windows_agg),
-      proportion = as.vector(t(y_mat))
+      proportion = as.vector(t(y_mat)) * 100
     )
     df_plot <- df_plot[df_plot$proportion > 0, ]
     df_plot$subtype <- factor(df_plot$subtype, levels = ordered_subtypes)
+    
     p <- ggplot(df_plot, aes(x = median_ordination, y = proportion, fill = subtype)) +
       geom_col(width = diff(range(x_vals)) / (n_windows_agg * 1.2),
                position = "stack", color = "black", size = 0.2) +
-      scale_fill_manual(values = subtype_colors, name = "Catégorie") +
-      labs(x = paste("Médiane de", ordination), y = "Proportion",
-           title = paste("Types d'émetteurs\n(taille =", size, ", pas =", step, ")")) +
-      theme_minimal() +
-      theme(legend.position = if(show_legend) "bottom" else "none",
-            legend.text = element_text(size = 8),
-            legend.key.size = unit(0.4, "cm"))
-    # Pour ggplot2, on pourrait ajouter des geom_vline mais on laisse simple
+      scale_fill_manual(values = subtype_colors,
+                        labels = emission_labels[levels(df_plot$subtype)],
+                        name = "Emitter type") +
+      labs(x = x_label, y = "Proportion (%)") +
+      theme_minimal(base_family = font_family, base_size = font_size) +
+      theme(legend.position = if(show_legend) "right" else "none",
+            text = element_text(family = font_family, size = font_size),
+            axis.text = element_text(family = font_family, size = font_size),
+            axis.title = element_text(family = font_family, size = font_size),
+            legend.text = element_text(family = font_family, size = font_size),
+            legend.title = element_text(family = font_family, size = font_size, face = "bold"),
+            legend.key.size = unit(0.5, "cm"),
+            panel.border = element_blank())
+    
+    if (!is.na(ci_low) && !is.na(ci_high)) {
+      p <- p + annotate("rect", xmin = ci_low, xmax = ci_high, ymin = -Inf, ymax = Inf,
+                        fill = "grey50", alpha = 0.35)
+    }
+    if (!is.na(threshold_val)) {
+      p <- p + geom_vline(xintercept = threshold_val, color = "black",
+                          linetype = "dashed", linewidth = 1.3)
+    }
+    
     print(p)
   }
   

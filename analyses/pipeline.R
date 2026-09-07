@@ -249,7 +249,7 @@ list(
 
 ##Recreate analysis master
 # il faudra modifié compute_mean_EFtaxon_across_pop pour additionné mono et mono-ox parce que pour l'instant c'est juste mono tout court
-tar_target(all_data_mean_EF_taxon, merged_EF_L_T |> compute_mean_EFtaxon_across_pop (woodiv_species) ),
+tar_target(all_data_mean_EF_taxon, merged_EF_L_T |> compute_mean_EFtaxon_across_pop (woodiv_species) |>  classer_sub_type() ),
 #DB_bvocs_iso_mono_EF is with rownames adapted to phylogeny
 tar_target(DB_bvocs_iso_mono_EF, 
            all_data_mean_EF_taxon |> 
@@ -349,7 +349,7 @@ tar_target(summary_all_L_T , ranking_species(working_file) |>  dplyr::left_join(
 #tar_target(completeness , compute_completeness(WOODIV_grid, working_file, summary_all, 1) |> map_et_plot_completness(WOODIV_shape)),
 tar_target(test, compute_completeness_v2(WOODIV_grid, working_file, all_data_mean_EF_taxon, 1)),
 
-tar_target(metric_grid, select_grids_completed(test, 10, 75) |>  calculate_emission_stats ( working_file, all_data_mean_EF_taxon)), 
+tar_target(metric_grid, select_grids_completed(test, 15, 80) |>  calculate_emission_stats ( working_file, all_data_mean_EF_taxon)), 
            
            
 tar_target(simple_maps, metric_grid |>  map_emission_stats ( WOODIV_grid, WOODIV_shape, output_dir = "figures/emission_maps"))

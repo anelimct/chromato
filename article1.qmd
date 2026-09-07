@@ -274,140 +274,96 @@ plot_data <- merged_data_3T %>%
 # ---------------------------------------------------------
 # Plot
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# Position verticale de la bande de carreaux
+# ---------------------------------------------------------
+tile_y      <- -2.3   # position centrale de la bande
+tile_height <- 0.15   # épaisseur de la bande
 
 p <- ggplot(
   plot_data,
-  aes(
-    x = rank,
-    y = log_sum,
-    colour = sub_type
-  )
+  aes(x = rank, y = log_sum)
 ) +
-
-  # Min–max range with T-shaped ends
+  # Bande de carreaux colorés (tout en bas, sous les points)
+  geom_tile(
+    aes(x = rank, y = tile_y, fill = sub_type),
+    height = tile_height,
+    width = 1
+  ) +
+  # Min–max range avec bouts en T
   geom_errorbar(
     aes(
       ymin = log_sum_min,
-      ymax = log_sum_max
+      ymax = log_sum_max,
+      colour = sub_type
     ),
     width = 0.18,
     linewidth = 0.45,
     alpha = 0.55
   ) +
-
   # Mean EF
   geom_point(
+    aes(colour = sub_type),
     size = 2.2
   ) +
-
-  # Colours + labels
+  # Couleurs des points/barres d'erreur
   scale_colour_manual(
     values = col_palette,
     labels = emission_labels,
     name = "Emitter type",
     drop = TRUE
   ) +
-
+  # Couleurs des carreaux (même palette, légende masquée)
+  scale_fill_manual(
+    values = col_palette,
+    guide = "none"
+  ) +
   # X axis
   scale_x_continuous(
     name = "Species rank",
     expand = expansion(mult = c(0.01, 0.02))
   ) +
-
   # Y axis
   scale_y_continuous(
     name = expression(
       log[10] * "(EF + 0.01)" ~
-        "(" * mu * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+       "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
     ),
-    expand = expansion(mult = c(0.03, 0.05))
+    expand = expansion(mult = c(0.03, 0.05)),
+    limits = c(tile_y - tile_height, NA)  # laisse la place pour la bande
   ) +
-
-  # Light horizontal gridlines
-  theme_minimal(
-    base_size = 11
-  ) +
-
+  theme_minimal(base_size = 11) +
   theme(
-
-    # Same font everywhere, without forcing Arial
-    text = element_text(
-      face = "plain",
-      colour = "black"
-    ),
-
-    axis.title = element_text(
-      size = 11,
-      face = "plain"
-    ),
-
-    axis.text = element_text(
-      size = 9.5,
-      face = "plain",
-      colour = "black"
-    ),
-
-    # Gridlines
-    panel.grid.major.y = element_line(
-      colour = "grey88",
-      linewidth = 0.35
-    ),
-
-    panel.grid.minor.y = element_line(
-      colour = "grey94",
-      linewidth = 0.25
-    ),
-
+    text = element_text(face = "plain", colour = "black"),
+    axis.title = element_text(size = 11, face = "plain"),
+    axis.text = element_text(size = 9.5, face = "plain", colour = "black"),
+    panel.grid.major.y = element_line(colour = "grey88", linewidth = 0.35),
+    panel.grid.minor.y = element_line(colour = "grey94", linewidth = 0.25),
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank(),
-
-    # Axes
-    axis.line = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    axis.ticks = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    # Legend
+    axis.line = element_line(linewidth = 0.45, colour = "black"),
+    axis.ticks = element_line(linewidth = 0.45, colour = "black"),
     legend.position = "right",
-
-    legend.title = element_text(
-      size = 10,
-      face = "plain"
-    ),
-
-    legend.text = element_text(
-      size = 9,
-      face = "plain"
-    ),
-
+    legend.title = element_text(size = 10, face = "plain"),
+    legend.text = element_text(size = 9, face = "plain"),
     legend.key = element_blank(),
-
-    legend.spacing.y = unit(
-      0.12,
-      "cm"
-    ),
-
-    # Margins
-    plot.margin = margin(
-      5.5, 8, 5.5, 5.5
-    )
+    legend.spacing.y = unit(0.12, "cm"),
+    plot.margin = margin(5.5, 8, 5.5, 5.5)
   )
-
-p
 
 ggsave(
   filename = "allsp_EF.svg",
   plot = p,
-  width = 6,
+  width = 10,
   height = 4,
   device = "svg"
 )
 ```
+
+\
+
+\
+\
 
 ```{r}
 library(ggplot2)
@@ -497,17 +453,7 @@ p_window1 <- ggplot(plot_data, aes(x = rank, y = log_sum)) +
     linewidth = 0.6
   ) +
 
-  # Label de l'espèce 13 (optionnel)
-  annotate(
-    "text",
-    x = 25.2,
-    y = y_sp13,
-    label = "Species 13",
-    hjust = 0,
-    vjust = -0.7,
-    size = 3.2,
-    colour = "#24439b"
-  ) +
+
 
   scale_colour_manual(
     values = col_palette,
@@ -593,17 +539,6 @@ p_window2 <- ggplot(plot_data, aes(x = rank, y = log_sum)) +
     linewidth = 0.6
   ) +
 
-  # Label de l'espèce 89 (optionnel)
-  annotate(
-    "text",
-    x = 101.2,
-    y = y_sp89,
-    label = "Species 89",
-    hjust = 0,
-    vjust = -0.7,
-    size = 3.2,
-    colour = "#24439b"
-  ) +
 
   scale_colour_manual(
     values = col_palette,
@@ -618,7 +553,7 @@ p_window2 <- ggplot(plot_data, aes(x = rank, y = log_sum)) +
   scale_y_continuous(
     name = expression(
       log[10] * "(EF + 0.01)" ~
-      "(" * mu * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
     ),
     expand = expansion(mult = c(0.03, 0.05))
   ) +
@@ -658,6 +593,531 @@ ggsave(
   device = "svg"
 )
 
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# ============================================================
+# Palette de couleurs
+# ============================================================
+
+col_palette <- c(
+  "NE"          = "#fce72e",
+  "iso_medium"  = "#adda96",
+  "iso_high"    = "#59ac24",
+  "mono_low"    = "#b7c2f3",
+  "mono_medium" = "#91a2e9",
+  "mono_high"   = "#2c52c4",
+  "both"        = "#c34f70"
+)
+
+
+# ============================================================
+# Préparation des données
+# ============================================================
+
+plot_data <- merged_data_3T %>%
+  filter(
+    !is.na(sum_isoprenoids_mean),
+    !is.na(sum_isoprenoids_min),
+    !is.na(sum_isoprenoids_max)
+  ) %>%
+  mutate(
+    log_sum     = log10(sum_isoprenoids_mean + 0.01),
+    log_sum_min = log10(sum_isoprenoids_min + 0.01),
+    log_sum_max = log10(sum_isoprenoids_max + 0.01),
+    sub_type = factor(
+      sub_type,
+      levels = names(col_palette)
+    )
+  ) %>%
+  arrange(log_sum) %>%
+  mutate(rank = row_number())
+
+
+# ============================================================
+# Valeurs de référence pour les lignes horizontales
+# ============================================================
+
+y_sp13 <- plot_data %>%
+  filter(rank == 13) %>%
+  pull(log_sum)
+
+y_sp89 <- plot_data %>%
+  filter(rank == 89) %>%
+  pull(log_sum)
+
+
+# ============================================================
+# Paramètres de la bande de carreaux
+# ============================================================
+
+tile_y      <- -2.3
+tile_height <- 0.15
+
+
+# ============================================================
+# Préparation des données pour les carreaux
+# ============================================================
+
+# Toutes les espèces sont grisées par défaut
+tile_data <- plot_data %>%
+  mutate(
+    tile_colour = "grey85"
+  )
+
+
+# ============================================================
+# Graphique 1 : fenêtre 1 (rangs 1 à 25)
+# ============================================================
+
+# Carreaux :
+# rangs 1-25 = couleur du sub_type
+# rangs 26-101 = gris
+
+tile_data_window1 <- tile_data %>%
+  mutate(
+    tile_fill = if_else(
+      rank <= 25,
+      as.character(sub_type),
+      "grey85"
+    )
+  )
+
+
+p_window1 <- ggplot(
+  plot_data,
+  aes(x = rank, y = log_sum)
+) +
+
+  # ----------------------------------------------------------
+  # Arrière-plan : toutes les espèces en gris clair
+  # ----------------------------------------------------------
+
+  geom_errorbar(
+    aes(
+      ymin = log_sum_min,
+      ymax = log_sum_max
+    ),
+    colour = "grey80",
+    width = 0.18,
+    linewidth = 0.4,
+    alpha = 0.7
+  ) +
+
+  geom_point(
+    colour = "grey80",
+    size = 1.8
+  ) +
+
+  # ----------------------------------------------------------
+  # Rectangle bleu transparent pour la fenêtre 1
+  # ----------------------------------------------------------
+
+  annotate(
+    "rect",
+    xmin = 0.5,
+    xmax = 25.5,
+    ymin = -Inf,
+    ymax = Inf,
+    fill = "#dfe5f7",
+    alpha = 0.35,
+    colour = "#7186c5",
+    linewidth = 0.7
+  ) +
+
+  # ----------------------------------------------------------
+  # Espèces de la fenêtre 1 en couleur
+  # ----------------------------------------------------------
+
+  geom_errorbar(
+    data = plot_data %>%
+      filter(rank <= 25),
+    aes(
+      ymin = log_sum_min,
+      ymax = log_sum_max,
+      colour = sub_type
+    ),
+    width = 0.18,
+    linewidth = 0.45,
+    alpha = 0.55
+  ) +
+
+  geom_point(
+    data = plot_data %>%
+      filter(rank <= 25),
+    aes(colour = sub_type),
+    size = 2.2
+  ) +
+
+  # ----------------------------------------------------------
+  # Ligne horizontale pour l'espèce 13
+  # ----------------------------------------------------------
+
+  geom_hline(
+    yintercept = y_sp13,
+    linetype = "dashed",
+    colour = "#3156b3",
+    linewidth = 0.6
+  ) +
+
+  # ----------------------------------------------------------
+  # BANDE DE CARREAUX
+  #
+  # Toutes les espèces = gris
+  # Fenêtre 1 = couleur selon sub_type
+  # ----------------------------------------------------------
+
+  geom_tile(
+    data = tile_data_window1,
+    aes(
+      x = rank,
+      y = tile_y,
+      fill = tile_fill
+    ),
+    height = tile_height,
+    width = 1
+  ) +
+
+  # ----------------------------------------------------------
+  # Couleurs des points + couleurs des carreaux
+  # ----------------------------------------------------------
+
+  scale_colour_manual(
+    values = col_palette,
+    guide = "none"
+  ) +
+
+  scale_fill_manual(
+    values = c(
+      col_palette,
+      "grey85" = "grey85"
+    ),
+    guide = "none"
+  ) +
+
+  # ----------------------------------------------------------
+  # Axe X
+  # ----------------------------------------------------------
+
+  scale_x_continuous(
+    name = "Species rank",
+    breaks = seq(0, 100, 20),
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+
+  # ----------------------------------------------------------
+  # Axe Y
+  # ----------------------------------------------------------
+
+  scale_y_continuous(
+    name = expression(
+      log[10] * "(EF + 0.01)" ~
+      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+    ),
+    limits = c(
+      tile_y - tile_height,
+      NA
+    ),
+    expand = expansion(
+      mult = c(0.03, 0.05)
+    )
+  ) +
+
+  # ----------------------------------------------------------
+  # Thème
+  # ----------------------------------------------------------
+
+  theme_minimal(base_size = 11) +
+
+  theme(
+    text = element_text(
+      face = "plain",
+      colour = "black"
+    ),
+
+    axis.title = element_text(
+      size = 11,
+      face = "plain"
+    ),
+
+    axis.text = element_text(
+      size = 9.5,
+      face = "plain",
+      colour = "black"
+    ),
+
+    panel.grid.major.y = element_line(
+      colour = "grey88",
+      linewidth = 0.35
+    ),
+
+    panel.grid.minor.y = element_line(
+      colour = "grey94",
+      linewidth = 0.25
+    ),
+
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+
+    axis.line = element_line(
+      linewidth = 0.45,
+      colour = "black"
+    ),
+
+    axis.ticks = element_line(
+      linewidth = 0.45,
+      colour = "black"
+    ),
+
+    legend.position = "none",
+
+    plot.margin = margin(
+      5.5, 8, 5.5, 5.5
+    )
+  )
+
+
+# ============================================================
+# Graphique 2 : dernière fenêtre (rangs 77 à 101)
+# ============================================================
+
+# Carreaux :
+# rangs 1-76 = gris
+# rangs 77-101 = couleur du sub_type
+
+tile_data_window2 <- tile_data %>%
+  mutate(
+    tile_fill = if_else(
+      rank >= 77,
+      as.character(sub_type),
+      "grey85"
+    )
+  )
+
+
+p_window2 <- ggplot(
+  plot_data,
+  aes(x = rank, y = log_sum)
+) +
+
+  # ----------------------------------------------------------
+  # Arrière-plan : toutes les espèces en gris clair
+  # ----------------------------------------------------------
+
+  geom_errorbar(
+    aes(
+      ymin = log_sum_min,
+      ymax = log_sum_max
+    ),
+    colour = "grey80",
+    width = 0.18,
+    linewidth = 0.4,
+    alpha = 0.7
+  ) +
+
+  geom_point(
+    colour = "grey80",
+    size = 1.8
+  ) +
+
+  # ----------------------------------------------------------
+  # Rectangle bleu transparent pour la dernière fenêtre
+  # ----------------------------------------------------------
+
+  annotate(
+    "rect",
+    xmin = 76.5,
+    xmax = 101.5,
+    ymin = -Inf,
+    ymax = Inf,
+    fill = "#dfe5f7",
+    alpha = 0.35,
+    colour = "#7186c5",
+    linewidth = 0.7
+  ) +
+
+  # ----------------------------------------------------------
+  # Espèces de la dernière fenêtre en couleur
+  # ----------------------------------------------------------
+
+  geom_errorbar(
+    data = plot_data %>%
+      filter(rank >= 77),
+    aes(
+      ymin = log_sum_min,
+      ymax = log_sum_max,
+      colour = sub_type
+    ),
+    width = 0.18,
+    linewidth = 0.45,
+    alpha = 0.55
+  ) +
+
+  geom_point(
+    data = plot_data %>%
+      filter(rank >= 77),
+    aes(colour = sub_type),
+    size = 2.2
+  ) +
+
+  # ----------------------------------------------------------
+  # Ligne horizontale pour l'espèce 89
+  # ----------------------------------------------------------
+
+  geom_hline(
+    yintercept = y_sp89,
+    linetype = "dashed",
+    colour = "#3156b3",
+    linewidth = 0.6
+  ) +
+
+  # ----------------------------------------------------------
+  # BANDE DE CARREAUX
+  #
+  # Toutes les espèces = gris
+  # Fenêtre 2 = couleur selon sub_type
+  # ----------------------------------------------------------
+
+  geom_tile(
+    data = tile_data_window2,
+    aes(
+      x = rank,
+      y = tile_y,
+      fill = tile_fill
+    ),
+    height = tile_height,
+    width = 1
+  ) +
+
+  # ----------------------------------------------------------
+  # Couleurs des points + couleurs des carreaux
+  # ----------------------------------------------------------
+
+  scale_colour_manual(
+    values = col_palette,
+    guide = "none"
+  ) +
+
+  scale_fill_manual(
+    values = c(
+      col_palette,
+      "grey85" = "grey85"
+    ),
+    guide = "none"
+  ) +
+
+  # ----------------------------------------------------------
+  # Axe X
+  # ----------------------------------------------------------
+
+  scale_x_continuous(
+    name = "Species rank",
+    breaks = seq(0, 100, 20),
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+
+  # ----------------------------------------------------------
+  # Axe Y
+  # ----------------------------------------------------------
+
+  scale_y_continuous(
+    name = expression(
+      log[10] * "(EF + 0.01)" ~
+      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+    ),
+    limits = c(
+      tile_y - tile_height,
+      NA
+    ),
+    expand = expansion(
+      mult = c(0.03, 0.05)
+    )
+  ) +
+
+  # ----------------------------------------------------------
+  # Thème
+  # ----------------------------------------------------------
+
+  theme_minimal(base_size = 11) +
+
+  theme(
+    text = element_text(
+      face = "plain",
+      colour = "black"
+    ),
+
+    axis.title = element_text(
+      size = 11,
+      face = "plain"
+    ),
+
+    axis.text = element_text(
+      size = 9.5,
+      face = "plain",
+      colour = "black"
+    ),
+
+    panel.grid.major.y = element_line(
+      colour = "grey88",
+      linewidth = 0.35
+    ),
+
+    panel.grid.minor.y = element_line(
+      colour = "grey94",
+      linewidth = 0.25
+    ),
+
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+
+    axis.line = element_line(
+      linewidth = 0.45,
+      colour = "black"
+    ),
+
+    axis.ticks = element_line(
+      linewidth = 0.45,
+      colour = "black"
+    ),
+
+    legend.position = "none",
+
+    plot.margin = margin(
+      5.5, 8, 5.5, 5.5
+    )
+  )
+
+
+# ============================================================
+# Affichage
+# ============================================================
+
+print(p_window1)
+print(p_window2)
+
+
+# ============================================================
+# Sauvegarde
+# ============================================================
+
+ggsave(
+  filename = "fenetre1.svg",
+  plot = p_window1,
+  width = 6,
+  height = 4,
+  device = "svg"
+)
+
+ggsave(
+  filename = "fenetre2.svg",
+  plot = p_window2,
+  width = 6,
+  height = 4,
+  device = "svg"
+)
 ```
 
 ```{r}
@@ -749,7 +1209,7 @@ p_slide <- ggplot() +
   scale_y_continuous(
     name = expression(
       log[10] * "(EF + 0.01)" ~
-      "(" * mu * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
     ),
     limits = y_limits,
     expand = expansion(mult = c(0.03, 0.05))
@@ -783,9 +1243,1202 @@ ggsave(
 ```
 
 ```{r}
-info_sum <- moving_window_categories_3(plot_data, ordination = "log_sum", size= 25, step = 1, return_window_info = T, plot_type = c("area", "bar"), vlines = list(v = c(0.7298538, 0.6414858, 0.7758776), lty = c(1, 3, 3) , col = c("red", "#ff9090", "#ff9090"), lwd = 3), show_legend = TRUE)
+targets::tar_load(sum_df_15)
+targets::tar_load(sum_df_20)
+targets::tar_load(sum_df_25)
+targets::tar_load(sum_df_30)
+targets::tar_load(sum_df_35)
+targets::tar_load(sum_df_40)
+
+targets::tar_load(results_models_threshold)
+results <- results_models_threshold
+
 ```
 
+```{r}
+library(ggplot2)
+library(patchwork)
+library(purrr)
+library(chngpt)
+
+# =========================================================================
+# 0. Dictionnaires de labels
+# =========================================================================
+# Labels de l'axe Y (utilises tels quels, INCHANGES)
+metric_labels <- c(
+  "Richness"              = "Hypervolume (unitless)",
+  "regularity"            = "Regularity",
+  "functional_dispersion" = "Functional dispersion",
+  "originality"           = "Originality",
+  "dimensionality"        = "Dimensionality"
+)
+
+# Titres de panneau (affiches apres la lettre a, b, c...)
+panel_titles <- c(
+  "Richness"              = "Functional richness",
+  "regularity"            = "Regularity",
+  "functional_dispersion" = "Functional dispersion",
+  "originality"           = "Originality",
+  "dimensionality"        = "Functional dimensionality"
+)
+
+# Label de l'axe X (commun a tous les panneaux, uniquement affiche en bas)
+x_axis_label <- expression(
+  "Window median" ~ log[10] * "(EF + 0.01)" ~
+  "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+)
+
+# =========================================================================
+# 1. STEP : deux segments horizontaux (saut au seuil, pas de pente)
+# =========================================================================
+plot_step_model <- function(model, data, response, predictor, panel_title = "", ci = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  left_y  <- coefs["(Intercept)"]
+  right_y <- left_y + coefs[paste0(predictor, ">chngpt")]
+  cp      <- coefs["chngpt"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  
+  segments <- data.frame(
+    x    = c(min(x, na.rm = TRUE), cp),
+    xend = c(cp, max(x, na.rm = TRUE)),
+    y    = c(left_y, right_y),
+    yend = c(left_y, right_y)
+  )
+  
+  ggplot() +
+    annotate("rect", xmin = ci[1], xmax = ci[2], ymin = -Inf, ymax = Inf,
+             fill = "grey85", alpha = 0.5) +
+    geom_segment(data = segments, aes(x = x, y = y, xend = xend, yend = yend),
+                 color = "black", linewidth = 1) +
+    geom_point(data = data.frame(x = x, y = y), aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_vline(xintercept = cp, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 2. SEGMENTED : continu, changement de pente au seuil
+# =========================================================================
+plot_segmented_model <- function(model, data, response, predictor, panel_title = "", ci = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  beta0 <- coefs["(Intercept)"]
+  beta1 <- coefs[predictor]
+  beta2 <- coefs[paste0("(", predictor, "-chngpt)+")]
+  cp    <- coefs["chngpt"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  
+  x_grid <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 300)
+  y_pred <- beta0 + beta1 * x_grid + beta2 * pmax(x_grid - cp, 0)
+  pred_df <- data.frame(x = x_grid, y = y_pred)
+  
+  ggplot() +
+    annotate("rect", xmin = ci[1], xmax = ci[2], ymin = -Inf, ymax = Inf,
+             fill = "grey85", alpha = 0.5) +
+    geom_point(data = data.frame(x = x, y = y), aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_line(data = pred_df, aes(x = x, y = y), color = "black", linewidth = 1) +
+    geom_vline(xintercept = cp, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 3. STEGMENTED : saut ET changement de pente au seuil
+# =========================================================================
+plot_stegmented_model <- function(model, data, response, predictor, panel_title = "", ci = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  beta0 <- coefs["(Intercept)"]
+  beta1 <- coefs[predictor]
+  jump  <- coefs[paste0(predictor, ">chngpt")]
+  beta2 <- coefs[paste0("(", predictor, "-chngpt)+")]
+  cp    <- coefs["chngpt"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  
+  x_grid <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 300)
+  y_pred <- beta0 + beta1 * x_grid + jump * as.numeric(x_grid > cp) + beta2 * pmax(x_grid - cp, 0)
+  pred_df <- data.frame(x = x_grid, y = y_pred)
+  
+  ggplot() +
+    annotate("rect", xmin = ci[1], xmax = ci[2], ymin = -Inf, ymax = Inf,
+             fill = "grey85", alpha = 0.5) +
+    geom_point(data = data.frame(x = x, y = y), aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_line(data = pred_df, aes(x = x, y = y), color = "black", linewidth = 1) +
+    geom_vline(xintercept = cp, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 4. M02 : plat avant le seuil, quadratique apres
+# =========================================================================
+plot_M02_model <- function(model, data, response, predictor, panel_title = "", ci = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  beta0 <- coefs["(Intercept)"]
+  beta1 <- coefs[paste0("(", predictor, "-chngpt)+")]
+  beta2 <- coefs[paste0("(", predictor, "-chngpt)+^2")]
+  cp    <- coefs["chngpt"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  
+  x_grid <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 300)
+  y_pred <- beta0 + beta1 * pmax(x_grid - cp, 0) + beta2 * pmax(x_grid - cp, 0)^2
+  pred_df <- data.frame(x = x_grid, y = y_pred)
+  
+  ggplot() +
+    annotate("rect", xmin = ci[1], xmax = ci[2], ymin = -Inf, ymax = Inf,
+             fill = "grey85", alpha = 0.5) +
+    geom_point(data = data.frame(x = x, y = y), aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_line(data = pred_df, aes(x = x, y = y), color = "black", linewidth = 1) +
+    geom_vline(xintercept = cp, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 5. M12 : lineaire avant le seuil, quadratique apres
+# =========================================================================
+plot_M12_model <- function(model, data, response, predictor, panel_title = "", ci = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  beta0 <- coefs["(Intercept)"]
+  beta1 <- coefs[predictor]
+  beta2 <- coefs[paste0("(", predictor, "-chngpt)+")]
+  beta3 <- coefs[paste0("(", predictor, "-chngpt)+^2")]
+  cp    <- coefs["chngpt"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  
+  x_grid <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 300)
+  y_pred <- beta0 + beta1 * x_grid + beta2 * pmax(x_grid - cp, 0) + beta3 * pmax(x_grid - cp, 0)^2
+  pred_df <- data.frame(x = x_grid, y = y_pred)
+  
+  ggplot() +
+    annotate("rect", xmin = ci[1], xmax = ci[2], ymin = -Inf, ymax = Inf,
+             fill = "grey85", alpha = 0.5) +
+    geom_point(data = data.frame(x = x, y = y), aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_line(data = pred_df, aes(x = x, y = y), color = "black", linewidth = 1) +
+    geom_vline(xintercept = cp, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 6. M111 : deux seuils, via predict()
+# =========================================================================
+plot_M111_model <- function(model, data, response, predictor, panel_title = "",
+                             ci_lower = c(NA, NA), ci_upper = c(NA, NA), y_label = NULL) {
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  coefs <- model$coefficients
+  cp1   <- coefs["chngpt.1"]
+  cp2   <- coefs["chngpt.2"]
+  
+  x <- data[[predictor]]
+  y <- data[[response]]
+  points_df <- data.frame(x = x, y = y)
+  
+  x_grid <- seq(min(x, na.rm = TRUE), max(x, na.rm = TRUE), length.out = 300)
+  pred_df <- setNames(data.frame(x_grid), predictor)
+  pred_df$y_pred <- predict(model, newdata = pred_df, type = "response")
+  names(pred_df)[1] <- "x"
+  
+  p <- ggplot()
+  
+  for (i in seq_along(ci_lower)) {
+    if (!is.na(ci_lower[i]) && !is.na(ci_upper[i])) {
+      p <- p + annotate("rect", xmin = ci_lower[i], xmax = ci_upper[i],
+                         ymin = -Inf, ymax = Inf, fill = "grey85", alpha = 0.5)
+    }
+  }
+  
+  p +
+    geom_point(data = points_df, aes(x = x, y = y),
+               alpha = 0.5, size = 2, color = "grey50") +
+    geom_line(data = pred_df, aes(x = x, y = y_pred), color = "black", linewidth = 1) +
+    geom_vline(xintercept = cp1, color = "black", linewidth = 1, linetype = "dashed") +
+    geom_vline(xintercept = cp2, color = "black", linewidth = 1, linetype = "dashed") +
+    labs(y = y_label, title = panel_title) +
+    theme_minimal()
+}
+
+# =========================================================================
+# 7. Dispatcher : redirige vers la bonne fonction selon le type de modele
+# =========================================================================
+plot_model_by_type <- function(model, data, response, predictor, panel_title, model_type,
+                                model_info = NULL, y_label = NULL) {
+  
+  y_label <- if (is.null(y_label)) response else y_label
+  
+  if (is.null(model)) {
+    return(
+      ggplot() +
+        annotate("text", x = 0, y = 0, label = "(a trancher)", size = 4) +
+        labs(title = panel_title) +
+        theme_void()
+    )
+  }
+  
+  if (inherits(model, "lm")) {
+    return(
+      ggplot(data.frame(x = data[[predictor]], y = data[[response]]), aes(x = x, y = y)) +
+        geom_point(alpha = 0.5, size = 2, color = "grey50") +
+        geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "black", linewidth = 1) +
+        labs(y = y_label, title = panel_title) +
+        theme_minimal()
+    )
+  }
+  
+  ci_low  <- if (!is.null(model_info)) unlist(model_info$CI_low)  else c(NA_real_, NA_real_)
+  ci_high <- if (!is.null(model_info)) unlist(model_info$CI_high) else c(NA_real_, NA_real_)
+  
+  switch(model_type,
+    "step"       = plot_step_model(model, data, response, predictor, panel_title, ci = c(ci_low[1], ci_high[1]), y_label = y_label),
+    "segmented"  = plot_segmented_model(model, data, response, predictor, panel_title, ci = c(ci_low[1], ci_high[1]), y_label = y_label),
+    "stegmented" = plot_stegmented_model(model, data, response, predictor, panel_title, ci = c(ci_low[1], ci_high[1]), y_label = y_label),
+    "M02"        = plot_M02_model(model, data, response, predictor, panel_title, ci = c(ci_low[1], ci_high[1]), y_label = y_label),
+    "M12"        = plot_M12_model(model, data, response, predictor, panel_title, ci = c(ci_low[1], ci_high[1]), y_label = y_label),
+    "M111"       = plot_M111_model(model, data, response, predictor, panel_title, ci_lower = ci_low, ci_upper = ci_high, y_label = y_label),
+    ggplot() + annotate("text", x = 0, y = 0, label = "(type non gere)") +
+      labs(title = panel_title) + theme_void()
+  )
+}
+
+# =========================================================================
+# 8. Assemble les 5 metriques d'une fenetre avec patchwork
+# =========================================================================
+plot_window_selected_gg <- function(window_res, data, window_name = "", 
+                                     labels = metric_labels, titles = panel_titles,
+                                     x_label = x_axis_label) {
+  
+  plots <- purrr::imap(window_res, function(metric_res, metric_name) {
+    
+    display_name <- if (metric_name %in% names(labels)) labels[[metric_name]] else metric_name
+    title_text   <- if (metric_name %in% names(titles)) titles[[metric_name]] else metric_name
+    
+    idx    <- match(metric_name, names(window_res))
+    letter <- letters[idx]
+    panel_title <- bquote(bold("(" * .(letter) * ")") ~ .(title_text))
+    
+    if (metric_res$choice$status == "manual") {
+      return(plot_model_by_type(NULL, data, metric_name, "median_log_sum", panel_title, "", y_label = display_name))
+    }
+    plot_model_by_type(
+      model       = metric_res$choice$model,
+      data        = data,
+      response    = metric_name,
+      predictor   = "median_log_sum",
+      panel_title = panel_title,
+      model_type  = metric_res$choice$model_name,
+      model_info  = metric_res$summary,
+      y_label     = display_name
+    )
+  })
+  
+  x_vals <- data$median_log_sum
+  x_min  <- min(x_vals, na.rm = TRUE)
+  x_max  <- max(x_vals, na.rm = TRUE)
+  
+  prepare_plot <- function(p, show_x_title = TRUE) {
+    p <- p +
+      coord_cartesian(xlim = c(x_min, x_max)) +
+      theme(axis.text.x  = element_text(),
+            axis.ticks.x = element_line())
+    if (show_x_title) {
+      p <- p +
+        labs(x = x_label) +
+        theme(axis.title.x = element_text())
+    } else {
+      p <- p + theme(axis.title.x = element_blank())
+    }
+    p
+  }
+  
+  n <- length(plots)
+  plots_prepped <- purrr::imap(plots, function(p, nm) {
+    idx <- which(names(plots) == nm)
+    prepare_plot(p, show_x_title = (idx == n))
+  })
+  
+  purrr::reduce(plots_prepped, `/`) +
+    patchwork::plot_annotation(
+      title = paste("Model fits -", window_name),
+      theme = theme(plot.title = element_text(hjust = 0.5, size = 14))
+    )
+}
+
+# =========================================================================
+# 9. Application a toutes les fenetres
+# =========================================================================
+window_data <- list(
+  window15 = sum_df_15, window20 = sum_df_20, window25 = sum_df_25,
+  window30 = sum_df_30, window35 = sum_df_35, window40 = sum_df_40
+)
+
+combined_plots <- purrr::imap(results, function(window_res, window_name) {
+  plot_window_selected_gg(window_res, window_data[[window_name]], window_name)
+})
+
+purrr::walk(combined_plots, print)
+
+# =========================================================================
+# 10. Sauvegarde en .png
+# =========================================================================
+dir.create("figures", showWarnings = FALSE)
+purrr::iwalk(combined_plots, function(p, window_name) {
+  ggsave(file.path("figures", paste0(window_name, "_modeles_selectionnes.png")),
+         plot = p, width = 6, height = 14, dpi = 150)
+})
+```
+
+```{r}
+
+library(ggplot2)
+
+svg(filename = "area_plot.svg", width = 14, height = 8)
+
+res <- moving_window_categories_3(
+    data = plot_data,
+    ordination = "log_sum",
+    size = 25,
+    step = 1,
+    return_window_info = TRUE,
+    plot_type = "area",
+    vlines = list(v = c(0.7298538, 0.6414858, 0.7758776)),
+    show_legend = TRUE, font_size = 16,
+)
+
+
+print(res)
+dev.off()
+
+```
+
+\
+
+```{r}
+test <- extraire_especes_threshold(sum_df_25, "median_log_sum", 0.6414858, 0.7758776) ### changer avec le nouveau threshold du modele
+
+# ======================================================================
+# COMPARAISON DES METRIQUES FONCTIONNELLES ENTRE GROUPES PRE-SEUIL ET POST-SEUIL
+# Test de permutation (label shuffling) + graphique annote
+# ======================================================================
+
+# 0. Installation des packages si necessaire (a decommenter)
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity"))
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(geometry)      # pour convhulln
+library(fundiversity)  # pour fd_fdis
+# library(future.apply) # optionnel, pour paralleliser le test de permutation
+
+# ----------------------------------------------------------------------
+# Fonction qui calcule les metriques pour un echantillon aleatoire d'especes
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                            scores_cols, traits_cols, global_centroid) {
+
+  available <- intersect(species_list, data$rowname)
+  if (length(available) < size) {
+    stop("Pas assez d'especes disponibles dans le groupe pour un echantillon de taille ", size)
+  }
+
+  selected <- sample(available, size, replace = FALSE)
+
+  sub_data   <- data[data$rowname %in% selected, ]
+  sub_scores <- as.matrix(sub_data[, scores_cols])
+  sub_traits <- sub_data[, traits_cols]
+
+  # 1. Volume du convex hull (Richness / Hypervolume)
+  vol <- tryCatch(
+    hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
+    error = function(e) NA
+  )
+
+  # 2. Dispersion fonctionnelle (FDis)
+  fdis <- fd_fdis(sub_scores)$FDis
+
+  # 3. Originalite : distance du centroide du sous-ensemble au centroide global
+  centroid_sub <- colMeans(sub_scores)
+  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
+
+  # 4. Regularite (inverse) : variance des distances dans l'espace des scores
+  dist_mat <- dist(sub_scores)
+  regularity_inv <- var(as.vector(dist_mat))
+
+  # 5. Dimensionalite (inverse) : variance des valeurs propres de la PCA sur traits
+  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
+  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  dimensionality_inv <- var(pca_traits$sdev^2)
+
+  c(Richness = vol,
+    FDis = fdis,
+    Originality = orig,
+    regularity_inv = regularity_inv,
+    dimensionality_inv = dimensionality_inv)
+}
+
+# ----------------------------------------------------------------------
+# Fonction principale qui repete l'echantillonnage pour un groupe
+# ----------------------------------------------------------------------
+iterate_group <- function(species_list, data, size = 25, n_iter = 100,
+                           scores_cols, traits_cols, global_centroid) {
+
+  results <- replicate(n_iter, {
+    sample_metrics(species_list, data, size,
+                    scores_cols, traits_cols, global_centroid)
+  }, simplify = FALSE)
+
+  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
+  df$iteration <- 1:n_iter
+  df
+}
+
+# ======================================================================
+# 1. PREPARATION DES DONNEES
+# ======================================================================
+pre_list  <- test$pre_seuil
+post_list <- test$post_seuil
+
+data <- plot_data
+
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
+pre_available  <- intersect(pre_list, complete_species)
+post_available <- intersect(post_list, complete_species)
+
+n_pre  <- length(pre_available)
+n_post <- length(post_available)
+
+cat("Especes pre-seuil disponibles :", n_pre, "\n")
+cat("Especes post-seuil disponibles :", n_post, "\n")
+
+if (n_pre < 25 | n_post < 25) {
+  stop("Il faut au moins 25 especes disponibles dans chaque groupe.")
+}
+
+global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
+global_centroid <- colMeans(global_scores)
+
+# ======================================================================
+# 2. DISTRIBUTIONS OBSERVEES (pour la figure), n_iter = 100, taille = 25
+# ======================================================================
+n_iter <- 100
+set.seed(123)
+
+pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
+                              scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "pre_seuil")
+
+post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
+                               scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "post_seuil")
+
+all_results <- bind_rows(pre_results, post_results)
+all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+# ======================================================================
+# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY (pour l'affichage)
+# ======================================================================
+min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
+max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
+min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
+max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
+
+all_results <- all_results %>%
+  mutate(
+    regularity     = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
+    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
+  ) %>%
+  select(-regularity_inv, -dimensionality_inv)
+
+pre_results  <- all_results %>% filter(groupe == "pre_seuil")
+post_results <- all_results %>% filter(groupe == "post_seuil")
+
+# ======================================================================
+# 4. TEST DE PERMUTATION (label shuffling) — remplace le Wilcoxon classique
+# ======================================================================
+# Principe : sous H0, l'appartenance pre/post d'une espece est arbitraire.
+# On melange les labels (en gardant les tailles de groupe reelles n_pre/n_post),
+# on refait tourner EXACTEMENT le meme pipeline de sous-echantillonnage,
+# et on obtient une statistique nulle qui integre elle-meme la structure de
+# correlation induite par le reechantillonnage. Cela evite la pseudoreplication
+# du test de Mann-Whitney applique naivement sur les 100 iterations.
+
+permutation_test_metrics <- function(pre_available, post_available, data,
+                                      size = 25, n_iter_inner = 20, n_perm = 199,
+                                      scores_cols, traits_cols, global_centroid,
+                                      stat_fun = median, seed = 1) {
+
+  set.seed(seed)
+  n_pre_l  <- length(pre_available)
+  n_post_l <- length(post_available)
+  pool     <- c(pre_available, post_available)
+
+  # ---- statistique observee, sur les distributions deja calculees ----
+  obs_diff <- c(
+    Richness       = stat_fun(post_results$Richness, na.rm = TRUE)       - stat_fun(pre_results$Richness, na.rm = TRUE),
+    FDis           = stat_fun(post_results$FDis, na.rm = TRUE)           - stat_fun(pre_results$FDis, na.rm = TRUE),
+    Originality    = stat_fun(post_results$Originality, na.rm = TRUE)    - stat_fun(pre_results$Originality, na.rm = TRUE),
+    regularity     = stat_fun(post_results$regularity, na.rm = TRUE)     - stat_fun(pre_results$regularity, na.rm = TRUE),
+    dimensionality = stat_fun(post_results$dimensionality, na.rm = TRUE) - stat_fun(pre_results$dimensionality, na.rm = TRUE)
+  )
+
+  # ---- distribution nulle ----
+  null_mat <- replicate(n_perm, {
+    shuffled  <- sample(pool)
+    perm_pre  <- shuffled[1:n_pre_l]
+    perm_post <- shuffled[(n_pre_l + 1):(n_pre_l + n_post_l)]
+
+    pre_perm  <- iterate_group(perm_pre,  data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
+    post_perm <- iterate_group(perm_post, data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
+
+    c(
+      Richness       = stat_fun(post_perm$Richness, na.rm = TRUE)           - stat_fun(pre_perm$Richness, na.rm = TRUE),
+      FDis           = stat_fun(post_perm$FDis, na.rm = TRUE)               - stat_fun(pre_perm$FDis, na.rm = TRUE),
+      Originality    = stat_fun(post_perm$Originality, na.rm = TRUE)        - stat_fun(pre_perm$Originality, na.rm = TRUE),
+      regularity     = stat_fun(post_perm$regularity_inv, na.rm = TRUE)     - stat_fun(pre_perm$regularity_inv, na.rm = TRUE),
+      dimensionality = stat_fun(post_perm$dimensionality_inv, na.rm = TRUE) - stat_fun(pre_perm$dimensionality_inv, na.rm = TRUE)
+    )
+  })
+  # null_mat : matrice 5 metriques x n_perm
+
+  pvals <- sapply(seq_along(obs_diff), function(i) {
+    (sum(abs(null_mat[i, ]) >= abs(obs_diff[i]), na.rm = TRUE) + 1) / (n_perm + 1)
+  })
+  names(pvals) <- names(obs_diff)
+
+  list(observed = obs_diff, null = null_mat, p_value = pvals)
+}
+
+# ATTENTION : ce test est couteux en calcul (hypervolume() est lent).
+# Commencez avec n_perm et n_iter_inner faibles pour calibrer le temps
+# d'execution avant de lancer la version finale (ex. n_perm = 999).
+perm_test <- permutation_test_metrics(
+  pre_available, post_available, data,
+  size = 25, n_iter_inner = 20, n_perm = 30,
+  scores_cols = scores_cols, traits_cols = traits_cols,
+  global_centroid = global_centroid, stat_fun = median
+)
+
+perm_results <- data.frame(
+  Metric      = names(perm_test$p_value),
+  Diff_median = perm_test$observed,
+  p_value     = perm_test$p_value
+)
+perm_results$signif <- ifelse(perm_results$p_value < 0.001, "***",
+                        ifelse(perm_results$p_value < 0.01,  "**",
+                        ifelse(perm_results$p_value < 0.05,  "*", "ns")))
+
+cat("\n===== TEST DE PERMUTATION (label shuffling, pre_seuil vs post_seuil) =====\n")
+print(perm_results)
+
+
+
+
+library(ggsignif)
+library(patchwork)
+library(dplyr)
+
+# ======================================================================
+# 5. MISE EN FORME LONGUE + LABELS
+# ======================================================================
+long_results <- all_results %>%
+  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
+               names_to = "metric", values_to = "value")
+
+desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
+long_results$metric <- factor(long_results$metric, levels = desired_order)
+
+# Titres de panneau : juste "(lettre) Nom de la metrique", plus de p-value
+metric_names <- c(
+  Richness       = "Functional richness",
+  FDis           = "Functional dispersion",
+  Originality    = "Originality",
+  regularity     = "Regularity",
+  dimensionality = "Functional dimensionality"
+)
+
+facet_letters <- setNames(letters[seq_along(desired_order)], desired_order)
+panel_titles  <- setNames(
+  paste0("(", facet_letters[desired_order], ") ", metric_names[desired_order]),
+  desired_order
+)
+
+# Labels d'axe Y specifiques a chaque metrique (unite/nature de la mesure)
+y_labels <- c(
+  Richness       = "Hypervolume (unitless)",
+  regularity     = "Regularity",
+  FDis           = "Functional dispersion",
+  Originality    = "Originality",
+  dimensionality = "Dimensionality"
+)
+
+# ======================================================================
+# 5bis. POURCENTAGE DE DIFFERENCE (medianes) + etoiles de significativite
+# ======================================================================
+metrics <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
+
+diff_pct <- data.frame(
+  Metric = metrics,
+  Median_pre = NA_real_,
+  Median_post = NA_real_,
+  Percent_diff = NA_real_,
+  stringsAsFactors = FALSE
+)
+
+for (i in seq_along(metrics)) {
+  m <- metrics[i]
+  pre_vals  <- all_results[all_results$groupe == "pre_seuil",  m]
+  post_vals <- all_results[all_results$groupe == "post_seuil", m]
+
+  med_pre  <- median(pre_vals,  na.rm = TRUE)
+  med_post <- median(post_vals, na.rm = TRUE)
+  pct <- (med_post - med_pre) / med_pre * 100
+
+  diff_pct[i, "Median_pre"]   <- med_pre
+  diff_pct[i, "Median_post"]  <- med_post
+  diff_pct[i, "Percent_diff"] <- pct
+}
+
+diff_pct$Change <- ifelse(diff_pct$Percent_diff > 0,
+                           paste0("+", round(diff_pct$Percent_diff, 1), "%"),
+                           paste0(round(diff_pct$Percent_diff, 1), "%"))
+
+diff_pct$MetricLabel <- factor(diff_pct$Metric,
+                                levels = metrics,
+                                labels = c("Functional richness",
+                                           "Functional dispersion",
+                                           "Originality",
+                                           "Regularity",
+                                           "Functional dimensionality"))
+
+cat("\n===== POURCENTAGE DE DIFFERENCE (mediane post vs pre) =====\n")
+print(diff_pct[, c("MetricLabel", "Median_pre", "Median_post", "Change")])
+
+# Etoiles issues du test de permutation (section 4)
+diff_pct$signif <- perm_results$signif[match(diff_pct$Metric, perm_results$Metric)]
+diff_pct$metric <- factor(diff_pct$Metric, levels = desired_order)
+
+# Position verticale du bracket = max de chaque metrique + marge
+y_positions <- long_results %>%
+  group_by(metric) %>%
+  summarise(y_position = max(value, na.rm = TRUE) * 1.10, .groups = "drop")
+
+sig_data <- diff_pct %>%
+  left_join(y_positions, by = "metric") %>%
+  mutate(
+    xmin = 1, xmax = 2,
+    annotation = paste0(Change, " ", signif)   # ex: "+12.3% *" 
+  )
+
+# ======================================================================
+# 6. UN GRAPHIQUE PAR METRIQUE — label Y affiche sur CHAQUE panneau
+# ======================================================================
+build_metric_plot <- function(metric_name) {
+
+  d_sub   <- long_results %>% filter(metric == metric_name)
+  sig_sub <- sig_data      %>% filter(metric == metric_name)
+
+  ggplot(d_sub, aes(x = groupe, y = value, fill = groupe)) +
+    geom_violin(trim = FALSE, alpha = 0.6, width = 1.4) +
+    geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
+    geom_signif(
+      data = sig_sub,
+      aes(xmin = xmin, xmax = xmax, y_position = y_position, annotations = annotation),
+      manual = TRUE, inherit.aes = FALSE,
+      textsize = 3, vjust = -0.3, tip_length = 0.02
+    ) +
+    scale_fill_manual(
+      values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
+      labels = c(
+        paste0("Before threshold (n = ", n_pre, ")"),
+        paste0("After threshold (n = ", n_post, ")")
+      )
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+    labs(
+      title = panel_titles[metric_name],
+      x = NULL,
+      y = y_labels[metric_name],   # toujours affiche, sur tous les panneaux
+      fill = NULL
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text.x      = element_blank(),
+      axis.ticks.x     = element_blank(),
+      plot.title       = element_text(face = "bold", size = 10),
+      legend.position   = "bottom",
+      panel.grid.minor  = element_blank()
+    )
+}
+
+plots <- purrr::map(desired_order, build_metric_plot)
+names(plots) <- desired_order
+
+final_plot <- patchwork::wrap_plots(plots, ncol = 3) +
+  patchwork::plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+print(final_plot)
+
+ggsave(
+  filename = "metric_pre_post.svg",
+  plot = final_plot,
+  width = 6,
+  height = 4,
+  device = "svg"
+)
+```
+
+\
+
+```{r}
+test <- extraire_especes_threshold(sum_df_25, "median_log_sum", 0.6414858, 0.7758776) ### changer avec le nouveau threshold du modele
+
+# ======================================================================
+# COMPARAISON DES METRIQUES FONCTIONNELLES ENTRE GROUPES PRE-SEUIL ET POST-SEUIL
+# Test de permutation (label shuffling) + graphique annote
+# ======================================================================
+
+# 0. Installation des packages si necessaire (a decommenter)
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity"))
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(geometry)      # pour convhulln
+library(fundiversity)  # pour fd_fdis
+# library(future.apply) # optionnel, pour paralleliser le test de permutation
+
+# ----------------------------------------------------------------------
+# Fonction qui calcule les metriques pour un echantillon aleatoire d'especes
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                            scores_cols, traits_cols, global_centroid) {
+
+  available <- intersect(species_list, data$rowname)
+  if (length(available) < size) {
+    stop("Pas assez d'especes disponibles dans le groupe pour un echantillon de taille ", size)
+  }
+
+  selected <- sample(available, size, replace = FALSE)
+
+  sub_data   <- data[data$rowname %in% selected, ]
+  sub_scores <- as.matrix(sub_data[, scores_cols])
+  sub_traits <- sub_data[, traits_cols]
+
+  # 1. Volume du convex hull (Richness / Hypervolume)
+  vol <- tryCatch(
+    hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
+    error = function(e) NA
+  )
+
+  # 2. Dispersion fonctionnelle (FDis)
+  fdis <- fd_fdis(sub_scores)$FDis
+
+  # 3. Originalite : distance du centroide du sous-ensemble au centroide global
+  centroid_sub <- colMeans(sub_scores)
+  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
+
+  # 4. Regularite (inverse) : variance des distances dans l'espace des scores
+  dist_mat <- dist(sub_scores)
+  regularity_inv <- var(as.vector(dist_mat))
+
+  # 5. Dimensionalite (inverse) : variance des valeurs propres de la PCA sur traits
+  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
+  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  dimensionality_inv <- var(pca_traits$sdev^2)
+
+  c(Richness = vol,
+    FDis = fdis,
+    Originality = orig,
+    regularity_inv = regularity_inv,
+    dimensionality_inv = dimensionality_inv)
+}
+
+# ----------------------------------------------------------------------
+# Fonction principale qui repete l'echantillonnage pour un groupe
+# ----------------------------------------------------------------------
+iterate_group <- function(species_list, data, size = 25, n_iter = 100,
+                           scores_cols, traits_cols, global_centroid) {
+
+  results <- replicate(n_iter, {
+    sample_metrics(species_list, data, size,
+                    scores_cols, traits_cols, global_centroid)
+  }, simplify = FALSE)
+
+  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
+  df$iteration <- 1:n_iter
+  df
+}
+
+# ======================================================================
+# 1. PREPARATION DES DONNEES
+# ======================================================================
+pre_list  <- test$pre_seuil
+post_list <- test$post_seuil
+
+data <- plot_data
+
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
+pre_available  <- intersect(pre_list, complete_species)
+post_available <- intersect(post_list, complete_species)
+
+n_pre  <- length(pre_available)
+n_post <- length(post_available)
+
+cat("Especes pre-seuil disponibles :", n_pre, "\n")
+cat("Especes post-seuil disponibles :", n_post, "\n")
+
+if (n_pre < 25 | n_post < 25) {
+  stop("Il faut au moins 25 especes disponibles dans chaque groupe.")
+}
+
+global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
+global_centroid <- colMeans(global_scores)
+
+# ======================================================================
+# 2. DISTRIBUTIONS OBSERVEES (pour la figure), n_iter = 100, taille = 25
+# ======================================================================
+n_iter <- 100
+set.seed(123)
+
+pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
+                              scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "pre_seuil")
+
+post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
+                               scores_cols, traits_cols, global_centroid) %>%
+  mutate(groupe = "post_seuil")
+
+all_results <- bind_rows(pre_results, post_results)
+all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+# ======================================================================
+# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY (pour l'affichage)
+# ======================================================================
+min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
+max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
+min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
+max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
+
+all_results <- all_results %>%
+  mutate(
+    regularity     = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
+    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
+  ) %>%
+  select(-regularity_inv, -dimensionality_inv)
+
+pre_results  <- all_results %>% filter(groupe == "pre_seuil")
+post_results <- all_results %>% filter(groupe == "post_seuil")
+
+# ======================================================================
+# 4. TEST DE PERMUTATION (label shuffling) — remplace le Wilcoxon classique
+# ======================================================================
+# Principe : sous H0, l'appartenance pre/post d'une espece est arbitraire.
+# On melange les labels (en gardant les tailles de groupe reelles n_pre/n_post),
+# on refait tourner EXACTEMENT le meme pipeline de sous-echantillonnage,
+# et on obtient une statistique nulle qui integre elle-meme la structure de
+# correlation induite par le reechantillonnage. Cela evite la pseudoreplication
+# du test de Mann-Whitney applique naivement sur les 100 iterations.
+
+permutation_test_metrics <- function(pre_available, post_available, data,
+                                      size = 25, n_iter_inner = 20, n_perm = 199,
+                                      scores_cols, traits_cols, global_centroid,
+                                      stat_fun = median, seed = 1) {
+
+  set.seed(seed)
+  n_pre_l  <- length(pre_available)
+  n_post_l <- length(post_available)
+  pool     <- c(pre_available, post_available)
+
+  # ---- statistique observee, sur les distributions deja calculees ----
+  obs_diff <- c(
+    Richness       = stat_fun(post_results$Richness, na.rm = TRUE)       - stat_fun(pre_results$Richness, na.rm = TRUE),
+    FDis           = stat_fun(post_results$FDis, na.rm = TRUE)           - stat_fun(pre_results$FDis, na.rm = TRUE),
+    Originality    = stat_fun(post_results$Originality, na.rm = TRUE)    - stat_fun(pre_results$Originality, na.rm = TRUE),
+    regularity     = stat_fun(post_results$regularity, na.rm = TRUE)     - stat_fun(pre_results$regularity, na.rm = TRUE),
+    dimensionality = stat_fun(post_results$dimensionality, na.rm = TRUE) - stat_fun(pre_results$dimensionality, na.rm = TRUE)
+  )
+
+  # ---- distribution nulle ----
+  null_mat <- replicate(n_perm, {
+    shuffled  <- sample(pool)
+    perm_pre  <- shuffled[1:n_pre_l]
+    perm_post <- shuffled[(n_pre_l + 1):(n_pre_l + n_post_l)]
+
+    pre_perm  <- iterate_group(perm_pre,  data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
+    post_perm <- iterate_group(perm_post, data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
+
+    c(
+      Richness       = stat_fun(post_perm$Richness, na.rm = TRUE)           - stat_fun(pre_perm$Richness, na.rm = TRUE),
+      FDis           = stat_fun(post_perm$FDis, na.rm = TRUE)               - stat_fun(pre_perm$FDis, na.rm = TRUE),
+      Originality    = stat_fun(post_perm$Originality, na.rm = TRUE)        - stat_fun(pre_perm$Originality, na.rm = TRUE),
+      regularity     = stat_fun(post_perm$regularity_inv, na.rm = TRUE)     - stat_fun(pre_perm$regularity_inv, na.rm = TRUE),
+      dimensionality = stat_fun(post_perm$dimensionality_inv, na.rm = TRUE) - stat_fun(pre_perm$dimensionality_inv, na.rm = TRUE)
+    )
+  })
+  # null_mat : matrice 5 metriques x n_perm
+
+  pvals <- sapply(seq_along(obs_diff), function(i) {
+    (sum(abs(null_mat[i, ]) >= abs(obs_diff[i]), na.rm = TRUE) + 1) / (n_perm + 1)
+  })
+  names(pvals) <- names(obs_diff)
+
+  list(observed = obs_diff, null = null_mat, p_value = pvals)
+}
+
+# ATTENTION : ce test est couteux en calcul (hypervolume() est lent).
+# Commencez avec n_perm et n_iter_inner faibles pour calibrer le temps
+# d'execution avant de lancer la version finale (ex. n_perm = 999).
+perm_test <- permutation_test_metrics(
+  pre_available, post_available, data,
+  size = 25, n_iter_inner = 20, n_perm = 30,
+  scores_cols = scores_cols, traits_cols = traits_cols,
+  global_centroid = global_centroid, stat_fun = median
+)
+
+perm_results <- data.frame(
+  Metric      = names(perm_test$p_value),
+  Diff_median = perm_test$observed,
+  p_value     = perm_test$p_value
+)
+perm_results$signif <- ifelse(perm_results$p_value < 0.001, "***",
+                        ifelse(perm_results$p_value < 0.01,  "**",
+                        ifelse(perm_results$p_value < 0.05,  "*", "ns")))
+
+cat("\n===== TEST DE PERMUTATION (label shuffling, pre_seuil vs post_seuil) =====\n")
+print(perm_results)
+
+
+
+
+library(ggsignif)
+library(patchwork)
+library(dplyr)
+
+# ======================================================================
+# 5. MISE EN FORME LONGUE + LABELS
+# ======================================================================
+long_results <- all_results %>%
+  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
+               names_to = "metric", values_to = "value")
+
+desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
+long_results$metric <- factor(long_results$metric, levels = desired_order)
+
+# Titres de panneau : juste "(lettre) Nom de la metrique", plus de p-value
+metric_names <- c(
+  Richness       = "Functional richness",
+  FDis           = "Functional dispersion",
+  Originality    = "Originality",
+  regularity     = "Regularity",
+  dimensionality = "Functional dimensionality"
+)
+
+facet_letters <- setNames(letters[seq_along(desired_order)], desired_order)
+panel_titles  <- setNames(
+  paste0("(", facet_letters[desired_order], ") ", metric_names[desired_order]),
+  desired_order
+)
+
+# Labels d'axe Y specifiques a chaque metrique (unite/nature de la mesure)
+y_labels <- c(
+  Richness       = "Hypervolume (unitless)",
+  regularity     = "Regularity",
+  FDis           = "Functional dispersion",
+  Originality    = "Originality",
+  dimensionality = "Dimensionality"
+)
+
+# ======================================================================
+# 5bis. POURCENTAGE DE DIFFERENCE (medianes) + etoiles de significativite
+# ======================================================================
+metrics <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
+
+diff_pct <- data.frame(
+  Metric = metrics,
+  Median_pre = NA_real_,
+  Median_post = NA_real_,
+  Percent_diff = NA_real_,
+  stringsAsFactors = FALSE
+)
+
+for (i in seq_along(metrics)) {
+  m <- metrics[i]
+  pre_vals  <- all_results[all_results$groupe == "pre_seuil",  m]
+  post_vals <- all_results[all_results$groupe == "post_seuil", m]
+
+  med_pre  <- median(pre_vals,  na.rm = TRUE)
+  med_post <- median(post_vals, na.rm = TRUE)
+  pct <- (med_post - med_pre) / med_pre * 100
+
+  diff_pct[i, "Median_pre"]   <- med_pre
+  diff_pct[i, "Median_post"]  <- med_post
+  diff_pct[i, "Percent_diff"] <- pct
+}
+
+diff_pct$Change <- ifelse(diff_pct$Percent_diff > 0,
+                           paste0("+", round(diff_pct$Percent_diff, 1), "%"),
+                           paste0(round(diff_pct$Percent_diff, 1), "%"))
+
+diff_pct$MetricLabel <- factor(diff_pct$Metric,
+                                levels = metrics,
+                                labels = c("Functional richness",
+                                           "Functional dispersion",
+                                           "Originality",
+                                           "Regularity",
+                                           "Functional dimensionality"))
+
+cat("\n===== POURCENTAGE DE DIFFERENCE (mediane post vs pre) =====\n")
+print(diff_pct[, c("MetricLabel", "Median_pre", "Median_post", "Change")])
+
+# Etoiles issues du test de permutation (section 4)
+diff_pct$signif <- perm_results$signif[match(diff_pct$Metric, perm_results$Metric)]
+diff_pct$metric <- factor(diff_pct$Metric, levels = desired_order)
+
+# Position verticale du bracket = max de chaque metrique + marge
+y_positions <- long_results %>%
+  group_by(metric) %>%
+  summarise(y_position = max(value, na.rm = TRUE) * 1.10, .groups = "drop")
+
+sig_data <- diff_pct %>%
+  left_join(y_positions, by = "metric") %>%
+  mutate(
+    xmin = 1, xmax = 2,
+    annotation = paste0(Change, " ", signif)   # ex: "+12.3% *" 
+  )
+
+# ======================================================================
+# 6. UN GRAPHIQUE PAR METRIQUE — label Y affiche sur CHAQUE panneau
+# ======================================================================
+build_metric_plot <- function(metric_name) {
+
+  d_sub   <- long_results %>% filter(metric == metric_name)
+  sig_sub <- sig_data      %>% filter(metric == metric_name)
+
+  ggplot(d_sub, aes(x = groupe, y = value, fill = groupe)) +
+    geom_violin(trim = FALSE, alpha = 0.6, width = 1.4) +
+    geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
+    geom_signif(
+      data = sig_sub,
+      aes(xmin = xmin, xmax = xmax, y_position = y_position, annotations = annotation),
+      manual = TRUE, inherit.aes = FALSE,
+      textsize = 3, vjust = -0.3, tip_length = 0.02
+    ) +
+    scale_fill_manual(
+      values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
+      labels = c(
+        paste0("Before threshold (n = ", n_pre, ")"),
+        paste0("After threshold (n = ", n_post, ")")
+      )
+    ) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+    labs(
+      title = panel_titles[metric_name],
+      x = NULL,
+      y = y_labels[metric_name],   # toujours affiche, sur tous les panneaux
+      fill = NULL
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(
+      axis.text.x      = element_blank(),
+      axis.ticks.x     = element_blank(),
+      plot.title       = element_text(face = "bold", size = 10),
+      legend.position   = "bottom",
+      panel.grid.minor  = element_blank()
+    )
+}
+
+plots <- purrr::map(desired_order, build_metric_plot)
+names(plots) <- desired_order
+
+final_plot <- patchwork::wrap_plots(plots, ncol = 3) +
+  patchwork::plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+print(final_plot)
+
+ggsave(
+  filename = "metric_pre_post.svg",
+  plot = final_plot,
+  width = 6,
+  height = 4,
+  device = "svg"
+)
+
+
+# ======================================================================
+# 7. SCATTER PLOT : Regularity ~ Functional Richness, colore par groupe
+# ======================================================================
+
+scatter_plot <- ggplot(all_results, aes(x = Richness, y = regularity, color = groupe)) +
+  geom_point(alpha = 0.6, size = 2) +
+  stat_ellipse(aes(fill = groupe), geom = "polygon", alpha = 0.15, color = NA, level = 0.68) +
+  scale_color_manual(
+    values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
+    labels = c(
+      paste0("Before threshold (n = ", n_pre, ")"),
+      paste0("After threshold (n = ", n_post, ")")
+    )
+  ) +
+  scale_fill_manual(
+    values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
+    guide = "none"
+  ) +
+  labs(
+    title = "Regularity vs Functional Richness",
+    x = "Hypervolume (unitless)",
+    y = "Regularity",
+    color = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title      = element_text(face = "bold", size = 11),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+print(scatter_plot)
+
+ggsave(
+  filename = "regularity_vs_richness.svg",
+  plot = scatter_plot,
+  width = 5,
+  height = 4,
+  device = "svg"
+)
+```
+
+\
 Calcul de l'indice d'équitabilité et et du brake_trade_off
 
 ```{r}
@@ -1069,591 +2722,6 @@ plot_moving_window_convex(equitabilite_df)
 # saveRDS(brake_trade_off_df, file = here::here("data", "article1", "brake_trade_off_df.rds",))
 # 
 # plot_moving_window_convex(brake_trade_off_df)
-```
-
-```{r}
-#| eval: false
-
-test <- extraire_especes_threshold (sum_df, "median_log_Sum", 1.60809093, 1.91893694 ) ### changer avec le nouveau thresholddu model
-
-# ======================================================================
-# COMPARAISON DES MÉTRIQUES FONCTIONNELLES ENTRE GROUPES PRÉ‑SEUIL ET POST‑SEUIL
-# Avec test de Mann‑Whitney et graphique annoté
-# ======================================================================
-
-# 0. Installation des packages si nécessaire (à décommenter)
-# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "ggpubr"))
-
-# Chargement des packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(geometry)      # pour convhulln
-library(fundiversity)  # pour fd_fdis
-library(ggpubr)        # pour ajouter les p-values sur le graphique
-
-# ----------------------------------------------------------------------
-# Fonction qui calcule les métriques pour un échantillon aléatoire d'espèces
-# ----------------------------------------------------------------------
-sample_metrics <- function(species_list, data, size = 25,
-                           scores_cols, traits_cols, global_centroid) {
-  
-  # Garder uniquement les espèces présentes dans data et sans NA sur scores et traits
-  available <- intersect(species_list, data$rowname)
-  if (length(available) < size) {
-    stop("Pas assez d'espèces disponibles dans le groupe pour un échantillon de taille ", size)
-  }
-  
-  # Tirage aléatoire sans remise
-  selected <- sample(available, size, replace = FALSE)
-  
-  # Sous-ensemble des données
-  sub_data <- data[data$rowname %in% selected, ]
-  sub_scores <- as.matrix(sub_data[, scores_cols])
-  sub_traits <- sub_data[, traits_cols]
-  
-  # 1. Volume du convex hull (Richness)
-  vol <- tryCatch(
-  hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
-  error = function(e) NA
-)
-  
-  # 2. Dispersion fonctionnelle (FDis)
-  fdis <- fd_fdis(sub_scores)$FDis
-  
-  # 3. Originalité : distance du centroïde du sous‑ensemble au centroïde global
-  centroid_sub <- colMeans(sub_scores)
-  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
-  
-  # 4. Régularité (inverse) : variance des distances dans l'espace des scores
-  dist_mat <- dist(sub_scores)
-  regularity_inv <- var(as.vector(dist_mat))
-  
-  # 5. Dimensionalité (inverse) : variance des valeurs propres de la PCA sur traits
-  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
-  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
-  dimensionality_inv <- var(pca_traits$sdev^2)
-  
-  # Retourner un vecteur nommé
-  c(Richness = vol,
-    FDis = fdis,
-    Originality = orig,
-    regularity_inv = regularity_inv,
-    dimensionality_inv = dimensionality_inv)
-}
-
-# ----------------------------------------------------------------------
-# Fonction principale qui répète l'échantillonnage pour un groupe
-# ----------------------------------------------------------------------
-iterate_group <- function(species_list, data, size = 25, n_iter = 100,
-                          scores_cols, traits_cols, global_centroid) {
-  
-  results <- replicate(n_iter, {
-    sample_metrics(species_list, data, size,
-                   scores_cols, traits_cols, global_centroid)
-  }, simplify = FALSE)
-  
-  # Transformer la liste en data.frame
-  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
-  df$iteration <- 1:n_iter
-  df
-}
-
-# ======================================================================
-# 1. PRÉPARATION DES DONNÉES
-# ======================================================================
-
-# Listes d'espèces (à adapter selon votre objet)
-pre_list <- test$pre_seuil
-post_list <- test$post_seuil
-
-# Données des espèces
-data <- merged_data_3T
-
-# Colonnes à utiliser
-scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
-traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
-
-# Garder uniquement les espèces ayant toutes les valeurs nécessaires
-complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
-pre_available <- intersect(pre_list, complete_species)
-post_available <- intersect(post_list, complete_species)
-
-cat("Espèces pré‑seuil disponibles :", length(pre_available), "\n")
-cat("Espèces post‑seuil disponibles :", length(post_available), "\n")
-
-if (length(pre_available) < 25 | length(post_available) < 25) {
-  stop("Il faut au moins 25 espèces disponibles dans chaque groupe.")
-}
-
-# Centroïde global (calculé sur toutes les espèces disponibles)
-global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
-global_centroid <- colMeans(global_scores)
-
-# ======================================================================
-# 2. LANCER LES ITÉRATIONS (n_iter = 100, taille = 25)
-# ======================================================================
-n_iter <- 100
-set.seed(123)  # pour reproductibilité
-
-pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
-                             scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "pre_seuil")
-
-post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
-                              scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "post_seuil")
-
-# Fusionner les deux groupes
-all_results <- bind_rows(pre_results, post_results)
-all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
-
-# ======================================================================
-# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY
-# ======================================================================
-min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
-max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
-min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
-max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
-
-all_results <- all_results %>%
-  mutate(
-    regularity = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
-    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
-  ) %>%
-  select(-regularity_inv, -dimensionality_inv)
-
-# ======================================================================
-# 4. TEST DE MANN‑WHITNEY (WILCOXON) POUR CHAQUE MÉTRIQUE (tableau)
-# ======================================================================
-metrics_to_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
-
-mannwhitney_results <- data.frame(
-  Metric = character(),
-  W = numeric(),
-  p_value = numeric(),
-  stringsAsFactors = FALSE
-)
-
-for (m in metrics_to_test) {
-  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
-  post_vals <- all_results[all_results$groupe == "post_seuil", m]
-  test <- wilcox.test(pre_vals, post_vals, exact = FALSE, correct = TRUE)
-  mannwhitney_results <- rbind(mannwhitney_results,
-                               data.frame(Metric = m,
-                                          W = test$statistic,
-                                          p_value = test$p.value))
-}
-
-# Ajout de la significativité
-mannwhitney_results$signif <- ifelse(mannwhitney_results$p_value < 0.001, "***",
-                                     ifelse(mannwhitney_results$p_value < 0.01, "**",
-                                            ifelse(mannwhitney_results$p_value < 0.05, "*", "ns")))
-
-# Renommer les métriques pour un affichage clair
-mannwhitney_results$Metric <- factor(mannwhitney_results$Metric,
-                                     levels = metrics_to_test,
-                                     labels = c("Convex hull volume",
-                                                "Functional dispersion (FDis)",
-                                                "Originality",
-                                                "Regularity",
-                                                "Dimensionality"))
-
-# Afficher le tableau des résultats
-cat("\n===== TEST DE MANN‑WHITNEY (comparaison pre_seuil vs post_seuil) =====\n")
-print(mannwhitney_results)
-
-# ======================================================================
-# 5. MISE EN FORME LONGUE POUR LE GRAPHIQUE
-# ======================================================================
-long_results <- all_results %>%
-  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
-               names_to = "metric", values_to = "value")
-
-# Define the desired order of metrics
-desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
-# Or any other order, e.g.:
-# desired_order <- c("Originality", "Richness", "dimensionality", "FDis", "regularity")
-
-long_results$metric <- factor(long_results$metric, levels = desired_order)
-
-
-# Libellés des facettes en anglais
-metric_labels_en <- c(
-  Richness = "Convex hull volume",
-  FDis = "Functional dispersion (FDis)",
-  Originality = "Originality",
-  regularity = "Regularity",
-  dimensionality = "Dimensionality"
-)
-
-
-# ======================================================================
-# 6. BOXPLOT AVEC P‑VALUES (TEST DE MANN‑WHITNEY intégré)
-# ======================================================================
-p <- ggplot(long_results, aes(x = groupe, y = value, fill = groupe)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
-  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
-  facet_wrap(~ metric, scales = "free_y",
-             labeller = labeller(metric = metric_labels_en)) +
-  stat_compare_means(method = "wilcox.test", label = "p.format", size = 3,
-                     comparisons = list(c("pre_seuil", "post_seuil"))) +
-  scale_fill_manual(
-    values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
-    labels = c(paste0("Before threshold (n = 41)"),
-               paste0("After threshold (n = 33)"))
-  ) +
-  labs(x = NULL, y = "Metric value", fill = "Group") +
-  theme_minimal() +
-  theme(
-        axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    strip.background = element_rect(fill = "gray90", color = NA),
-    strip.text = element_text(face = "bold")
-  )
-
-# Afficher le graphique
-print(p)
-
-```
-
-```{r}
-#| eval: false
-
-# ======================================================================
-# COMPARAISON DES MÉTRIQUES FONCTIONNELLES ENTRE GROUPES PRÉ‑SEUIL ET POST‑SEUIL
-# AVEC AJOUT D'UN GROUPE COMBINÉ (PRÉ+POST), VIOLIN + BOXPLOT (TRIM=TRUE)
-# NORMALISATION ROBUSTE (CLAMPING 0-1) ET AUCUN LABEL SUR L'AXE DES X
-# ======================================================================
-
-# 0. Installation des packages si nécessaire (à décommenter)
-# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "ggpubr"))
-
-# Chargement des packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(geometry)      # pour convhulln
-library(fundiversity)  # pour fd_fdis
-library(ggpubr)        # pour ajouter les p-values sur le graphique
-
-# ----------------------------------------------------------------------
-# Fonction qui calcule les métriques pour un échantillon aléatoire d'espèces
-# ----------------------------------------------------------------------
-sample_metrics <- function(species_list, data, size = 25,
-                           scores_cols, traits_cols, global_centroid) {
-  
-  # Garder uniquement les espèces présentes dans data et sans NA sur scores et traits
-  available <- intersect(species_list, data$rowname)
-  if (length(available) < size) {
-    stop("Pas assez d'espèces disponibles dans le groupe pour un échantillon de taille ", size)
-  }
-  
-  # Tirage aléatoire sans remise
-  selected <- sample(available, size, replace = FALSE)
-  
-  # Sous-ensemble des données
-  sub_data <- data[data$rowname %in% selected, ]
-  sub_scores <- as.matrix(sub_data[, scores_cols])
-  sub_traits <- sub_data[, traits_cols]
-  
-  # 1. Volume du convex hull (Richness)
-vol <- tryCatch(
-  hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
-  error = function(e) NA
-)
-  
-  # 2. Dispersion fonctionnelle (FDis)
-  fdis <- fd_fdis(sub_scores)$FDis
-  
-  # 3. Originalité : distance du centroïde du sous‑ensemble au centroïde global
-  centroid_sub <- colMeans(sub_scores)
-  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
-  
-  # 4. Régularité (inverse) : variance des distances dans l'espace des scores
-  dist_mat <- dist(sub_scores)
-  regularity_inv <- var(as.vector(dist_mat))
-  
-  # 5. Dimensionalité (inverse) : variance des valeurs propres de la PCA sur traits
-  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
-  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
-  dimensionality_inv <- var(pca_traits$sdev^2)
-  
-  # Retourner un vecteur nommé
-  c(Richness = vol,
-    FDis = fdis,
-    Originality = orig,
-    regularity_inv = regularity_inv,
-    dimensionality_inv = dimensionality_inv)
-}
-
-# ----------------------------------------------------------------------
-# Fonction principale qui répète l'échantillonnage pour un groupe
-# ----------------------------------------------------------------------
-iterate_group <- function(species_list, data, size = 25, n_iter = 100,
-                          scores_cols, traits_cols, global_centroid) {
-  
-  results <- replicate(n_iter, {
-    sample_metrics(species_list, data, size,
-                   scores_cols, traits_cols, global_centroid)
-  }, simplify = FALSE)
-  
-  # Transformer la liste en data.frame
-  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
-  df$iteration <- 1:n_iter
-  df
-}
-
-# ======================================================================
-# 1. PRÉPARATION DES DONNÉES
-# ======================================================================
-
-# -------------------- À ADAPTER SELON VOS DONNÉES --------------------
-# Obtenez les listes d'espèces pré et post seuil (exemple avec votre fonction)
-
-
-test <- extraire_especes_threshold (sum_df_25, "median_log_Sum", 1.60809093, 1.91893694)
-pre_list <- test$pre_seuil
-post_list <- test$post_seuil
-
-# Données des espèces (doit contenir les colonnes rowname, Comp.1 à Comp.4, SLA, StemSpecDens, HeightMax, LeafArea)
-data <- merged_data_3T
-
-# Colonnes à utiliser
-scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
-traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
-# --------------------------------------------------------------------
-
-# Garder uniquement les espèces ayant toutes les valeurs nécessaires
-complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
-pre_available <- intersect(pre_list, complete_species)
-post_available <- intersect(post_list, complete_species)
-
-cat("Espèces pré‑seuil disponibles :", length(pre_available), "\n")
-cat("Espèces post‑seuil disponibles :", length(post_available), "\n")
-
-if (length(pre_available) < 25 | length(post_available) < 25) {
-  stop("Il faut au moins 25 espèces disponibles dans chaque groupe.")
-}
-
-# Centroïde global (calculé sur toutes les espèces disponibles)
-global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
-global_centroid <- colMeans(global_scores)
-
-# ======================================================================
-# 2. LANCER LES ITÉRATIONS (n_iter = 100, taille = 25)
-# ======================================================================
-n_iter <- 100
-set.seed(123)  # pour reproductibilité
-
-# Groupe pré-seuil
-pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
-                             scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "pre_seuil")
-
-# Groupe post-seuil
-post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
-                              scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "post_seuil")
-
-# Groupe combiné (pré + post)
-combined_species <- union(pre_available, post_available)
-cat("Espèces combinées (pré+post) disponibles :", length(combined_species), "\n")
-if (length(combined_species) < 25) stop("Pas assez d'espèces pour le groupe combiné.")
-
-combined_results <- iterate_group(combined_species, data, size = 25, n_iter = n_iter,
-                                  scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "combined_random")
-
-# Fusionner les trois groupes
-all_results <- bind_rows(pre_results, post_results, combined_results)
-all_results$groupe <- factor(all_results$groupe,
-                             levels = c("combined_random", "pre_seuil", "post_seuil"))
-
-# ======================================================================
-# 3. NORMALISATION ROBUSTE POUR REGULARITY ET DIMENSIONALITY (AVEC CLAMPING)
-# ======================================================================
-# Calcul des bornes sur l'ensemble des trois groupes (pré, post, combiné)
-min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
-max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
-min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
-max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
-
-# Transformation puis clamp entre 0 et 1
-all_results <- all_results %>%
-  mutate(
-    regularity_raw = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
-    dimensionality_raw = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
-  ) %>%
-  mutate(
-    regularity = pmax(0, pmin(1, regularity_raw)),
-    dimensionality = pmax(0, pmin(1, dimensionality_raw))
-  ) %>%
-  select(-regularity_inv, -dimensionality_inv, -regularity_raw, -dimensionality_raw)
-
-# Vérification rapide
-cat("\n=== Statistiques après normalisation (avec clamping) ===\n")
-cat("Regularity : min =", min(all_results$regularity, na.rm = TRUE),
-    "max =", max(all_results$regularity, na.rm = TRUE), "\n")
-cat("Dimensionality : min =", min(all_results$dimensionality, na.rm = TRUE),
-    "max =", max(all_results$dimensionality, na.rm = TRUE), "\n")
-
-# ======================================================================
-# 4. TEST DE MANN‑WHITNEY (WILCOXON) POUR CHAQUE MÉTRIQUE (tableau)
-# ======================================================================
-metrics_to_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
-
-mannwhitney_results <- data.frame(
-  Metric = character(),
-  W = numeric(),
-  p_value = numeric(),
-  stringsAsFactors = FALSE
-)
-
-for (m in metrics_to_test) {
-  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
-  post_vals <- all_results[all_results$groupe == "post_seuil", m]
-  test <- wilcox.test(pre_vals, post_vals, exact = FALSE, correct = TRUE)
-  mannwhitney_results <- rbind(mannwhitney_results,
-                               data.frame(Metric = m,
-                                          W = test$statistic,
-                                          p_value = test$p.value))
-}
-
-# Ajout de la significativité
-mannwhitney_results$signif <- ifelse(mannwhitney_results$p_value < 0.001, "***",
-                                     ifelse(mannwhitney_results$p_value < 0.01, "**",
-                                            ifelse(mannwhitney_results$p_value < 0.05, "*", "ns")))
-
-# Renommer les métriques pour un affichage clair
-mannwhitney_results$Metric <- factor(mannwhitney_results$Metric,
-                                     levels = metrics_to_test,
-                                     labels = c("Convex hull volume",
-                                                "Functional dispersion (FDis)",
-                                                "Originality",
-                                                "Regularity",
-                                                "Dimensionality"))
-
-# Afficher le tableau des résultats
-cat("\n===== TEST DE MANN‑WHITNEY (comparaison pre_seuil vs post_seuil) =====\n")
-print(mannwhitney_results)
-
-# ======================================================================
-# 5. MISE EN FORME LONGUE POUR LE GRAPHIQUE
-# ======================================================================
-long_results <- all_results %>%
-  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
-               names_to = "metric", values_to = "value")
-
-desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
-long_results$metric <- factor(long_results$metric, levels = desired_order)
-
-# Libellés des facettes en anglais
-metric_labels_en <- c(
-  Richness = "Convex hull volume",
-  FDis = "Functional dispersion (FDis)",
-  Originality = "Originality",
-  regularity = "Regularity",
-  dimensionality = "Dimensionality"
-)
-
-# ======================================================================
-# 6. VIOLIN + BOXPLOT (TRIM = TRUE) SANS ÉTIQUETTES SUR L'AXE DES X
-# ======================================================================
-p <- ggplot(long_results, aes(x = groupe, y = value, fill = groupe)) +
-  # Violon tronqué aux données réelles (évite les dépassements visuels)
-  geom_violin(trim = FALSE, alpha = 0.6, width = 1.4) +
-  # Boîte à moustaches fine à l'intérieur
-  geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
-  facet_wrap(~ metric, scales = "free_y",
-             labeller = labeller(metric = metric_labels_en)) +
-  # Comparaison pre vs post uniquement
-  stat_compare_means(method = "wilcox.test", label = "p.format", size = 3,
-                     comparisons = list(c("pre_seuil", "post_seuil")),
-                     inherit.aes = FALSE, aes(label = after_stat(p.format))) +
-  scale_fill_manual(
-    values = c("combined_random" = "grey60",
-               "pre_seuil" = "steelblue",
-               "post_seuil" = "salmon"),
-    labels = c("Mixed", "Before threshold", "After threshold")
-  ) +
-  labs(x = NULL, y = "Metric value", fill = "Group") +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_blank(),   # Supprime les étiquettes de l'axe des x
-    axis.ticks.x = element_blank(),  # Optionnel : supprime aussi les petits traits
-    strip.background = element_rect(fill = "gray90", color = NA),
-    strip.text = element_text(face = "bold"),
-    legend.position = "bottom"
-  )
-
-# Afficher le graphique
-print(p)
-
-# ======================================================================
-# (Optionnel) Tests supplémentaires entre combiné et chaque groupe
-# ======================================================================
-cat("\n===== Tests supplémentaires (combined vs pre / post) =====\n")
-combined_rich <- all_results[all_results$groupe == "combined_random", "Richness"]
-pre_rich      <- all_results[all_results$groupe == "pre_seuil", "Richness"]
-post_rich     <- all_results[all_results$groupe == "post_seuil", "Richness"]
-
-test_comb_pre  <- wilcox.test(combined_rich, pre_rich, exact = FALSE)
-test_comb_post <- wilcox.test(combined_rich, post_rich, exact = FALSE)
-
-cat("Combined vs Pre  : W =", test_comb_pre$statistic, "p =", test_comb_pre$p.value, "\n")
-cat("Combined vs Post : W =", test_comb_post$statistic, "p =", test_comb_post$p.value, "\n")
-```
-
-```{r}
-#| eval: false
-# ======================================================================
-# CALCUL DU POURCENTAGE DE DIFFÉRENCE ENTRE GROUPES (médianes)
-# ======================================================================
-
-# Métriques à analyser (dans l'ordre souhaité)
-metrics <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
-
-# Initialiser un data.frame pour stocker les résultats
-diff_pct <- data.frame(
-  Metric = metrics,
-  Median_pre = NA_real_,
-  Median_post = NA_real_,
-  Percent_diff = NA_real_,
-  stringsAsFactors = FALSE
-)
-
-for (i in seq_along(metrics)) {
-  m <- metrics[i]
-  pre_vals <- all_results[all_results$groupe == "pre_seuil", m]
-  post_vals <- all_results[all_results$groupe == "post_seuil", m]
-  
-  med_pre <- median(pre_vals, na.rm = TRUE)
-  med_post <- median(post_vals, na.rm = TRUE)
-  pct <- (med_post - med_pre) / med_pre * 100
-  
-  diff_pct[i, "Median_pre"] <- med_pre
-  diff_pct[i, "Median_post"] <- med_post
-  diff_pct[i, "Percent_diff"] <- pct
-}
-
-# Ajouter un signe + pour les augmentations et formater
-diff_pct$Change <- ifelse(diff_pct$Percent_diff > 0, 
-                          paste0("+", round(diff_pct$Percent_diff, 1), "%"),
-                          paste0(round(diff_pct$Percent_diff, 1), "%"))
-
-# Renommer les métriques pour l'affichage
-diff_pct$Metric <- factor(diff_pct$Metric,
-                          levels = metrics,
-                          labels = c("Convex hull volume",
-                                     "Functional dispersion (FDis)",
-                                     "Originality",
-                                     "Regularity",
-                                     "Dimensionality"))
-
-# Afficher le tableau
-cat("\n===== POURCENTAGE DE DIFFÉRENCE (médiane post vs pré) =====\n")
-print(diff_pct[, c("Metric", "Median_pre", "Median_post", "Change")])
 ```
 
 ```{r}
