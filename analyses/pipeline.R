@@ -298,27 +298,46 @@ tar_target(pie_chart_emission_screening,compounds_tabled_zeroed_singleton(compou
 tar_target(sum_df_file_15, here::here("data", "article1", "sum_df_15.rds"), format = "file"),
 tar_target(sum_df_15, readRDS(sum_df_file_15)),
 
+tar_target(sum_df_file_15_no_chum, here::here("data", "article1", "sum_df_15_no_chum.rds"), format = "file"),
+tar_target(sum_df_15_no_chum, readRDS(sum_df_file_15_no_chum)),
+
 
 tar_target(sum_df_file_20, here::here("data", "article1", "sum_df_20.rds"), format = "file"),
 tar_target(sum_df_20, readRDS(sum_df_file_20)),
 
+tar_target(sum_df_file_20_no_chum, here::here("data", "article1", "sum_df_20_no_chum.rds"), format = "file"),
+tar_target(sum_df_20_no_chum, readRDS(sum_df_file_20_no_chum)),
+
 tar_target(sum_df_file_25, here::here("data", "article1", "sum_df_25.rds"), format = "file"),
 tar_target(sum_df_25, readRDS(sum_df_file_25)),
 
+tar_target(sum_df_file_25_no_chum, here::here("data", "article1", "sum_df_25_no_chum.rds"), format = "file"),
+tar_target(sum_df_25_no_chum, readRDS(sum_df_file_25_no_chum)),
 
 tar_target(sum_df_file_30, here::here("data", "article1", "sum_df_30.rds"), format = "file"),
 tar_target(sum_df_30, readRDS(sum_df_file_30)),
 
+tar_target(sum_df_file_30_no_chum, here::here("data", "article1", "sum_df_30_no_chum.rds"), format = "file"),
+tar_target(sum_df_30_no_chum, readRDS(sum_df_file_30_no_chum)),
+
 tar_target(sum_df_file_35, here::here("data", "article1", "sum_df_35.rds"), format = "file"),
 tar_target(sum_df_35, readRDS(sum_df_file_35)),
+
+tar_target(sum_df_file_35_no_chum, here::here("data", "article1", "sum_df_35_no_chum.rds"), format = "file"),
+tar_target(sum_df_35_no_chum, readRDS(sum_df_file_35_no_chum)),
 
 tar_target(sum_df_file_40, here::here("data", "article1", "sum_df_40.rds"), format = "file"),
 tar_target(sum_df_40, readRDS(sum_df_file_40)),
 
+tar_target(sum_df_file_40_no_chum, here::here("data", "article1", "sum_df_40_no_chum.rds"), format = "file"),
+tar_target(sum_df_40_no_chum, readRDS(sum_df_file_40_no_chum)),
 
 tar_target(results_models_threshold_file, here::here("data", "article1", "results_moving_window.rds"), format = "file"),
 tar_target(results_models_threshold, readRDS(results_models_threshold_file)),
 
+
+tar_target(results_models_threshold_file_no_chum, here::here("data", "article1", "results_moving_window_no_chum.rds"), format = "file"),
+tar_target(results_models_threshold_no_chum, readRDS(results_models_threshold_file_no_chum)),
 
 
   ##SPATIAL maps

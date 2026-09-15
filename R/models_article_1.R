@@ -414,12 +414,12 @@ analyse_window <- function(data, responses = c("Richness", "regularity", "functi
 # =========================================================================
 #
  results <- list(
-   window15 = analyse_window(sum_df_15),
-   window20 = analyse_window(sum_df_20),
-   window25 = analyse_window(sum_df_25),
-   window30 = analyse_window(sum_df_30),
-   window35 = analyse_window(sum_df_35),
-   window40 = analyse_window(sum_df_40)
+   window15 = analyse_window(sum_df_15_no_chum),
+   window20 = analyse_window(sum_df_20_no_chum),
+   window25 = analyse_window(sum_df_25_no_chum),
+   window30 = analyse_window(sum_df_30_no_chum),
+   window35 = analyse_window(sum_df_35_no_chum),
+   window40 = analyse_window(sum_df_40_no_chum)
  )
 #
 # 
