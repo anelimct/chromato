@@ -89,6 +89,125 @@ matrice_correlation_spearmann(data_traits_sp_iso)
 
 ```
 
+Calcul de la distance au centroid pour chaque espèces afin de déterminer quels sont les outliers fonctionels qu'il faudrait potentielelment enlever pour tester si le seuil existe toujours sans eux
+
+```{r}
+# ================================================================
+# PARTIE 1 : Distance euclidienne au centroïde (originalité globale)
+# ================================================================
+
+library(funrar)
+
+# --- 1.1 Extraction des scores de la PCA ---
+# (adapter selon le type d'objet : $scores pour princomp, 
+#  $li pour dudi.pca, $ind$coord pour FactoMineR::PCA)
+scores_mat <- as.data.frame(pca.trait_usual_iso$scores)
+
+# --- 1.2 Sélection des axes retenus pour l'espace fonctionnel ---
+# (adapter les noms de colonnes à ceux réellement présents : colnames(scores_mat))
+PCs_used <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+scores_sub <- scores_mat[, PCs_used]
+
+# --- 1.3 Calcul du centroïde ---
+# Les scores d'une PCA sont centrés par construction, donc le centroïde
+# théorique est (0,0,0,0), mais on le recalcule explicitement par sécurité
+centroide <- colMeans(scores_sub)
+
+# --- 1.4 Distance euclidienne de chaque espèce au centroïde ---
+dist_centroide <- sqrt(rowSums(sweep(scores_sub, 2, centroide, FUN = "-")^2))
+
+# --- 1.5 Tableau final, trié par distance décroissante ---
+tableau_centroide <- data.frame(
+  species = rownames(scores_sub),
+  dist_centroide = dist_centroide
+)
+tableau_centroide <- tableau_centroide[order(-tableau_centroide$dist_centroide), ]
+
+
+
+# ================================================================
+# PARTIE 2 : Functional Distinctiveness (package funrar)
+# ================================================================
+# Distinctiveness = distance moyenne d'une espèce à toutes les autres
+# espèces du pool (Ricotta et al. 2016 ; Violle et al. 2017).
+# Contrairement à la distance au centroïde, elle ne dépend pas d'un
+# point moyen théorique mais des distances pairwise réelles entre espèces.
+
+# --- 2.1 Matrice de distances fonctionnelles entre espèces ---
+# (calculée à partir des mêmes scores PCA que la Partie 1)
+dist_mat <- as.matrix(dist(scores_sub, method = "euclidean"))
+rownames(dist_mat) <- rownames(scores_sub)
+colnames(dist_mat) <- rownames(scores_sub)
+
+# --- 2.2 Matrice de communauté fictive ---
+# funrar attend une matrice site x espèces. Comme on veut une valeur
+# de Distinctiveness régionale (tout le pool d'espèces à la fois),
+# on crée un seul "site" fictif où toutes les espèces sont présentes
+sp_names <- rownames(scores_sub)
+comm_matrix <- matrix(1, nrow = 1, ncol = length(sp_names),
+                       dimnames = list("region", sp_names))
+
+# --- 2.3 Calcul de la Distinctiveness ---
+# Renvoie une matrice (1 ligne x N espèces) qu'il faut remettre en forme
+resultat_distinctiveness <- funrar::distinctiveness(comm_matrix, dist_mat)
+
+tableau_distinctiveness <- data.frame(
+  species = colnames(resultat_distinctiveness),
+  Di = as.numeric(resultat_distinctiveness["region", ])
+)
+tableau_distinctiveness <- tableau_distinctiveness[order(-tableau_distinctiveness$Di), ]
+
+tableau_final <- merge(tableau_centroide, tableau_distinctiveness, by = "species")
+
+
+
+# ================================================================
+# HISTOGRAMMES AVEC SEUIL DE TUKEY (Q3 + 1.5*IQR) + LISTE D'ESPÈCES
+# ================================================================
+
+par(mfrow = c(1, 2), mar = c(5, 4, 4, 2) + 0.5)
+
+# --- Histogramme 1 : Distance au centroïde ---
+Q1_centroide <- quantile(tableau_final$dist_centroide, 0.25)
+Q3_centroide <- quantile(tableau_final$dist_centroide, 0.75)
+seuil_centroide <- Q3_centroide + 1.5 * (Q3_centroide - Q1_centroide)
+
+especes_outliers_centroide <- tableau_final[tableau_final$dist_centroide > seuil_centroide, ]
+liste_centroide <- paste(especes_outliers_centroide$species, collapse = "\n")
+
+hist(tableau_final$dist_centroide,
+     main = "Distance au centroïde",
+     xlab = "Distance euclidienne",
+     col = "grey85", border = "white")
+abline(v = seuil_centroide, col = "red", lwd = 2, lty = 2)
+
+legend("topright",
+       legend = paste0("Q3+1.5×IQR = ", round(seuil_centroide, 2), "\n\n",
+                        "Espèces concernées :\n", liste_centroide),
+       col = "red", lty = 2, lwd = 2, bty = "n", cex = 0.7)
+
+# --- Histogramme 2 : Functional Distinctiveness ---
+Q1_Di <- quantile(tableau_final$Di, 0.25)
+Q3_Di <- quantile(tableau_final$Di, 0.75)
+seuil_Di <- Q3_Di + 1.5 * (Q3_Di - Q1_Di)
+
+especes_outliers_Di <- tableau_final[tableau_final$Di > seuil_Di, ]
+liste_Di <- paste(especes_outliers_Di$species, collapse = "\n")
+
+hist(tableau_final$Di,
+     main = "Functional Distinctiveness",
+     xlab = "Di",
+     col = "grey85", border = "white")
+abline(v = seuil_Di, col = "red", lwd = 2, lty = 2)
+
+legend("topright",
+       legend = paste0("Q3+1.5×IQR = ", round(seuil_Di, 2), "\n\n",
+                        "Espèces concernées :\n", liste_Di),
+       col = "red", lty = 2, lwd = 2, bty = "n", cex = 0.7)
+
+par(mfrow = c(1, 1))
+```
+
 ```{r}
 #| include: false
 merged_data_3T <- merge(data_traits_EF, trait_space_subset$PCAInfo$pca.object$scores, by = "row.names", all.x = TRUE) |>  
@@ -361,6 +480,170 @@ ggsave(
 ```
 
 \
+
+Position des outliers fonctionnels sur le gradient d'émission
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# ---------------------------------------------------------
+# Colour palette (inchangée)
+# ---------------------------------------------------------
+
+col_palette <- c(
+  "NE"          = "#fce72e",
+  "iso_medium"  = "#adda96",
+  "iso_high"    = "#59ac24",
+  "mono_low"    = "#b7c2f3",
+  "mono_medium" = "#91a2e9",
+  "mono_high"   = "#2c52c4",
+  "both"        = "#c34f70"
+)
+
+emission_labels <- c(
+  "NE"          = "Non-emitter",
+  "iso_medium"  = "Medium isoprene emitter",
+  "iso_high"    = "High isoprene emitter",
+  "mono_low"    = "Low monoterpene emitter",
+  "mono_medium" = "Medium monoterpene emitter",
+  "mono_high"   = "High monoterpene emitter",
+  "both"        = "Isoprene and monoterpene emitter"
+)
+
+# ---------------------------------------------------------
+# Liste des espèces outliers à mettre en évidence
+# ---------------------------------------------------------
+
+especes_a_colorer <- c(
+  "Abies_alba", "Chamaerops_humilis", "Fagus_sylvatica",
+  "Ficus_carica", "Frangula_alnus", "Tilia_platyphyllos"
+)
+
+# ---------------------------------------------------------
+# Prepare data
+# ---------------------------------------------------------
+
+plot_data <- merged_data_3T %>%
+  filter(
+    !is.na(sum_isoprenoids_mean),
+    !is.na(sum_isoprenoids_min),
+    !is.na(sum_isoprenoids_max)
+  ) %>%
+  mutate(
+    log_sum     = log10(sum_isoprenoids_mean + 0.01),
+    log_sum_min = log10(sum_isoprenoids_min + 0.01),
+    log_sum_max = log10(sum_isoprenoids_max + 0.01),
+
+    is_outlier = rowname %in% especes_a_colorer,
+
+    # Couleur affichée : sub_type si outlier, sinon catégorie "grise"
+    display_colour = ifelse(is_outlier, as.character(sub_type), "grey_other"),
+    display_colour = factor(display_colour, levels = c(names(col_palette), "grey_other"))
+  ) %>%
+  arrange(log_sum) %>%
+  mutate(
+    rank = row_number()
+  )
+
+outlier_points <- plot_data %>% filter(is_outlier)
+
+# ---------------------------------------------------------
+# Palette étendue : couleurs sub_type + gris pour le reste
+# ---------------------------------------------------------
+
+col_palette_display <- c(col_palette, "grey_other" = "grey80")
+
+# ---------------------------------------------------------
+# Plot
+# ---------------------------------------------------------
+
+p <- ggplot(
+  plot_data,
+  aes(x = rank, y = log_sum)
+) +
+  geom_errorbar(
+    aes(
+      ymin = log_sum_min,
+      ymax = log_sum_max,
+      colour = display_colour,
+      alpha = is_outlier
+    ),
+    width = 0.18,
+    linewidth = 0.45
+  ) +
+  geom_point(
+    aes(colour = display_colour, size = is_outlier, alpha = is_outlier)
+  ) +
+  geom_point(
+    data = outlier_points,
+    aes(x = rank, y = log_sum),
+    shape = 21, colour = "black", fill = NA,
+    size = 4.2, stroke = 0.9
+  ) +
+  ggrepel::geom_text_repel(
+    data = outlier_points,
+    aes(x = rank, y = log_sum, label = rowname),
+    size = 2.8, colour = "black",
+    min.segment.length = 0,
+    segment.size = 0.3,
+    box.padding = 0.4,
+    max.overlaps = Inf
+  ) +
+  scale_colour_manual(
+    values = col_palette_display,
+    labels = emission_labels,      # correction : plus de "grey_other" ici
+    name = "Emitter type",
+    breaks = names(col_palette),   # la légende n'affiche que les vraies catégories
+    drop = FALSE
+  ) +
+  scale_alpha_manual(
+    values = c("TRUE" = 0.95, "FALSE" = 0.35),
+    guide = "none"
+  ) +
+  scale_size_manual(
+    values = c("TRUE" = 2.8, "FALSE" = 1.6),
+    guide = "none"
+  ) +
+  scale_x_continuous(
+    name = "Species rank",
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+  scale_y_continuous(
+    name = expression(
+      log[10] * "(EF + 0.01)" ~
+       "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+    ),
+    expand = expansion(mult = c(0.03, 0.05))
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(face = "plain", colour = "black"),
+    axis.title = element_text(size = 11, face = "plain"),
+    axis.text = element_text(size = 9.5, face = "plain", colour = "black"),
+    panel.grid.major.y = element_line(colour = "grey88", linewidth = 0.35),
+    panel.grid.minor.y = element_line(colour = "grey94", linewidth = 0.25),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.line = element_line(linewidth = 0.45, colour = "black"),
+    axis.ticks = element_line(linewidth = 0.45, colour = "black"),
+    legend.position = "right",
+    legend.title = element_text(size = 10, face = "plain"),
+    legend.text = element_text(size = 9, face = "plain"),
+    legend.key = element_blank(),
+    legend.spacing.y = unit(0.12, "cm"),
+    plot.margin = margin(5.5, 8, 5.5, 5.5)
+  )
+
+ggsave(
+  filename = "position_outliers_gradient_emission.svg",
+  plot = p,
+  width = 10,
+  height = 4,
+  device = "svg"
+)
+
+```
 
 \
 \
@@ -1590,9 +1873,8 @@ plot_window_selected_gg <- function(window_res, data, window_name = "",
 # =========================================================================
 # 9. Application a toutes les fenetres
 # =========================================================================
-window_data <- list(
-  window15 = sum_df_15, window20 = sum_df_20, window25 = sum_df_25,
-  window30 = sum_df_30, window35 = sum_df_35, window40 = sum_df_40
+window_data <- list( window15 = sum_df_15_no_chum, window20 = sum_df_20_no_chum, window25 = sum_df_25_no_chum, window30 = sum_df_30_no_chum,
+  window35 = sum_df_35_no_chum, window40 = sum_df_40_no_chum
 )
 
 combined_plots <- purrr::imap(results, function(window_res, window_name) {
@@ -1624,7 +1906,7 @@ res <- moving_window_categories_3(
     step = 1,
     return_window_info = TRUE,
     plot_type = "area",
-    vlines = list(v = c(0.7298538, 0.6414858, 0.7758776)),
+    vlines = list(v = c(0.73, 0.01, 0.98)), #list(v = c(0.7298538, 0.6414858, 0.7758776))
     show_legend = TRUE, font_size = 16,
 )
 
@@ -1634,75 +1916,165 @@ dev.off()
 
 ```
 
-\
-
 ```{r}
+targets::tar_load(sum_df_25)
 test <- extraire_especes_threshold(sum_df_25, "median_log_sum", 0.6414858, 0.7758776) ### changer avec le nouveau threshold du modele
 
 # ======================================================================
 # COMPARAISON DES METRIQUES FONCTIONNELLES ENTRE GROUPES PRE-SEUIL ET POST-SEUIL
+# + CHEVAUCHEMENT DES HYPERVOLUMES (hypervolume_set) A CHAQUE ITERATION
 # Test de permutation (label shuffling) + graphique annote
 # ======================================================================
 
 # 0. Installation des packages si necessaire (a decommenter)
-# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity"))
+# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity", "hypervolume"))
 
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(geometry)      # pour convhulln
 library(fundiversity)  # pour fd_fdis
-# library(future.apply) # optionnel, pour paralleliser le test de permutation
+library(hypervolume)   # pour hypervolume() et hypervolume_set()
 
 # ----------------------------------------------------------------------
-# Fonction qui calcule les metriques pour un echantillon aleatoire d'especes
+# Fonction : calcule l'hypervolume + les metriques fonctionnelles pour
+# UN groupe (pre OU post) a partir d'une selection d'especes deja tiree.
+# Renvoie aussi l'objet hypervolume complet (necessaire pour hypervolume_set,
+# pas seulement son volume).
 # ----------------------------------------------------------------------
-sample_metrics <- function(species_list, data, size = 25,
-                            scores_cols, traits_cols, global_centroid) {
-
-  available <- intersect(species_list, data$rowname)
-  if (length(available) < size) {
-    stop("Pas assez d'especes disponibles dans le groupe pour un echantillon de taille ", size)
-  }
-
-  selected <- sample(available, size, replace = FALSE)
+compute_group_hv <- function(selected, data, scores_cols, traits_cols, global_centroid) {
 
   sub_data   <- data[data$rowname %in% selected, ]
   sub_scores <- as.matrix(sub_data[, scores_cols])
   sub_traits <- sub_data[, traits_cols]
 
-  # 1. Volume du convex hull (Richness / Hypervolume)
-  vol <- tryCatch(
-    hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
-    error = function(e) NA
+  # Hypervolume complet (objet), pas seulement son volume
+  hv <- tryCatch(
+    hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE),
+    error = function(e) NULL
   )
+  vol <- if (!is.null(hv)) hv@Volume else NA_real_
 
-  # 2. Dispersion fonctionnelle (FDis)
+  # FDis
   fdis <- fd_fdis(sub_scores)$FDis
 
-  # 3. Originalite : distance du centroide du sous-ensemble au centroide global
+  # Originalite
   centroid_sub <- colMeans(sub_scores)
   orig <- sqrt(sum((centroid_sub - global_centroid)^2))
 
-  # 4. Regularite (inverse) : variance des distances dans l'espace des scores
+  # Regularite (inverse)
   dist_mat <- dist(sub_scores)
   regularity_inv <- var(as.vector(dist_mat))
 
-  # 5. Dimensionalite (inverse) : variance des valeurs propres de la PCA sur traits
+  # Dimensionalite (inverse)
   traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
-  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
+  pca_traits  <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
   dimensionality_inv <- var(pca_traits$sdev^2)
 
-  c(Richness = vol,
-    FDis = fdis,
-    Originality = orig,
-    regularity_inv = regularity_inv,
-    dimensionality_inv = dimensionality_inv)
+  list(
+    hv = hv,
+    metrics = c(Richness = vol,
+                FDis = fdis,
+                Originality = orig,
+                regularity_inv = regularity_inv,
+                dimensionality_inv = dimensionality_inv),
+    species = selected
+  )
 }
 
 # ----------------------------------------------------------------------
-# Fonction principale qui repete l'echantillonnage pour un groupe
+# Fonction principale APPARIEE : a chaque iteration i, tire un echantillon
+# pre_seuil ET un echantillon post_seuil EN PARALLELE, calcule leurs
+# metriques individuelles respectives, PUIS calcule hypervolume_set(hv_pre,
+# hv_post) pour obtenir Intersection, Union, Unique_1 (propre a pre),
+# Unique_2 (propre a post) de CETTE iteration precise.
 # ----------------------------------------------------------------------
+iterate_paired <- function(pre_available, post_available, data, size = 25, n_iter = 100,
+                            scores_cols, traits_cols, global_centroid,
+                            keep_species = TRUE, seed = NULL) {
+
+  if (!is.null(seed)) set.seed(seed)
+
+  pre_rows     <- vector("list", n_iter)
+  post_rows    <- vector("list", n_iter)
+  overlap_rows <- vector("list", n_iter)
+
+  for (i in seq_len(n_iter)) {
+
+    pre_sel  <- sample(pre_available,  size, replace = FALSE)
+    post_sel <- sample(post_available, size, replace = FALSE)
+
+    pre_res  <- compute_group_hv(pre_sel,  data, scores_cols, traits_cols, global_centroid)
+    post_res <- compute_group_hv(post_sel, data, scores_cols, traits_cols, global_centroid)
+
+    # ---- hypervolume_set : hv1 = pre_seuil, hv2 = post_seuil ----
+    Intersection <- NA_real_
+    Union        <- NA_real_
+    Unique_1     <- NA_real_   # propre a pre_seuil (absent de post_seuil)
+    Unique_2     <- NA_real_   # propre a post_seuil (absent de pre_seuil)
+
+    if (!is.null(pre_res$hv) && !is.null(post_res$hv)) {
+      set_result <- tryCatch(
+        hypervolume::hypervolume_set(pre_res$hv, post_res$hv,
+                                      check.memory = FALSE, verbose = FALSE),
+        error = function(e) NULL
+      )
+      if (!is.null(set_result)) {
+        Intersection <- set_result@HVList$Intersection@Volume
+        Union        <- set_result@HVList$Union@Volume
+        Unique_1     <- set_result@HVList$Unique_1@Volume
+        Unique_2     <- set_result@HVList$Unique_2@Volume
+      }
+    }
+
+    # % de l'hypervolume pre inclus dans post, et inversement
+    pct_pre_in_post <- Intersection / pre_res$metrics["Richness"]  * 100
+    pct_post_in_pre <- Intersection / post_res$metrics["Richness"] * 100
+
+    pre_row  <- as.data.frame(t(pre_res$metrics))
+    post_row <- as.data.frame(t(post_res$metrics))
+    pre_row$iteration  <- i
+    post_row$iteration <- i
+
+    if (keep_species) {
+      pre_row$species_list  <- list(pre_res$species)
+      post_row$species_list <- list(post_res$species)
+    }
+
+    pre_rows[[i]]  <- pre_row
+    post_rows[[i]] <- post_row
+
+    overlap_rows[[i]] <- data.frame(
+      iteration       = i,
+      Intersection    = Intersection,
+      Union           = Union,
+      Unique_1        = Unique_1,
+      Unique_2        = Unique_2,
+      Pct_pre_in_post = unname(pct_pre_in_post),
+      Pct_post_in_pre = unname(pct_post_in_pre)
+    )
+  }
+
+  list(
+    pre_results     = do.call(rbind, pre_rows),
+    post_results    = do.call(rbind, post_rows),
+    overlap_results = do.call(rbind, overlap_rows)
+  )
+}
+
+# ----------------------------------------------------------------------
+# Fonctions NON appariees (echantillonnage independant pre/post), utilisees
+# uniquement pour construire la distribution nulle du test de permutation
+# (section 4) : la ne pas besoin de hypervolume_set, juste des metriques
+# marginales par groupe.
+# ----------------------------------------------------------------------
+sample_metrics <- function(species_list, data, size = 25,
+                            scores_cols, traits_cols, global_centroid) {
+  res <- compute_group_hv(sample(species_list, size, replace = FALSE),
+                           data, scores_cols, traits_cols, global_centroid)
+  res$metrics
+}
+
 iterate_group <- function(species_list, data, size = 25, n_iter = 100,
                            scores_cols, traits_cols, global_centroid) {
 
@@ -1746,20 +2118,32 @@ global_centroid <- colMeans(global_scores)
 
 # ======================================================================
 # 2. DISTRIBUTIONS OBSERVEES (pour la figure), n_iter = 100, taille = 25
+#    + CHEVAUCHEMENT DES HYPERVOLUMES (hypervolume_set) A CHAQUE ITERATION
+#    (hv1 = pre_seuil, hv2 = post_seuil)
 # ======================================================================
 n_iter <- 100
-set.seed(123)
 
-pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
-                              scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "pre_seuil")
+paired_out <- iterate_paired(
+  pre_available, post_available, data, size = 25, n_iter = n_iter,
+  scores_cols = scores_cols, traits_cols = traits_cols,
+  global_centroid = global_centroid,
+  keep_species = TRUE, seed = 123
+)
 
-post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
-                               scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "post_seuil")
+pre_results     <- paired_out$pre_results  %>% mutate(groupe = "pre_seuil")
+post_results    <- paired_out$post_results %>% mutate(groupe = "post_seuil")
+overlap_results <- paired_out$overlap_results
 
 all_results <- bind_rows(pre_results, post_results)
 all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
+
+cat("\n===== CHEVAUCHEMENT DES HYPERVOLUMES (pre vs post), resume sur", n_iter, "iterations =====\n")
+cat("Intersection (mediane) :", median(overlap_results$Intersection, na.rm = TRUE), "\n")
+cat("Union (mediane)        :", median(overlap_results$Union, na.rm = TRUE), "\n")
+cat("Unique_1 / pre (mediane)  :", median(overlap_results$Unique_1, na.rm = TRUE), "\n")
+cat("Unique_2 / post (mediane) :", median(overlap_results$Unique_2, na.rm = TRUE), "\n")
+cat("% hypervolume pre inclus dans post (mediane) :", median(overlap_results$Pct_pre_in_post, na.rm = TRUE), "\n")
+cat("% hypervolume post inclus dans pre (mediane) :", median(overlap_results$Pct_post_in_pre, na.rm = TRUE), "\n")
 
 # ======================================================================
 # 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY (pour l'affichage)
@@ -1784,13 +2168,13 @@ post_results <- all_results %>% filter(groupe == "post_seuil")
 # ======================================================================
 # Principe : sous H0, l'appartenance pre/post d'une espece est arbitraire.
 # On melange les labels (en gardant les tailles de groupe reelles n_pre/n_post),
-# on refait tourner EXACTEMENT le meme pipeline de sous-echantillonnage,
-# et on obtient une statistique nulle qui integre elle-meme la structure de
-# correlation induite par le reechantillonnage. Cela evite la pseudoreplication
-# du test de Mann-Whitney applique naivement sur les 100 iterations.
+# on refait tourner le meme pipeline de sous-echantillonnage (independant ici,
+# car on ne teste que les metriques marginales, pas le chevauchement),
+# et on obtient une statistique nulle qui integre la structure de correlation
+# induite par le reechantillonnage.
 
 permutation_test_metrics <- function(pre_available, post_available, data,
-                                      size = 25, n_iter_inner = 20, n_perm = 199,
+                                      size = 25, n_iter_inner = 1, n_perm = 1000,
                                       scores_cols, traits_cols, global_centroid,
                                       stat_fun = median, seed = 1) {
 
@@ -1825,7 +2209,6 @@ permutation_test_metrics <- function(pre_available, post_available, data,
       dimensionality = stat_fun(post_perm$dimensionality_inv, na.rm = TRUE) - stat_fun(pre_perm$dimensionality_inv, na.rm = TRUE)
     )
   })
-  # null_mat : matrice 5 metriques x n_perm
 
   pvals <- sapply(seq_along(obs_diff), function(i) {
     (sum(abs(null_mat[i, ]) >= abs(obs_diff[i]), na.rm = TRUE) + 1) / (n_perm + 1)
@@ -1874,7 +2257,6 @@ long_results <- all_results %>%
 desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
 long_results$metric <- factor(long_results$metric, levels = desired_order)
 
-# Titres de panneau : juste "(lettre) Nom de la metrique", plus de p-value
 metric_names <- c(
   Richness       = "Functional richness",
   FDis           = "Functional dispersion",
@@ -1889,7 +2271,6 @@ panel_titles  <- setNames(
   desired_order
 )
 
-# Labels d'axe Y specifiques a chaque metrique (unite/nature de la mesure)
 y_labels <- c(
   Richness       = "Hypervolume (unitless)",
   regularity     = "Regularity",
@@ -1940,11 +2321,9 @@ diff_pct$MetricLabel <- factor(diff_pct$Metric,
 cat("\n===== POURCENTAGE DE DIFFERENCE (mediane post vs pre) =====\n")
 print(diff_pct[, c("MetricLabel", "Median_pre", "Median_post", "Change")])
 
-# Etoiles issues du test de permutation (section 4)
 diff_pct$signif <- perm_results$signif[match(diff_pct$Metric, perm_results$Metric)]
 diff_pct$metric <- factor(diff_pct$Metric, levels = desired_order)
 
-# Position verticale du bracket = max de chaque metrique + marge
 y_positions <- long_results %>%
   group_by(metric) %>%
   summarise(y_position = max(value, na.rm = TRUE) * 1.10, .groups = "drop")
@@ -1953,7 +2332,7 @@ sig_data <- diff_pct %>%
   left_join(y_positions, by = "metric") %>%
   mutate(
     xmin = 1, xmax = 2,
-    annotation = paste0(Change, " ", signif)   # ex: "+12.3% *" 
+    annotation = paste0(Change, " ", signif)
   )
 
 # ======================================================================
@@ -1984,388 +2363,7 @@ build_metric_plot <- function(metric_name) {
     labs(
       title = panel_titles[metric_name],
       x = NULL,
-      y = y_labels[metric_name],   # toujours affiche, sur tous les panneaux
-      fill = NULL
-    ) +
-    theme_minimal(base_size = 11) +
-    theme(
-      axis.text.x      = element_blank(),
-      axis.ticks.x     = element_blank(),
-      plot.title       = element_text(face = "bold", size = 10),
-      legend.position   = "bottom",
-      panel.grid.minor  = element_blank()
-    )
-}
-
-plots <- purrr::map(desired_order, build_metric_plot)
-names(plots) <- desired_order
-
-final_plot <- patchwork::wrap_plots(plots, ncol = 3) +
-  patchwork::plot_layout(guides = "collect") &
-  theme(legend.position = "bottom")
-
-print(final_plot)
-
-ggsave(
-  filename = "metric_pre_post.svg",
-  plot = final_plot,
-  width = 6,
-  height = 4,
-  device = "svg"
-)
-```
-
-\
-
-```{r}
-test <- extraire_especes_threshold(sum_df_25, "median_log_sum", 0.6414858, 0.7758776) ### changer avec le nouveau threshold du modele
-
-# ======================================================================
-# COMPARAISON DES METRIQUES FONCTIONNELLES ENTRE GROUPES PRE-SEUIL ET POST-SEUIL
-# Test de permutation (label shuffling) + graphique annote
-# ======================================================================
-
-# 0. Installation des packages si necessaire (a decommenter)
-# install.packages(c("ggplot2", "dplyr", "tidyr", "geometry", "fundiversity"))
-
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(geometry)      # pour convhulln
-library(fundiversity)  # pour fd_fdis
-# library(future.apply) # optionnel, pour paralleliser le test de permutation
-
-# ----------------------------------------------------------------------
-# Fonction qui calcule les metriques pour un echantillon aleatoire d'especes
-# ----------------------------------------------------------------------
-sample_metrics <- function(species_list, data, size = 25,
-                            scores_cols, traits_cols, global_centroid) {
-
-  available <- intersect(species_list, data$rowname)
-  if (length(available) < size) {
-    stop("Pas assez d'especes disponibles dans le groupe pour un echantillon de taille ", size)
-  }
-
-  selected <- sample(available, size, replace = FALSE)
-
-  sub_data   <- data[data$rowname %in% selected, ]
-  sub_scores <- as.matrix(sub_data[, scores_cols])
-  sub_traits <- sub_data[, traits_cols]
-
-  # 1. Volume du convex hull (Richness / Hypervolume)
-  vol <- tryCatch(
-    hypervolume::hypervolume(sub_scores, method = "gaussian", verbose = FALSE)@Volume,
-    error = function(e) NA
-  )
-
-  # 2. Dispersion fonctionnelle (FDis)
-  fdis <- fd_fdis(sub_scores)$FDis
-
-  # 3. Originalite : distance du centroide du sous-ensemble au centroide global
-  centroid_sub <- colMeans(sub_scores)
-  orig <- sqrt(sum((centroid_sub - global_centroid)^2))
-
-  # 4. Regularite (inverse) : variance des distances dans l'espace des scores
-  dist_mat <- dist(sub_scores)
-  regularity_inv <- var(as.vector(dist_mat))
-
-  # 5. Dimensionalite (inverse) : variance des valeurs propres de la PCA sur traits
-  traits_norm <- scale(sub_traits, center = TRUE, scale = TRUE)
-  pca_traits <- prcomp(traits_norm, center = FALSE, scale. = FALSE)
-  dimensionality_inv <- var(pca_traits$sdev^2)
-
-  c(Richness = vol,
-    FDis = fdis,
-    Originality = orig,
-    regularity_inv = regularity_inv,
-    dimensionality_inv = dimensionality_inv)
-}
-
-# ----------------------------------------------------------------------
-# Fonction principale qui repete l'echantillonnage pour un groupe
-# ----------------------------------------------------------------------
-iterate_group <- function(species_list, data, size = 25, n_iter = 100,
-                           scores_cols, traits_cols, global_centroid) {
-
-  results <- replicate(n_iter, {
-    sample_metrics(species_list, data, size,
-                    scores_cols, traits_cols, global_centroid)
-  }, simplify = FALSE)
-
-  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
-  df$iteration <- 1:n_iter
-  df
-}
-
-# ======================================================================
-# 1. PREPARATION DES DONNEES
-# ======================================================================
-pre_list  <- test$pre_seuil
-post_list <- test$post_seuil
-
-data <- plot_data
-
-scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
-traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
-
-complete_species <- data[complete.cases(data[, c(scores_cols, traits_cols)]), "rowname"]
-pre_available  <- intersect(pre_list, complete_species)
-post_available <- intersect(post_list, complete_species)
-
-n_pre  <- length(pre_available)
-n_post <- length(post_available)
-
-cat("Especes pre-seuil disponibles :", n_pre, "\n")
-cat("Especes post-seuil disponibles :", n_post, "\n")
-
-if (n_pre < 25 | n_post < 25) {
-  stop("Il faut au moins 25 especes disponibles dans chaque groupe.")
-}
-
-global_scores <- as.matrix(data[data$rowname %in% complete_species, scores_cols])
-global_centroid <- colMeans(global_scores)
-
-# ======================================================================
-# 2. DISTRIBUTIONS OBSERVEES (pour la figure), n_iter = 100, taille = 25
-# ======================================================================
-n_iter <- 100
-set.seed(123)
-
-pre_results <- iterate_group(pre_available, data, size = 25, n_iter = n_iter,
-                              scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "pre_seuil")
-
-post_results <- iterate_group(post_available, data, size = 25, n_iter = n_iter,
-                               scores_cols, traits_cols, global_centroid) %>%
-  mutate(groupe = "post_seuil")
-
-all_results <- bind_rows(pre_results, post_results)
-all_results$groupe <- factor(all_results$groupe, levels = c("pre_seuil", "post_seuil"))
-
-# ======================================================================
-# 3. NORMALISATION POUR REGULARITY ET DIMENSIONALITY (pour l'affichage)
-# ======================================================================
-min_reg_inv <- min(all_results$regularity_inv, na.rm = TRUE)
-max_reg_inv <- max(all_results$regularity_inv, na.rm = TRUE)
-min_dim_inv <- min(all_results$dimensionality_inv, na.rm = TRUE)
-max_dim_inv <- max(all_results$dimensionality_inv, na.rm = TRUE)
-
-all_results <- all_results %>%
-  mutate(
-    regularity     = 1 - (regularity_inv - min_reg_inv) / (max_reg_inv - min_reg_inv),
-    dimensionality = 1 - (dimensionality_inv - min_dim_inv) / (max_dim_inv - min_dim_inv)
-  ) %>%
-  select(-regularity_inv, -dimensionality_inv)
-
-pre_results  <- all_results %>% filter(groupe == "pre_seuil")
-post_results <- all_results %>% filter(groupe == "post_seuil")
-
-# ======================================================================
-# 4. TEST DE PERMUTATION (label shuffling) — remplace le Wilcoxon classique
-# ======================================================================
-# Principe : sous H0, l'appartenance pre/post d'une espece est arbitraire.
-# On melange les labels (en gardant les tailles de groupe reelles n_pre/n_post),
-# on refait tourner EXACTEMENT le meme pipeline de sous-echantillonnage,
-# et on obtient une statistique nulle qui integre elle-meme la structure de
-# correlation induite par le reechantillonnage. Cela evite la pseudoreplication
-# du test de Mann-Whitney applique naivement sur les 100 iterations.
-
-permutation_test_metrics <- function(pre_available, post_available, data,
-                                      size = 25, n_iter_inner = 20, n_perm = 199,
-                                      scores_cols, traits_cols, global_centroid,
-                                      stat_fun = median, seed = 1) {
-
-  set.seed(seed)
-  n_pre_l  <- length(pre_available)
-  n_post_l <- length(post_available)
-  pool     <- c(pre_available, post_available)
-
-  # ---- statistique observee, sur les distributions deja calculees ----
-  obs_diff <- c(
-    Richness       = stat_fun(post_results$Richness, na.rm = TRUE)       - stat_fun(pre_results$Richness, na.rm = TRUE),
-    FDis           = stat_fun(post_results$FDis, na.rm = TRUE)           - stat_fun(pre_results$FDis, na.rm = TRUE),
-    Originality    = stat_fun(post_results$Originality, na.rm = TRUE)    - stat_fun(pre_results$Originality, na.rm = TRUE),
-    regularity     = stat_fun(post_results$regularity, na.rm = TRUE)     - stat_fun(pre_results$regularity, na.rm = TRUE),
-    dimensionality = stat_fun(post_results$dimensionality, na.rm = TRUE) - stat_fun(pre_results$dimensionality, na.rm = TRUE)
-  )
-
-  # ---- distribution nulle ----
-  null_mat <- replicate(n_perm, {
-    shuffled  <- sample(pool)
-    perm_pre  <- shuffled[1:n_pre_l]
-    perm_post <- shuffled[(n_pre_l + 1):(n_pre_l + n_post_l)]
-
-    pre_perm  <- iterate_group(perm_pre,  data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
-    post_perm <- iterate_group(perm_post, data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
-
-    c(
-      Richness       = stat_fun(post_perm$Richness, na.rm = TRUE)           - stat_fun(pre_perm$Richness, na.rm = TRUE),
-      FDis           = stat_fun(post_perm$FDis, na.rm = TRUE)               - stat_fun(pre_perm$FDis, na.rm = TRUE),
-      Originality    = stat_fun(post_perm$Originality, na.rm = TRUE)        - stat_fun(pre_perm$Originality, na.rm = TRUE),
-      regularity     = stat_fun(post_perm$regularity_inv, na.rm = TRUE)     - stat_fun(pre_perm$regularity_inv, na.rm = TRUE),
-      dimensionality = stat_fun(post_perm$dimensionality_inv, na.rm = TRUE) - stat_fun(pre_perm$dimensionality_inv, na.rm = TRUE)
-    )
-  })
-  # null_mat : matrice 5 metriques x n_perm
-
-  pvals <- sapply(seq_along(obs_diff), function(i) {
-    (sum(abs(null_mat[i, ]) >= abs(obs_diff[i]), na.rm = TRUE) + 1) / (n_perm + 1)
-  })
-  names(pvals) <- names(obs_diff)
-
-  list(observed = obs_diff, null = null_mat, p_value = pvals)
-}
-
-# ATTENTION : ce test est couteux en calcul (hypervolume() est lent).
-# Commencez avec n_perm et n_iter_inner faibles pour calibrer le temps
-# d'execution avant de lancer la version finale (ex. n_perm = 999).
-perm_test <- permutation_test_metrics(
-  pre_available, post_available, data,
-  size = 25, n_iter_inner = 20, n_perm = 30,
-  scores_cols = scores_cols, traits_cols = traits_cols,
-  global_centroid = global_centroid, stat_fun = median
-)
-
-perm_results <- data.frame(
-  Metric      = names(perm_test$p_value),
-  Diff_median = perm_test$observed,
-  p_value     = perm_test$p_value
-)
-perm_results$signif <- ifelse(perm_results$p_value < 0.001, "***",
-                        ifelse(perm_results$p_value < 0.01,  "**",
-                        ifelse(perm_results$p_value < 0.05,  "*", "ns")))
-
-cat("\n===== TEST DE PERMUTATION (label shuffling, pre_seuil vs post_seuil) =====\n")
-print(perm_results)
-
-
-
-
-library(ggsignif)
-library(patchwork)
-library(dplyr)
-
-# ======================================================================
-# 5. MISE EN FORME LONGUE + LABELS
-# ======================================================================
-long_results <- all_results %>%
-  pivot_longer(cols = c(Richness, FDis, Originality, regularity, dimensionality),
-               names_to = "metric", values_to = "value")
-
-desired_order <- c("Richness", "regularity", "FDis", "Originality", "dimensionality")
-long_results$metric <- factor(long_results$metric, levels = desired_order)
-
-# Titres de panneau : juste "(lettre) Nom de la metrique", plus de p-value
-metric_names <- c(
-  Richness       = "Functional richness",
-  FDis           = "Functional dispersion",
-  Originality    = "Originality",
-  regularity     = "Regularity",
-  dimensionality = "Functional dimensionality"
-)
-
-facet_letters <- setNames(letters[seq_along(desired_order)], desired_order)
-panel_titles  <- setNames(
-  paste0("(", facet_letters[desired_order], ") ", metric_names[desired_order]),
-  desired_order
-)
-
-# Labels d'axe Y specifiques a chaque metrique (unite/nature de la mesure)
-y_labels <- c(
-  Richness       = "Hypervolume (unitless)",
-  regularity     = "Regularity",
-  FDis           = "Functional dispersion",
-  Originality    = "Originality",
-  dimensionality = "Dimensionality"
-)
-
-# ======================================================================
-# 5bis. POURCENTAGE DE DIFFERENCE (medianes) + etoiles de significativite
-# ======================================================================
-metrics <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
-
-diff_pct <- data.frame(
-  Metric = metrics,
-  Median_pre = NA_real_,
-  Median_post = NA_real_,
-  Percent_diff = NA_real_,
-  stringsAsFactors = FALSE
-)
-
-for (i in seq_along(metrics)) {
-  m <- metrics[i]
-  pre_vals  <- all_results[all_results$groupe == "pre_seuil",  m]
-  post_vals <- all_results[all_results$groupe == "post_seuil", m]
-
-  med_pre  <- median(pre_vals,  na.rm = TRUE)
-  med_post <- median(post_vals, na.rm = TRUE)
-  pct <- (med_post - med_pre) / med_pre * 100
-
-  diff_pct[i, "Median_pre"]   <- med_pre
-  diff_pct[i, "Median_post"]  <- med_post
-  diff_pct[i, "Percent_diff"] <- pct
-}
-
-diff_pct$Change <- ifelse(diff_pct$Percent_diff > 0,
-                           paste0("+", round(diff_pct$Percent_diff, 1), "%"),
-                           paste0(round(diff_pct$Percent_diff, 1), "%"))
-
-diff_pct$MetricLabel <- factor(diff_pct$Metric,
-                                levels = metrics,
-                                labels = c("Functional richness",
-                                           "Functional dispersion",
-                                           "Originality",
-                                           "Regularity",
-                                           "Functional dimensionality"))
-
-cat("\n===== POURCENTAGE DE DIFFERENCE (mediane post vs pre) =====\n")
-print(diff_pct[, c("MetricLabel", "Median_pre", "Median_post", "Change")])
-
-# Etoiles issues du test de permutation (section 4)
-diff_pct$signif <- perm_results$signif[match(diff_pct$Metric, perm_results$Metric)]
-diff_pct$metric <- factor(diff_pct$Metric, levels = desired_order)
-
-# Position verticale du bracket = max de chaque metrique + marge
-y_positions <- long_results %>%
-  group_by(metric) %>%
-  summarise(y_position = max(value, na.rm = TRUE) * 1.10, .groups = "drop")
-
-sig_data <- diff_pct %>%
-  left_join(y_positions, by = "metric") %>%
-  mutate(
-    xmin = 1, xmax = 2,
-    annotation = paste0(Change, " ", signif)   # ex: "+12.3% *" 
-  )
-
-# ======================================================================
-# 6. UN GRAPHIQUE PAR METRIQUE — label Y affiche sur CHAQUE panneau
-# ======================================================================
-build_metric_plot <- function(metric_name) {
-
-  d_sub   <- long_results %>% filter(metric == metric_name)
-  sig_sub <- sig_data      %>% filter(metric == metric_name)
-
-  ggplot(d_sub, aes(x = groupe, y = value, fill = groupe)) +
-    geom_violin(trim = FALSE, alpha = 0.6, width = 1.4) +
-    geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
-    geom_signif(
-      data = sig_sub,
-      aes(xmin = xmin, xmax = xmax, y_position = y_position, annotations = annotation),
-      manual = TRUE, inherit.aes = FALSE,
-      textsize = 3, vjust = -0.3, tip_length = 0.02
-    ) +
-    scale_fill_manual(
-      values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
-      labels = c(
-        paste0("Before threshold (n = ", n_pre, ")"),
-        paste0("After threshold (n = ", n_post, ")")
-      )
-    ) +
-    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
-    labs(
-      title = panel_titles[metric_name],
-      x = NULL,
-      y = y_labels[metric_name],   # toujours affiche, sur tous les panneaux
+      y = y_labels[metric_name],
       fill = NULL
     ) +
     theme_minimal(base_size = 11) +
@@ -2402,7 +2400,6 @@ ggsave(
 
 scatter_plot <- ggplot(all_results, aes(x = Richness, y = regularity, color = groupe)) +
   geom_point(alpha = 0.6, size = 2) +
-  stat_ellipse(aes(fill = groupe), geom = "polygon", alpha = 0.15, color = NA, level = 0.68) +
   scale_color_manual(
     values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
     labels = c(
@@ -2436,6 +2433,58 @@ ggsave(
   height = 4,
   device = "svg"
 )
+
+# ======================================================================
+# 8. VIOLIN PLOT : % DE CHEVAUCHEMENT DES HYPERVOLUMES (pre vs post)
+#    sur les n_iter iterations appariees
+# ======================================================================
+overlap_long <- overlap_results %>%
+  select(iteration, Pct_pre_in_post, Pct_post_in_pre) %>%
+  pivot_longer(cols = c(Pct_pre_in_post, Pct_post_in_pre),
+               names_to = "direction", values_to = "pct")
+
+overlap_long$direction <- factor(
+  overlap_long$direction,
+  levels = c("Pct_pre_in_post", "Pct_post_in_pre"),
+  labels = c("% pre inclus dans post", "% post inclus dans pre")
+)
+
+overlap_plot <- ggplot(overlap_long, aes(x = direction, y = pct, fill = direction)) +
+  geom_violin(trim = FALSE, alpha = 0.6, width = 1.2) +
+  geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
+  scale_fill_manual(values = c("% pre inclus dans post" = "steelblue",
+                                "% post inclus dans pre" = "salmon")) +
+  labs(
+    title = "Chevauchement des hypervolumes pre-seuil / post-seuil",
+    x = NULL,
+    y = "% du volume inclus dans l'autre groupe",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position  = "none",
+    panel.grid.minor = element_blank()
+  )
+
+print(overlap_plot)
+
+ggsave(
+  filename = "overlap_pre_post.svg",
+  plot = overlap_plot,
+  width = 5,
+  height = 4,
+  device = "svg"
+)
+
+# ======================================================================
+# 9. (OPTIONNEL) EXPORT DE LA LISTE DES ESPECES ET DU CHEVAUCHEMENT
+# ======================================================================
+# export_species <- all_results %>%
+#   select(groupe, iteration, species_list) %>%
+#   tidyr::unnest_longer(species_list)
+# write.csv(export_species, "especes_par_iteration.csv", row.names = FALSE)
+#
+# write.csv(overlap_results, "overlap_hypervolume_par_iteration.csv", row.names = FALSE)
 ```
 
 \
