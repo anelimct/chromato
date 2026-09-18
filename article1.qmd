@@ -1873,8 +1873,12 @@ plot_window_selected_gg <- function(window_res, data, window_name = "",
 # =========================================================================
 # 9. Application a toutes les fenetres
 # =========================================================================
-window_data <- list( window15 = sum_df_15_no_chum, window20 = sum_df_20_no_chum, window25 = sum_df_25_no_chum, window30 = sum_df_30_no_chum,
-  window35 = sum_df_35_no_chum, window40 = sum_df_40_no_chum
+window_data <- list( window15 = sum_df_15_no_outliers,
+                     window20 = sum_df_20_no_outliers, 
+                     window25 = sum_df_25_no_outliers, 
+                     window30 = sum_df_30_no_outliers,
+                     window35 = sum_df_35_no_outliers,
+                     window40 = sum_df_40_no_outliers
 )
 
 combined_plots <- purrr::imap(results, function(window_res, window_name) {
@@ -2750,6 +2754,57 @@ saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40.rds"))
 
 plot_moving_window_convex(sum_df)
  
+```
+
+Test pour quelle fenêtre de taille 40 il y a la plus grande fdis ? ou est ce qu'on prend la plus faible régularité ? ou est-ce qu'on teste les deux ?
+
+```{r}
+targets::tar_load(sum_df_40)
+idx_max <- which.max(sum_df_40$functional_dispersion)
+idx_min <- which.min(sum_df_40$regularity)
+print(idx_max)
+print(idx_min)
+
+species_max <- unlist(sum_df_40$sp_list[[idx_max]])
+species_min <- unlist(sum_df_40$sp_list[[idx_min]])
+
+print(species_max)
+print(species_min)
+
+subset_species_test_fdmax <- plot_data |> dplyr::filter(rowname %in% species_max)
+subset_species_test_regmin <- plot_data |> dplyr::filter(rowname %in% pecies_min)
+
+```
+
+On a decidé de fixé draw size à 25, pour quel n draw les 5 variables que l'on calcule se stabilisent ?
+
+```{r}
+
+sum_df_conv <- moving_window_convex_tirages (subset_species_test_fdmax, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 500, draw_size = 25)
+
+```
+
+moving window avec tirages
+
+```{r}
+
+#| message: false
+#| warning: false
+
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 30)
+
+
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_30_25draw.rds")) 
+
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 35)
+
+
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_35_25draw.rds")) 
+
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40)
+
+
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40_25draw.rds")) 
 ```
 
 ```{r}
