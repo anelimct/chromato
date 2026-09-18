@@ -438,6 +438,115 @@ moving_window_convex <- function(data, ordination = "Sum",
   return(results) 
 }
 
+moving_window_convex_tirages <- function(data, ordination = "Sum", 
+                                 size = 25, step = 1, 
+                                 n_draws = 50, draw_size = 15,
+                                 col_scores, col_traits, col_species = "rowname",
+                                 seed = NULL){
+  
+  if (!is.null(seed)) set.seed(seed)
+  
+  # 1. Ordonner selon la variable d'ordination
+  data <- data[order(data[[ordination]]), ]
+  
+  # 2. Garder uniquement les lignes avec la variable renseignée
+  data_clean <- data[!is.na(data[[ordination]]), ]
+  
+  n_total <- nrow(data_clean)
+  
+  # 3. Indices de début des fenêtres
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  n_windows <- length(start_indices)
+  
+  # Centroïde global (calculé une fois, sur toutes les données -- référence fixe)
+  coords_all <- as.matrix(data_clean[, c(col_scores)])
+  centroid_global <- colMeans(coords_all)
+  
+  n_rows <- n_windows * n_draws
+  
+  # Vecteurs résultats -- une valeur par (fenêtre, tirage)
+  window_id <- integer(n_rows)
+  draw_id <- integer(n_rows)
+  volumes <- numeric(n_rows)
+  var_dist <- numeric(n_rows)
+  f_dis <- numeric(n_rows)
+  originality <- numeric(n_rows)
+  dimentionality <- numeric(n_rows)
+  ordinations <- numeric(n_rows)
+  species_lists <- vector("list", n_rows)
+  
+  row <- 0L
+  
+  for (i in seq_along(start_indices)) {
+    idx <- start_indices[i]:(start_indices[i] + size - 1)
+    window_data <- data_clean[idx, ]
+    
+    # valeur fixe pour toute la fenêtre, calculée une seule fois sur les `size` sp
+    median_ord_window <- median(window_data[[ordination]])
+    
+    for (d in seq_len(n_draws)) {
+      row <- row + 1L
+      
+      draw_idx <- sample(seq_len(nrow(window_data)), size = draw_size, replace = FALSE)
+      subset <- window_data[draw_idx, ]
+      
+      window_id[row] <- i
+      draw_id[row] <- d
+      
+      species_lists[[row]] <- as.character(subset[[col_species]])
+      
+      subset_coords <- as.matrix(subset[c(col_scores)])
+      
+      # richesse = volume
+      volumes[row] <- hypervolume::hypervolume(subset_coords, method = "gaussian")@Volume
+      
+      # régularité
+      mat_dist <- dist(subset_coords)
+      var_dist[row] <- var(as.vector(mat_dist))
+      
+      # diversité = functional dispersion (Laliberté 2010)
+      f_dis[row] <- fundiversity::fd_fdis(subset_coords)$FDis
+      
+      # originalité : centroïde des espèces tirées vs centroïde global
+      centroid_draw <- colMeans(subset_coords)
+      originality[row] <- sqrt(sum((centroid_draw - centroid_global)^2))
+      
+      # dimensionnalité
+      subset_traits <- as.data.frame(subset[c(col_traits)])
+      subset_traits_N <- subset_traits |> normaliser_dataframe()
+      pca.traits <- princomp(subset_traits_N)
+      dimentionality[row] <- var(pca.traits$sdev^2)
+      
+      # valeur d'ordination : fixe pour la fenêtre (pas recalculée par tirage)
+      ordinations[row] <- median_ord_window
+    }
+  }
+  
+  results <- setNames(
+    data.frame(window_id, draw_id, volumes, var_dist, f_dis, originality, dimentionality, ordinations, species_list = I(species_lists)),
+    c("window_id", "draw_id", "Richness", "regularity_inv", "functional_dispersion", "originality", "dimensionality_inv", paste0("median_", ordination), "sp_list")
+  )
+  
+  results <- results |> 
+    dplyr::mutate(
+      regularity = 1 - (
+        (regularity_inv - min(regularity_inv)) /
+          (max(regularity_inv) - min(regularity_inv))
+      )
+    ) |> dplyr::mutate(dimensionality =  1 - (
+      (dimensionality_inv - min(dimensionality_inv)) /
+        (max(dimensionality_inv) - min(dimensionality_inv))
+    ))|>  dplyr::select(-regularity_inv, -dimensionality_inv)
+  
+  col_to_move <- paste0("median_", ordination)
+  
+  results <- results |>
+    dplyr::relocate(all_of(col_to_move), .after = dplyr::last_col()) |>
+    dplyr::relocate(sp_list, .after = dplyr::last_col())
+  
+  return(results) 
+}
+
 
 
 
