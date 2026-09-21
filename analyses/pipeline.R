@@ -360,6 +360,17 @@ tar_target(sum_df_40_no_chum, readRDS(sum_df_file_40_no_chum)),
 tar_target(sum_df_file_40_no_outliers, here::here("data", "article1", "sum_df_40_no_outliers.rds"), format = "file"),
 tar_target(sum_df_40_no_outliers, readRDS(sum_df_file_40_no_outliers)),
 
+## avec des tiarges aléatoire de sp dans des fenêtres plus grandes
+
+tar_target(sum_df_30_25_file, here::here("data", "article1", "sum_df_30_25draw.rds"), format = "file"),
+tar_target(sum_df_30_25, readRDS(sum_df_30_25_file)),
+
+tar_target(sum_df_35_25_file, here::here("data", "article1", "sum_df_35_25draw.rds"), format = "file"),
+tar_target(sum_df_35_25, readRDS(sum_df_35_25_file)),
+
+tar_target(sum_df_40_25_file, here::here("data", "article1", "sum_df_40_25draw.rds"), format = "file"),
+tar_target(sum_df_40_25, readRDS(sum_df_40_25_file)),
+
 ##resultats des modèles chngpt + lm 
 
 tar_target(results_models_threshold_file, here::here("data", "article1", "results_moving_window.rds"), format = "file"),
