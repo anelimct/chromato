@@ -37,4 +37,9 @@ NAMESPACE
 *.log
 *.png
 *.pdf
+*.svg
+*.xlsx
+*.txt
+*.tex
+
 01_presentation_baches_files/
