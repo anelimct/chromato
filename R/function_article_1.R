@@ -438,9 +438,9 @@ moving_window_convex <- function(data, ordination = "Sum",
   return(results) 
 }
 
-moving_window_convex_tirages <- function(data, ordination = "Sum", 
+moving_window_convex_tirages_old <- function(data, ordination = "Sum", 
                                  size = 25, step = 1, 
-                                 n_draws = 50, draw_size = 15,
+                                 n_draws = 1000, draw_size = 15,
                                  col_scores, col_traits, col_species = "rowname",
                                  seed = NULL){
   
@@ -548,6 +548,88 @@ moving_window_convex_tirages <- function(data, ordination = "Sum",
 }
 
 
+
+moving_window_convex_tirages <- function(data, ordination = "Sum",
+                                         size = 25, step = 1,
+                                         n_draws = 1000, draw_size = 15,
+                                         col_scores, col_traits, col_species = "rowname",
+                                         seed = NULL,
+                                         workers = max(1, parallel::detectCores() - 1)) {
+  
+  # 1. Nettoyer puis ordonner
+  data_clean <- data[!is.na(data[[ordination]]), ]
+  data_clean <- data_clean[order(data_clean[[ordination]]), ]
+  n_total <- nrow(data_clean)
+  
+  start_indices <- seq(1, n_total - size + 1, by = step)
+  
+  # Centroïde global (référence fixe)
+  centroid_global <- colMeans(as.matrix(data_clean[, col_scores]))
+  
+  # 2. Parallélisation
+  future::plan(future::multisession, workers = workers)
+  on.exit(future::plan(future::sequential), add = TRUE)
+  
+  res_list <- future.apply::future_lapply(
+    seq_along(start_indices),
+    function(i) {
+      idx <- start_indices[i]:(start_indices[i] + size - 1)
+      window_data <- data_clean[idx, ]
+      median_ord_window <- median(window_data[[ordination]])
+      
+      volumes <- var_dist <- f_dis <- originality <- dimentionality <- numeric(n_draws)
+      species_lists <- vector("list", n_draws)
+      
+      for (d in seq_len(n_draws)) {
+        subset <- window_data[sample.int(size, draw_size), ]
+        species_lists[[d]] <- as.character(subset[[col_species]])
+        subset_coords <- as.matrix(subset[col_scores])
+        
+        volumes[d] <- hypervolume::hypervolume(subset_coords, method = "gaussian",
+                                               verbose = FALSE)@Volume
+        
+        var_dist[d] <- var(as.vector(dist(subset_coords)))
+        f_dis[d] <- fundiversity::fd_fdis(subset_coords)$FDis
+        
+        originality[d] <- sqrt(sum((colMeans(subset_coords) - centroid_global)^2))
+        
+        subset_traits_N <- as.data.frame(subset[col_traits]) |> normaliser_dataframe()
+        dimentionality[d] <- var(princomp(subset_traits_N)$sdev^2)
+      }
+      
+      data.frame(
+        window_id = i, draw_id = seq_len(n_draws),
+        Richness = volumes, regularity_inv = var_dist,
+        functional_dispersion = f_dis, originality = originality,
+        dimensionality_inv = dimentionality,
+        ordinations = median_ord_window,
+        sp_list = I(species_lists)
+      )
+    },
+    future.seed = if (is.null(seed)) TRUE else seed,
+    future.packages = c("hypervolume", "fundiversity"),
+    future.globals = list(data_clean = data_clean, start_indices = start_indices,
+                          centroid_global = centroid_global, size = size,
+                          draw_size = draw_size, n_draws = n_draws,
+                          ordination = ordination, col_scores = col_scores,
+                          col_traits = col_traits, col_species = col_species,
+                          normaliser_dataframe = normaliser_dataframe)
+  )
+  
+  results <- do.call(rbind, res_list)
+  names(results)[names(results) == "ordinations"] <- paste0("median_", ordination)
+  
+  # 3. Normalisations globales (identiques à ta version)
+  rescale_inv <- function(x) 1 - (x - min(x)) / (max(x) - min(x))
+  results <- results |>
+    dplyr::mutate(regularity = rescale_inv(regularity_inv),
+                  dimensionality = rescale_inv(dimensionality_inv)) |>
+    dplyr::select(-regularity_inv, -dimensionality_inv) |>
+    dplyr::relocate(dplyr::all_of(paste0("median_", ordination)), .after = dplyr::last_col()) |>
+    dplyr::relocate(sp_list, .after = dplyr::last_col())
+  
+  results
+}
 
 
 plot_moving_window_convex <- function(data, ncol = 2) {

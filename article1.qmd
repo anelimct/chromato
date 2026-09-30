@@ -701,6 +701,177 @@ ggsave(
 ```
 
 \
+Plot All sp EF avec quelques noms
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggrepel)
+
+# ---------------------------------------------------------
+# Colour palette
+# ---------------------------------------------------------
+
+col_palette <- c(
+  "NE"          = "#fce72e",
+  "iso_medium"  = "#adda96",
+  "iso_high"    = "#59ac24",
+  "mono_low"    = "#b7c2f3",
+  "mono_medium" = "#91a2e9",
+  "mono_high"   = "#2c52c4",
+  "both"        = "#c34f70"
+)
+
+# ---------------------------------------------------------
+# Legend labels
+# ---------------------------------------------------------
+
+emission_labels <- c(
+  "NE"          = "Non-emitter",
+  "iso_medium"  = "Medium isoprene emitter",
+  "iso_high"    = "High isoprene emitter",
+  "mono_low"    = "Low monoterpene emitter",
+  "mono_medium" = "Medium monoterpene emitter",
+  "mono_high"   = "High monoterpene emitter",
+  "both"        = "Isoprene and monoterpene emitter"
+)
+
+# ---------------------------------------------------------
+# Prepare data
+# ---------------------------------------------------------
+
+plot_data <- merged_data_3T %>%
+  filter(
+    !is.na(sum_isoprenoids_mean),
+    !is.na(sum_isoprenoids_min),
+    !is.na(sum_isoprenoids_max)
+  ) %>%
+  mutate(
+    log_sum     = log10(sum_isoprenoids_mean + 0.01),
+    log_sum_min = log10(sum_isoprenoids_min + 0.01),
+    log_sum_max = log10(sum_isoprenoids_max + 0.01),
+    sub_type = factor(sub_type, levels = names(col_palette))
+  ) %>%
+  arrange(log_sum) %>%
+  mutate(rank = row_number())
+
+# ---------------------------------------------------------
+# Especes a entourer et etiqueter
+# ---------------------------------------------------------
+# 6 especes reperes, reparties le long du gradient d'emission
+
+especes_a_entourer <- c("Corylus_avellana", "Olea_europaea", "Fagus_sylvatica",
+                        "Castanea_sativa", "Quercus_ilex", "Rhamnus_alaternus")
+
+highlight_points <- plot_data %>% filter(rowname %in% especes_a_entourer)
+
+# Decalage des etiquettes par rapport aux points
+# (en rangs pour x, en unites de log10 pour y) : a ajuster si besoin
+label_nudge_x <- -8
+label_nudge_y <- 0.8
+
+# ---------------------------------------------------------
+# Position verticale de la bande de carreaux
+# ---------------------------------------------------------
+tile_y      <- -2.3   # position centrale de la bande
+tile_height <- 0.15   # epaisseur de la bande
+
+# ---------------------------------------------------------
+# Plot
+# ---------------------------------------------------------
+
+p <- ggplot(plot_data, aes(x = rank, y = log_sum)) +
+  # Bande de carreaux colores (tout en bas, sous les points)
+  geom_tile(
+    aes(x = rank, y = tile_y, fill = sub_type),
+    height = tile_height,
+    width = 1
+  ) +
+  # Min-max range avec bouts en T
+  geom_errorbar(
+    aes(ymin = log_sum_min, ymax = log_sum_max, colour = sub_type),
+    width = 0.18,
+    linewidth = 0.45,
+    alpha = 0.55
+  ) +
+  # Mean EF
+  geom_point(aes(colour = sub_type), size = 2.2) +
+  # Cercle noir autour des especes selectionnees
+  geom_point(
+    data = highlight_points,
+    aes(x = rank, y = log_sum),
+    shape = 21, colour = "black", fill = NA,
+    size = 3.8, stroke = 0.8
+  ) +
+  # Etiquettes des especes selectionnees
+  # Decalees vers le haut et la gauche : c'est la zone vide du graphique
+  # (les points montent de gauche a droite et les barres d'erreur
+  # descendent surtout sous les points)
+  geom_text_repel(
+    data = highlight_points,
+    aes(x = rank, y = log_sum, label = gsub("_", " ", rowname)),  # "Fagus sylvatica"
+    fontface = "italic",
+    size = 3.8, colour = "black",
+    nudge_x = label_nudge_x,
+    nudge_y = label_nudge_y,
+    direction = "both",
+    hjust = 1,
+    min.segment.length = 0,
+    segment.size = 0.35,
+    segment.colour = "grey30",
+    point.padding = 0.6,
+    box.padding = 0.4,
+    bg.colour = "white", bg.r = 0.15,   # halo blanc autour du texte
+    max.overlaps = Inf,
+    seed = 1
+  ) +
+  scale_colour_manual(
+    values = col_palette,
+    labels = emission_labels,
+    name = "Emitter type",
+    drop = TRUE
+  ) +
+  scale_fill_manual(values = col_palette, guide = "none") +
+  scale_x_continuous(
+    name = "Species rank",
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+  scale_y_continuous(
+    name = expression(
+      log[10] * "(EF + 0.01)" ~
+        "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+    ),
+    expand = expansion(mult = c(0.03, 0.05)),
+    limits = c(tile_y - tile_height, NA)  # laisse la place pour la bande
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(face = "plain", colour = "black"),
+    axis.title = element_text(size = 11, face = "plain"),
+    axis.text = element_text(size = 9.5, face = "plain", colour = "black"),
+    panel.grid.major.y = element_line(colour = "grey88", linewidth = 0.35),
+    panel.grid.minor.y = element_line(colour = "grey94", linewidth = 0.25),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.line = element_line(linewidth = 0.45, colour = "black"),
+    axis.ticks = element_line(linewidth = 0.45, colour = "black"),
+    legend.position = "right",
+    legend.title = element_text(size = 10, face = "plain"),
+    legend.text = element_text(size = 9, face = "plain"),
+    legend.key = element_blank(),
+    legend.spacing.y = unit(0.12, "cm"),
+    plot.margin = margin(5.5, 8, 5.5, 5.5)
+  )
+
+ggsave(
+  filename = "allsp_EF.svg",
+  plot = p,
+  width = 10,
+  height = 4,
+  device = "svg"
+)
+```
+
 Plot first et last window sans les tiles
 
 ```{r}
@@ -938,11 +1109,11 @@ Plot first et last window avec les tiles
 ```{r}
 library(ggplot2)
 library(dplyr)
-
+ 
 # ============================================================
 # Palette de couleurs
 # ============================================================
-
+ 
 col_palette <- c(
   "NE"          = "#fce72e",
   "iso_medium"  = "#adda96",
@@ -952,12 +1123,12 @@ col_palette <- c(
   "mono_high"   = "#2c52c4",
   "both"        = "#c34f70"
 )
-
-
+ 
+ 
 # ============================================================
-# Préparation des données
+# Preparation des donnees
 # ============================================================
-
+ 
 plot_data <- merged_data_3T %>%
   filter(
     !is.na(sum_isoprenoids_mean),
@@ -968,496 +1139,138 @@ plot_data <- merged_data_3T %>%
     log_sum     = log10(sum_isoprenoids_mean + 0.01),
     log_sum_min = log10(sum_isoprenoids_min + 0.01),
     log_sum_max = log10(sum_isoprenoids_max + 0.01),
-    sub_type = factor(
-      sub_type,
-      levels = names(col_palette)
-    )
+    sub_type    = factor(sub_type, levels = names(col_palette))
   ) %>%
   arrange(log_sum) %>%
   mutate(rank = row_number())
-
-
+ 
+ 
 # ============================================================
-# Valeurs de référence pour les lignes horizontales
+# Parametres des fenetres
 # ============================================================
-
-y_sp13 <- plot_data %>%
-  filter(rank == 13) %>%
-  pull(log_sum)
-
-y_sp89 <- plot_data %>%
-  filter(rank == 89) %>%
-  pull(log_sum)
-
-
-# ============================================================
-# Paramètres de la bande de carreaux
-# ============================================================
-
+ 
+window_size <- 35
+n_sp        <- nrow(plot_data)   # 101 especes
+ 
+# premiere fenetre : rangs 1 a 35
+# derniere fenetre : rangs (n_sp - 34) a n_sp, soit 67 a 101
+window1_range <- c(1, window_size)
+window2_range <- c(n_sp - window_size + 1, n_sp)
+ 
+# Bande de carreaux
 tile_y      <- -2.3
 tile_height <- 0.15
-
-
+ 
+ 
 # ============================================================
-# Préparation des données pour les carreaux
+# Fonction de trace d'une fenetre
 # ============================================================
-
-# Toutes les espèces sont grisées par défaut
-tile_data <- plot_data %>%
-  mutate(
-    tile_colour = "grey85"
-  )
-
-
-# ============================================================
-# Graphique 1 : fenêtre 1 (rangs 1 à 25)
-# ============================================================
-
-# Carreaux :
-# rangs 1-25 = couleur du sub_type
-# rangs 26-101 = gris
-
-tile_data_window1 <- tile_data %>%
-  mutate(
-    tile_fill = if_else(
-      rank <= 25,
-      as.character(sub_type),
-      "grey85"
+# first_rank / last_rank : rangs de la premiere et de la derniere espece
+# de la fenetre. La ligne pointillee est la mediane des log_sum de la
+# fenetre (= median_log_sum utilise dans l'analyse).
+ 
+plot_window <- function(first_rank, last_rank) {
+ 
+  in_window <- plot_data %>% filter(rank >= first_rank, rank <= last_rank)
+  y_median  <- median(in_window$log_sum)
+ 
+  tile_data <- plot_data %>%
+    mutate(tile_fill = if_else(rank >= first_rank & rank <= last_rank,
+                               as.character(sub_type), "grey85"))
+ 
+  ggplot(plot_data, aes(x = rank, y = log_sum)) +
+ 
+    # Arriere-plan : toutes les especes en gris clair
+    geom_errorbar(
+      aes(ymin = log_sum_min, ymax = log_sum_max),
+      colour = "grey80", width = 0.18, linewidth = 0.4, alpha = 0.7
+    ) +
+    geom_point(colour = "grey80", size = 1.8) +
+ 
+    # Rectangle bleu transparent pour la fenetre
+    annotate(
+      "rect",
+      xmin = first_rank - 0.5, xmax = last_rank + 0.5,
+      ymin = -Inf, ymax = Inf,
+      fill = "#dfe5f7", alpha = 0.35,
+      colour = "#7186c5", linewidth = 0.7
+    ) +
+ 
+    # Especes de la fenetre en couleur
+    geom_errorbar(
+      data = in_window,
+      aes(ymin = log_sum_min, ymax = log_sum_max, colour = sub_type),
+      width = 0.18, linewidth = 0.45, alpha = 0.55
+    ) +
+    geom_point(data = in_window, aes(colour = sub_type), size = 2.2) +
+ 
+    # Ligne horizontale : mediane de la fenetre
+    geom_hline(
+      yintercept = y_median,
+      linetype = "dashed", colour = "#3156b3", linewidth = 0.6
+    ) +
+ 
+    # Bande de carreaux : fenetre en couleur, reste en gris
+    geom_tile(
+      data = tile_data,
+      aes(x = rank, y = tile_y, fill = tile_fill),
+      height = tile_height, width = 1
+    ) +
+ 
+    scale_colour_manual(values = col_palette, guide = "none") +
+    scale_fill_manual(values = c(col_palette, "grey85" = "grey85"), guide = "none") +
+ 
+    scale_x_continuous(
+      name = "Species rank",
+      breaks = seq(0, 100, 20),
+      expand = expansion(mult = c(0.01, 0.02))
+    ) +
+    scale_y_continuous(
+      name = expression(
+        log[10] * "(EF + 0.01)" ~
+          "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+      ),
+      limits = c(tile_y - tile_height, NA),
+      expand = expansion(mult = c(0.03, 0.05))
+    ) +
+ 
+    theme_minimal(base_size = 11) +
+    theme(
+      text = element_text(face = "plain", colour = "black"),
+      axis.title = element_text(size = 11, face = "plain"),
+      axis.text = element_text(size = 9.5, face = "plain", colour = "black"),
+      panel.grid.major.y = element_line(colour = "grey88", linewidth = 0.35),
+      panel.grid.minor.y = element_line(colour = "grey94", linewidth = 0.25),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      axis.line = element_line(linewidth = 0.45, colour = "black"),
+      axis.ticks = element_line(linewidth = 0.45, colour = "black"),
+      legend.position = "none",
+      plot.margin = margin(5.5, 8, 5.5, 5.5)
     )
-  )
-
-
-p_window1 <- ggplot(
-  plot_data,
-  aes(x = rank, y = log_sum)
-) +
-
-  # ----------------------------------------------------------
-  # Arrière-plan : toutes les espèces en gris clair
-  # ----------------------------------------------------------
-
-  geom_errorbar(
-    aes(
-      ymin = log_sum_min,
-      ymax = log_sum_max
-    ),
-    colour = "grey80",
-    width = 0.18,
-    linewidth = 0.4,
-    alpha = 0.7
-  ) +
-
-  geom_point(
-    colour = "grey80",
-    size = 1.8
-  ) +
-
-  # ----------------------------------------------------------
-  # Rectangle bleu transparent pour la fenêtre 1
-  # ----------------------------------------------------------
-
-  annotate(
-    "rect",
-    xmin = 0.5,
-    xmax = 25.5,
-    ymin = -Inf,
-    ymax = Inf,
-    fill = "#dfe5f7",
-    alpha = 0.35,
-    colour = "#7186c5",
-    linewidth = 0.7
-  ) +
-
-  # ----------------------------------------------------------
-  # Espèces de la fenêtre 1 en couleur
-  # ----------------------------------------------------------
-
-  geom_errorbar(
-    data = plot_data %>%
-      filter(rank <= 25),
-    aes(
-      ymin = log_sum_min,
-      ymax = log_sum_max,
-      colour = sub_type
-    ),
-    width = 0.18,
-    linewidth = 0.45,
-    alpha = 0.55
-  ) +
-
-  geom_point(
-    data = plot_data %>%
-      filter(rank <= 25),
-    aes(colour = sub_type),
-    size = 2.2
-  ) +
-
-  # ----------------------------------------------------------
-  # Ligne horizontale pour l'espèce 13
-  # ----------------------------------------------------------
-
-  geom_hline(
-    yintercept = y_sp13,
-    linetype = "dashed",
-    colour = "#3156b3",
-    linewidth = 0.6
-  ) +
-
-  # ----------------------------------------------------------
-  # BANDE DE CARREAUX
-  #
-  # Toutes les espèces = gris
-  # Fenêtre 1 = couleur selon sub_type
-  # ----------------------------------------------------------
-
-  geom_tile(
-    data = tile_data_window1,
-    aes(
-      x = rank,
-      y = tile_y,
-      fill = tile_fill
-    ),
-    height = tile_height,
-    width = 1
-  ) +
-
-  # ----------------------------------------------------------
-  # Couleurs des points + couleurs des carreaux
-  # ----------------------------------------------------------
-
-  scale_colour_manual(
-    values = col_palette,
-    guide = "none"
-  ) +
-
-  scale_fill_manual(
-    values = c(
-      col_palette,
-      "grey85" = "grey85"
-    ),
-    guide = "none"
-  ) +
-
-  # ----------------------------------------------------------
-  # Axe X
-  # ----------------------------------------------------------
-
-  scale_x_continuous(
-    name = "Species rank",
-    breaks = seq(0, 100, 20),
-    expand = expansion(mult = c(0.01, 0.02))
-  ) +
-
-  # ----------------------------------------------------------
-  # Axe Y
-  # ----------------------------------------------------------
-
-  scale_y_continuous(
-    name = expression(
-      log[10] * "(EF + 0.01)" ~
-      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
-    ),
-    limits = c(
-      tile_y - tile_height,
-      NA
-    ),
-    expand = expansion(
-      mult = c(0.03, 0.05)
-    )
-  ) +
-
-  # ----------------------------------------------------------
-  # Thème
-  # ----------------------------------------------------------
-
-  theme_minimal(base_size = 11) +
-
-  theme(
-    text = element_text(
-      face = "plain",
-      colour = "black"
-    ),
-
-    axis.title = element_text(
-      size = 11,
-      face = "plain"
-    ),
-
-    axis.text = element_text(
-      size = 9.5,
-      face = "plain",
-      colour = "black"
-    ),
-
-    panel.grid.major.y = element_line(
-      colour = "grey88",
-      linewidth = 0.35
-    ),
-
-    panel.grid.minor.y = element_line(
-      colour = "grey94",
-      linewidth = 0.25
-    ),
-
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-
-    axis.line = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    axis.ticks = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    legend.position = "none",
-
-    plot.margin = margin(
-      5.5, 8, 5.5, 5.5
-    )
-  )
-
-
+}
+ 
+ 
 # ============================================================
-# Graphique 2 : dernière fenêtre (rangs 77 à 101)
+# Graphiques
 # ============================================================
-
-# Carreaux :
-# rangs 1-76 = gris
-# rangs 77-101 = couleur du sub_type
-
-tile_data_window2 <- tile_data %>%
-  mutate(
-    tile_fill = if_else(
-      rank >= 77,
-      as.character(sub_type),
-      "grey85"
-    )
-  )
-
-
-p_window2 <- ggplot(
-  plot_data,
-  aes(x = rank, y = log_sum)
-) +
-
-  # ----------------------------------------------------------
-  # Arrière-plan : toutes les espèces en gris clair
-  # ----------------------------------------------------------
-
-  geom_errorbar(
-    aes(
-      ymin = log_sum_min,
-      ymax = log_sum_max
-    ),
-    colour = "grey80",
-    width = 0.18,
-    linewidth = 0.4,
-    alpha = 0.7
-  ) +
-
-  geom_point(
-    colour = "grey80",
-    size = 1.8
-  ) +
-
-  # ----------------------------------------------------------
-  # Rectangle bleu transparent pour la dernière fenêtre
-  # ----------------------------------------------------------
-
-  annotate(
-    "rect",
-    xmin = 76.5,
-    xmax = 101.5,
-    ymin = -Inf,
-    ymax = Inf,
-    fill = "#dfe5f7",
-    alpha = 0.35,
-    colour = "#7186c5",
-    linewidth = 0.7
-  ) +
-
-  # ----------------------------------------------------------
-  # Espèces de la dernière fenêtre en couleur
-  # ----------------------------------------------------------
-
-  geom_errorbar(
-    data = plot_data %>%
-      filter(rank >= 77),
-    aes(
-      ymin = log_sum_min,
-      ymax = log_sum_max,
-      colour = sub_type
-    ),
-    width = 0.18,
-    linewidth = 0.45,
-    alpha = 0.55
-  ) +
-
-  geom_point(
-    data = plot_data %>%
-      filter(rank >= 77),
-    aes(colour = sub_type),
-    size = 2.2
-  ) +
-
-  # ----------------------------------------------------------
-  # Ligne horizontale pour l'espèce 89
-  # ----------------------------------------------------------
-
-  geom_hline(
-    yintercept = y_sp89,
-    linetype = "dashed",
-    colour = "#3156b3",
-    linewidth = 0.6
-  ) +
-
-  # ----------------------------------------------------------
-  # BANDE DE CARREAUX
-  #
-  # Toutes les espèces = gris
-  # Fenêtre 2 = couleur selon sub_type
-  # ----------------------------------------------------------
-
-  geom_tile(
-    data = tile_data_window2,
-    aes(
-      x = rank,
-      y = tile_y,
-      fill = tile_fill
-    ),
-    height = tile_height,
-    width = 1
-  ) +
-
-  # ----------------------------------------------------------
-  # Couleurs des points + couleurs des carreaux
-  # ----------------------------------------------------------
-
-  scale_colour_manual(
-    values = col_palette,
-    guide = "none"
-  ) +
-
-  scale_fill_manual(
-    values = c(
-      col_palette,
-      "grey85" = "grey85"
-    ),
-    guide = "none"
-  ) +
-
-  # ----------------------------------------------------------
-  # Axe X
-  # ----------------------------------------------------------
-
-  scale_x_continuous(
-    name = "Species rank",
-    breaks = seq(0, 100, 20),
-    expand = expansion(mult = c(0.01, 0.02))
-  ) +
-
-  # ----------------------------------------------------------
-  # Axe Y
-  # ----------------------------------------------------------
-
-  scale_y_continuous(
-    name = expression(
-      log[10] * "(EF + 0.01)" ~
-      "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
-    ),
-    limits = c(
-      tile_y - tile_height,
-      NA
-    ),
-    expand = expansion(
-      mult = c(0.03, 0.05)
-    )
-  ) +
-
-  # ----------------------------------------------------------
-  # Thème
-  # ----------------------------------------------------------
-
-  theme_minimal(base_size = 11) +
-
-  theme(
-    text = element_text(
-      face = "plain",
-      colour = "black"
-    ),
-
-    axis.title = element_text(
-      size = 11,
-      face = "plain"
-    ),
-
-    axis.text = element_text(
-      size = 9.5,
-      face = "plain",
-      colour = "black"
-    ),
-
-    panel.grid.major.y = element_line(
-      colour = "grey88",
-      linewidth = 0.35
-    ),
-
-    panel.grid.minor.y = element_line(
-      colour = "grey94",
-      linewidth = 0.25
-    ),
-
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-
-    axis.line = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    axis.ticks = element_line(
-      linewidth = 0.45,
-      colour = "black"
-    ),
-
-    legend.position = "none",
-
-    plot.margin = margin(
-      5.5, 8, 5.5, 5.5
-    )
-  )
-
-
-# ============================================================
-# Affichage
-# ============================================================
-
+ 
+p_window1 <- plot_window(window1_range[1], window1_range[2])   # rangs 1-35
+p_window2 <- plot_window(window2_range[1], window2_range[2])   # rangs 67-101
+ 
 print(p_window1)
 print(p_window2)
-
-
+ 
+ 
 # ============================================================
 # Sauvegarde
 # ============================================================
-
-ggsave(
-  filename = "fenetre1.svg",
-  plot = p_window1,
-  width = 6,
-  height = 4,
-  device = "svg"
-)
-
-ggsave(
-  filename = "fenetre2.svg",
-  plot = p_window2,
-  width = 6,
-  height = 4,
-  device = "svg"
-)
+ 
+ggsave(filename = "fenetre1.svg", plot = p_window1,
+       width = 6, height = 4, device = "svg")
+ 
+ggsave(filename = "fenetre2.svg", plot = p_window2,
+       width = 6, height = 4, device = "svg")
 ```
 
 Plot moving window illustration fenêtre qui se décale
@@ -1470,7 +1283,7 @@ Plot moving window illustration fenêtre qui se décale
 # ------------------------------------------------------------
 
 # ---- Paramètres ----
-window_size <- 25
+window_size <- 35
 n_windows <- nrow(plot_data) - window_size + 1  # = 77
 
 # Hauteur = étendue des 25 premières espèces
@@ -1604,7 +1417,7 @@ library(ggplot2)
 library(patchwork)
 library(purrr)
 library(chngpt)
-
+ 
 # =========================================================================
 # 0. Dictionnaires de labels
 # =========================================================================
@@ -1616,7 +1429,7 @@ metric_labels <- c(
   "originality"           = "Originality",
   "dimensionality"        = "Dimensionality"
 )
-
+ 
 # Titres de panneau (affiches apres la lettre a, b, c...)
 panel_titles <- c(
   "Richness"              = "Functional richness",
@@ -1625,13 +1438,13 @@ panel_titles <- c(
   "originality"           = "Originality",
   "dimensionality"        = "Functional dimensionality"
 )
-
+ 
 # Label de l'axe X (commun a tous les panneaux, uniquement affiche en bas)
 x_axis_label <- expression(
   "Window median" ~ log[10] * "(EF + 0.01)" ~
   "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
 )
-
+ 
 # =========================================================================
 # 1. STEP : deux segments horizontaux (saut au seuil, pas de pente)
 # =========================================================================
@@ -1664,7 +1477,7 @@ plot_step_model <- function(model, data, response, predictor, panel_title = "", 
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 2. SEGMENTED : continu, changement de pente au seuil
 # =========================================================================
@@ -1694,7 +1507,7 @@ plot_segmented_model <- function(model, data, response, predictor, panel_title =
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 3. STEGMENTED : saut ET changement de pente au seuil
 # =========================================================================
@@ -1725,7 +1538,7 @@ plot_stegmented_model <- function(model, data, response, predictor, panel_title 
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 4. M02 : plat avant le seuil, quadratique apres
 # =========================================================================
@@ -1755,7 +1568,7 @@ plot_M02_model <- function(model, data, response, predictor, panel_title = "", c
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 5. M12 : lineaire avant le seuil, quadratique apres
 # =========================================================================
@@ -1786,7 +1599,7 @@ plot_M12_model <- function(model, data, response, predictor, panel_title = "", c
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 6. M111 : deux seuils, via predict()
 # =========================================================================
@@ -1825,7 +1638,7 @@ plot_M111_model <- function(model, data, response, predictor, panel_title = "",
     labs(y = y_label, title = panel_title) +
     theme_minimal()
 }
-
+ 
 # =========================================================================
 # 7. Dispatcher : redirige vers la bonne fonction selon le type de modele
 # =========================================================================
@@ -1867,7 +1680,7 @@ plot_model_by_type <- function(model, data, response, predictor, panel_title, mo
       labs(title = panel_title) + theme_void()
   )
 }
-
+ 
 # =========================================================================
 # 8. Assemble les 5 metriques d'une fenetre avec patchwork
 # =========================================================================
@@ -1885,10 +1698,20 @@ plot_window_selected_gg <- function(window_res, data, window_name = "",
     panel_title <- bquote(bold("(" * .(letter) * ")") ~ .(title_text))
     
     if (metric_res$choice$status == "manual") {
-      return(plot_model_by_type(NULL, data, metric_name, "median_log_sum", panel_title, "", y_label = display_name))
+      return(plot_model_by_type(NULL, data, metric_name, "median_log_sum",
+                                panel_title, "", y_label = display_name))
     }
+    
+    # modele avec bootstrap (final_model) : courbe et IC viennent du meme objet
+    # repli sur le modele sans bootstrap si final_model est absent
+    model_to_plot <- if (!is.null(metric_res$final_model)) {
+      metric_res$final_model
+    } else {
+      metric_res$choice$model
+    }
+    
     plot_model_by_type(
-      model       = metric_res$choice$model,
+      model       = model_to_plot,
       data        = data,
       response    = metric_name,
       predictor   = "median_log_sum",
@@ -1930,24 +1753,22 @@ plot_window_selected_gg <- function(window_res, data, window_name = "",
       theme = theme(plot.title = element_text(hjust = 0.5, size = 14))
     )
 }
-
+ 
 # =========================================================================
 # 9. Application a toutes les fenetres
 # =========================================================================
-window_data <- list( window15 = sum_df_15_no_outliers,
-                     window20 = sum_df_20_no_outliers, 
-                     window25 = sum_df_25_no_outliers, 
-                     window30 = sum_df_30_no_outliers,
-                     window35 = sum_df_35_no_outliers,
-                     window40 = sum_df_40_no_outliers
+window_data <- list( 
+                     window30 = sum_df_30_25draw_mean,
+                     window35 = sum_df_35_25draw_mean,
+                     window40 = sum_df_40_25draw_mean
 )
-
+ 
 combined_plots <- purrr::imap(results, function(window_res, window_name) {
   plot_window_selected_gg(window_res, window_data[[window_name]], window_name)
 })
-
+ 
 purrr::walk(combined_plots, print)
-
+ 
 # =========================================================================
 # 10. Sauvegarde en .png
 # =========================================================================
@@ -1969,11 +1790,11 @@ svg(filename = "area_plot.svg", width = 14, height = 8)
 res <- moving_window_categories_3(
     data = plot_data,
     ordination = "log_sum",
-    size = 25,
+    size = 35,
     step = 1,
     return_window_info = TRUE,
     plot_type = "area",
-    vlines = list(v = c(0.73, 0.01, 0.98)), #list(v = c(0.7298538, 0.6414858, 0.7758776))
+    vlines = list(v = c(0.65, 0.62, 0.73)), #list(v = c(0.7298538, 0.6414858, 0.7758776))
     show_legend = TRUE, font_size = 16,
 )
 
@@ -1986,8 +1807,8 @@ dev.off()
 Violon plots pre/post metric
 
 ```{r}
-targets::tar_load(sum_df_25)
-test <- extraire_especes_threshold(sum_df_25, "median_log_sum", 0.6414858, 0.7758776) ### changer avec le nouveau threshold du modele
+targets::tar_load(sum_df_35)
+test <- extraire_especes_threshold(sum_df_35, "median_log_sum", 0.6202402, 0.7298538) ### changer avec le nouveau threshold du modele
 
 # ======================================================================
 # COMPARAISON DES METRIQUES FONCTIONNELLES ENTRE GROUPES PRE-SEUIL ET POST-SEUIL
@@ -2558,6 +2379,8 @@ ggsave(
 
 # Moving window espace functionnel
 
+## simple moving window pas de tirages
+
 ```{r}
 #| message: false
 #| warning: false
@@ -2611,6 +2434,8 @@ saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40.rds"))
 plot_moving_window_convex(sum_df)
  
 ```
+
+## moving window avec tirages
 
 Test pour quelle fenêtre de taille 40 il y a la plus grande fdis ? ou est ce qu'on prend la plus faible régularité ? ou est-ce qu'on teste les deux ?
 
@@ -2696,44 +2521,60 @@ On a decidé de fixé draw size à 25, pour quel n draw les 5 variables que l'on
 
 ```{r}
 
-# --- MAX ---
-sum_df_conv_max_dim <- moving_window_convex_tirages(subset_species_idx_max_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_max_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_dim.rds"))
-
-sum_df_conv_max_fdis <- moving_window_convex_tirages(subset_species_idx_max_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_max_fdis, file = here::here("data", "article1","convergence", "sum_df_conv_w40_draw25_max_fdis.rds"))
-
-sum_df_conv_max_orig <- moving_window_convex_tirages(subset_species_idx_max_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_max_orig, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_orig.rds"))
-
-sum_df_conv_max_reg <- moving_window_convex_tirages(subset_species_idx_max_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_max_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_reg.rds"))
-
-
-# --- MED ---
-sum_df_conv_med_dim <- moving_window_convex_tirages(subset_species_idx_med_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_med_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_dim.rds"))
-
-sum_df_conv_med_fdis <- moving_window_convex_tirages(subset_species_idx_med_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_med_fdis, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_fdis.rds"))
-
-sum_df_conv_med_orig <- moving_window_convex_tirages(subset_species_idx_med_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_med_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_med_orig.rds"))
-
-
-# --- MIN ---
-sum_df_conv_min_dim <- moving_window_convex_tirages(subset_species_idx_min_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_min_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_dim.rds"))
-
-sum_df_conv_min_orig <- moving_window_convex_tirages(subset_species_idx_min_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_min_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_min_orig.rds"))
-
-sum_df_conv_min_reg <- moving_window_convex_tirages(subset_species_idx_min_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1000, draw_size = 25)
-saveRDS(sum_df_conv_min_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_reg.rds"))
+# # --- MAX ---
+# sum_df_conv_max_dim <- moving_window_convex_tirages(subset_species_idx_max_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_max_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_dim.rds"))
+# 
+# sum_df_conv_max_fdis <- moving_window_convex_tirages(subset_species_idx_max_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_max_fdis, file = here::here("data", "article1","convergence", "sum_df_conv_w40_draw25_max_fdis.rds"))
+# 
+# sum_df_conv_max_orig <- moving_window_convex_tirages(subset_species_idx_max_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_max_orig, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_orig.rds"))
+# 
+# sum_df_conv_max_reg <- moving_window_convex_tirages(subset_species_idx_max_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_max_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_reg.rds"))
+# 
+# 
+# # --- MED ---
+# sum_df_conv_med_dim <- moving_window_convex_tirages(subset_species_idx_med_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_med_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_dim.rds"))
+# 
+# sum_df_conv_med_fdis <- moving_window_convex_tirages(subset_species_idx_med_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_med_fdis, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_fdis.rds"))
+# 
+# sum_df_conv_med_orig <- moving_window_convex_tirages(subset_species_idx_med_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_med_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_med_orig.rds"))
+# 
+# 
+# # --- MIN ---
+# sum_df_conv_min_dim <- moving_window_convex_tirages(subset_species_idx_min_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_min_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_dim.rds"))
+# 
+# sum_df_conv_min_orig <- moving_window_convex_tirages(subset_species_idx_min_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_min_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_min_orig.rds"))
+# 
+# sum_df_conv_min_reg <- moving_window_convex_tirages(subset_species_idx_min_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# saveRDS(sum_df_conv_min_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_reg.rds"))
 
 ```
 
 ```{r}
+
+sum_df_conv_w40_draw25_max_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_dim.rds")
+sum_df_conv_w40_draw25_max_fdis <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_fdis.rds")
+sum_df_conv_w40_draw25_max_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_orig.rds")
+sum_df_conv_w40_draw25_max_reg <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_reg.rds")
+
+sum_df_conv_w40_draw25_med_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_med_dim.rds")
+sum_df_conv_w40_draw25_med_fdis <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_med_fdis.rds")
+sum_df_conv_w40_draw25_med_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_med_orig.rds")
+
+sum_df_conv_w40_draw25_min_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_dim.rds")
+sum_df_conv_w40_draw25_min_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_orig.rds")
+sum_df_conv_w40_draw25_min_reg <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_reg.rds")
+
+
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -2766,22 +2607,24 @@ col_map <- c(
   "dimensionality"        = "dimensionality_cum"
 )
 
-# 1. Compute cumulative means, ordered by draw_id
-conv_df <- sum_df_conv |>
-  arrange(draw_id) |>
-  mutate(
-    Richness_cum      = dplyr::cummean(Richness),
-    regularity_cum    = dplyr::cummean(regularity),
-    FDis_cum           = dplyr::cummean(functional_dispersion),
-    originality_cum    = dplyr::cummean(originality),
-    dimensionality_cum = dplyr::cummean(dimensionality)
-  )
+# Colours per dataset (Okabe-Ito, colour-blind friendly)
+dataset_colours <- c(
+  "min" = "#1E88E5",  # blue
+  "med" = "#FFC107",  # green
+  "max" = "#D81B60"   # vermillion
+)
 
-# 2. Shared theme, journal-style (clean, minimal, black axis text)
+dataset_labels <- c(
+  "min" = "Minimum",
+  "med" = "Median",
+  "max" = "Maximum"
+)
+
+# Shared theme, journal-style (clean, minimal, black axis text)
 theme_supp <- theme_minimal(base_size = 10, base_family = "sans") +
   theme(
     plot.title       = element_text(size = 10, face = "plain", hjust = 0,
-                                     margin = margin(b = 4)),
+                                    margin = margin(b = 4)),
     axis.title       = element_text(size = 9, colour = "black"),
     axis.text        = element_text(size = 8, colour = "black"),
     panel.grid.minor = element_blank(),
@@ -2789,16 +2632,20 @@ theme_supp <- theme_minimal(base_size = 10, base_family = "sans") +
     panel.border     = element_rect(colour = "black", fill = NA, linewidth = 0.3),
     panel.background = element_rect(fill = "white", colour = NA),
     plot.background  = element_rect(fill = "white", colour = NA),
-    plot.margin      = margin(5, 10, 5, 5)
+    plot.margin      = margin(5, 10, 5, 5),
+    legend.position  = "bottom",
+    legend.title     = element_blank(),
+    legend.text      = element_text(size = 9, colour = "black")
   )
 
-# 3. Build one panel per metric, with bold "(a) Title" embedded directly
+# Build one panel per metric, with bold "(a) Title" embedded directly
 make_panel <- function(data, metric_key, letter) {
   cum_col <- col_map[[metric_key]]
   panel_title <- bquote(bold("(" * .(letter) * ")") ~ .(panel_titles[[metric_key]]))
 
-  ggplot(data, aes(x = draw_id, y = .data[[cum_col]])) +
-    geom_line(linewidth = 0.4, colour = "black") +
+  ggplot(data, aes(x = draw_id, y = .data[[cum_col]], colour = dataset)) +
+    geom_line(linewidth = 0.5) +
+    scale_colour_manual(values = dataset_colours, labels = dataset_labels) +
     labs(
       title = panel_title,
       x     = "Number of draws (n_draws)",
@@ -2807,22 +2654,69 @@ make_panel <- function(data, metric_key, letter) {
     theme_supp
 }
 
-metric_keys <- names(panel_titles)
-panels <- purrr::imap(metric_keys, function(metric_key, i) {
-  make_panel(conv_df, metric_key, letters[i])
-})
+#' Génère et sauvegarde le graphique de convergence pour 3 jeux de données
+#'
+#' @param sum_df_list liste nommée de 3 data.frames issus de
+#'   moving_window_convex_tirages, ex : list(min = df_min, med = df_med, max = df_max)
+#' @param filename nom du fichier de sortie (sans extension), ex : "min_med_max"
+#' @param output_dir dossier de sortie
+#' @param width, height, units, dpi paramètres ggsave
+plot_convergence <- function(sum_df_list,
+                             filename,
+                             output_dir = here::here("figures", "convergence_article_1"),
+                             width = 180, height = 130, units = "mm", dpi = 300) {
 
-# 4. Combine — no patchwork tag_levels needed, letters are already in the titles
-convergence_plot <- patchwork::wrap_plots(panels, ncol = 3)
+  stopifnot(is.list(sum_df_list), !is.null(names(sum_df_list)),
+            all(names(sum_df_list) %in% names(dataset_colours)))
 
-convergence_plot
+  # 1. Moyennes cumulées, calculées séparément pour chaque jeu de données
+  conv_df <- sum_df_list |>
+    dplyr::bind_rows(.id = "dataset") |>
+    dplyr::mutate(dataset = factor(dataset, levels = names(dataset_colours))) |>
+    dplyr::group_by(dataset) |>
+    dplyr::arrange(draw_id, .by_group = TRUE) |>
+    dplyr::mutate(
+      Richness_cum       = dplyr::cummean(Richness),
+      regularity_cum     = dplyr::cummean(regularity),
+      FDis_cum           = dplyr::cummean(functional_dispersion),
+      originality_cum    = dplyr::cummean(originality),
+      dimensionality_cum = dplyr::cummean(dimensionality)
+    ) |>
+    dplyr::ungroup()
 
-# 5. Export at journal-appropriate size (adjust to New Phytol supp mat guidelines)
-ggsave(
-  "convergence_diagnostics.svg",
-  convergence_plot,
-  width = 180, height = 120, units = "mm", dpi = 300
-)
+  # 2. Construction des panneaux
+  metric_keys <- names(panel_titles)
+  panels <- purrr::imap(metric_keys, function(metric_key, i) {
+    make_panel(conv_df, metric_key, letters[i])
+  })
+
+  # 3. Assemblage avec une légende commune
+  convergence_plot <- patchwork::wrap_plots(panels, ncol = 3, guides = "collect") &
+    theme(legend.position = "bottom")
+
+  # 4. Export
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  ggsave(
+    filename = file.path(output_dir, paste0("convergence_", filename, ".svg")),
+    plot     = convergence_plot,
+    width    = width, height = height, units = units, dpi = dpi
+  )
+
+  convergence_plot
+}
+```
+
+```{r}
+plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_dim,  min = sum_df_conv_w40_draw25_min_dim, med = sum_df_conv_w40_draw25_med_dim), filename = "dim" )
+plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_orig,  min = sum_df_conv_w40_draw25_min_orig, med = sum_df_conv_w40_draw25_med_orig), filename = "orig" )
+
+plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_reg,  min = sum_df_conv_w40_draw25_min_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "reg" )  
+
+plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_fdis,  min = sum_df_conv_w40_draw25_max_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "fdis" )
+
+plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_fdis,  min = sum_df_conv_w40_draw25_max_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "fric" )
+
 ```
 
 moving window avec tirages
@@ -2832,18 +2726,18 @@ moving window avec tirages
 #| message: false
 #| warning: false
 
-sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 30, draw_size = 25, n_draws = 750)
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 30, draw_size = 25, n_draws = 500)
 
 
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_30_25draw.rds")) 
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_30_25draw_500.rds")) 
 
-sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 35, draw_size = 25, n_draws = 750)
-
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_35_25draw.rds")) 
-
-sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, draw_size = 25, n_draws = 750)
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 35, draw_size = 25, n_draws = 500)
 
 
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40_25draw.rds")) 
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_35_25draw_500.rds")) 
+
+sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, draw_size = 25, n_draws = 500)
+
+
+saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40_25draw_500.rds")) 
 ```

@@ -46,7 +46,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "step",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve" 
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     },
     
@@ -56,7 +56,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "segmented",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve"
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     },
     
@@ -66,7 +66,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "stegmented",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve"
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     },
     
@@ -76,7 +76,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "M111",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve"
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     },
     
@@ -86,7 +86,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "M02",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve"
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     },
     
@@ -96,7 +96,7 @@ default_model_specs <- function() {
         formula.2 = as.formula(paste("~", predictor)),
         family = "gaussian",
         type = "M12",
-        data = data, var.type = "bootstrap", bootsrap.type = "wildsieve"
+        data = data, var.type = "bootstrap", bootstrap.type = "wildsieve"
       )
     }
 
@@ -414,9 +414,9 @@ analyse_window <- function(data, responses = c("Richness", "regularity", "functi
 # =========================================================================
 #
  results <- list(
-   window30 = analyse_window(sum_df_30_25),
-   window35 = analyse_window(sum_df_35_25),
-   window40 = analyse_window(sum_df_40_25)
+   window30 = analyse_window(sum_df_30_25draw),
+   window35 = analyse_window(sum_df_35_25draw),
+   window40 = analyse_window(sum_df_40_25draw)
  )
 #
 # 
