@@ -890,7 +890,7 @@ moving_window_categories_3 <- function(data,
                                        size = 25,
                                        step = 1,
                                        threshold_iso_emit = 1,
-                                       threshold_mono_emit = 0.1,
+                                       threshold_mono_emit = 0.2,
                                        plot_type = c("area", "bar"),
                                        category_order = c("NE", "mono", "iso", "both"),
                                        show_legend = FALSE,
@@ -901,7 +901,7 @@ moving_window_categories_3 <- function(data,
                                        font_size = 12,
                                        x_label = expression(
                                          "Window median" ~ log[10] * "(EF + 0.01)" ~
-                                           "(" * mu * "g" * "\u00b7g"^{-1} * "\u00b7h"^{-1} * ")"
+                                           "(" * mu * "g" ~ "g"^{-1} ~ "h"^{-1} * ")"
                                        ),
                                        emission_labels = c(
                                          "NE"          = "Non-emitter",
