@@ -1761,9 +1761,9 @@ plot_window_selected_gg <- function(window_res, data, window_name = "",
 # 9. Application a toutes les fenetres
 # =========================================================================
 window_data <- list( 
-                     window30 = sum_df_30_25draw_mean,
-                     window35 = sum_df_35_25draw_mean,
-                     window40 = sum_df_40_25draw_mean
+                     window30 = sum_df_30_25draw_q95,
+                     window35 = sum_df_35_25draw_q95,
+                     window40 = sum_df_40_25draw_q95
 )
  
 combined_plots <- purrr::imap(results, function(window_res, window_name) {
@@ -1777,8 +1777,14 @@ purrr::walk(combined_plots, print)
 # =========================================================================
 dir.create("figures", showWarnings = FALSE)
 purrr::iwalk(combined_plots, function(p, window_name) {
+  p_nph <- p & theme(text      = element_text(size = 14),
+                     axis.text = element_text(size = 12))
   ggsave(file.path("figures", paste0(window_name, "_modeles_selectionnes.png")),
-         plot = p, width = 6, height = 14, dpi = 150)
+         plot = p_nph,
+         device = ragg::agg_png,
+         width = 160, height = 380, units = "mm",   # 2x la taille finale (80 x 190 mm)
+         dpi = 300,
+         bg = "white")
 })
 ```
 
@@ -1797,7 +1803,7 @@ res <- moving_window_categories_3(
     step = 1,
     return_window_info = TRUE,
     plot_type = "area",
-    vlines = list(v = c(0.89, 0.83, 0.94)), #list(v = c(0.7298538, 0.6414858, 0.7758776))
+    vlines = list(v = c(0.6469873, 0.6202402, 0.7298538)), #list(v = c(0.7298538, 0.6414858, 0.7758776))
     show_legend = TRUE, font_size = 16,
 )
 
@@ -2159,10 +2165,10 @@ metric_names <- c(
 )
 
 facet_letters <- setNames(letters[seq_along(desired_order)], desired_order)
-panel_titles  <- setNames(
-  paste0("(", facet_letters[desired_order], ") ", metric_names[desired_order]),
-  desired_order
-)
+panel_titles  <- lapply(desired_order, function(m) {
+  bquote(bold("(" * .(facet_letters[[m]]) * ")") ~ plain(.(metric_names[[m]])))
+})
+names(panel_titles) <- desired_order
 
 y_labels <- c(
   Richness       = "Hypervolume (unitless)",
@@ -2254,7 +2260,7 @@ build_metric_plot <- function(metric_name) {
     ) +
     scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
     labs(
-      title = panel_titles[metric_name],
+      title = panel_titles[[metric_name]],
       x = NULL,
       y = y_labels[metric_name],
       fill = NULL
@@ -2263,7 +2269,7 @@ build_metric_plot <- function(metric_name) {
     theme(
       axis.text.x      = element_blank(),
       axis.ticks.x     = element_blank(),
-      plot.title       = element_text(face = "bold", size = 10),
+      plot.title       = element_text(face = "plain", size = 10),
       legend.position   = "bottom",
       panel.grid.minor  = element_blank()
     )
@@ -2442,6 +2448,14 @@ plot_moving_window_convex(sum_df)
 
 Test pour quelle fenêtre de taille 40 il y a la plus grande fdis ? ou est ce qu'on prend la plus faible régularité ? ou est-ce qu'on teste les deux ?
 
+On part des résultats du moving window sans tirages pour une taille de fenêtre donnée (ici 40 espèces = le plus petit ratio, là où en piochant 25 dans 40 ça mettra dans l'idée le plus de temps à converger). Chaque fenêtre est un groupe de 40 espèces consécutives, pour lequel on a calculé les 5 métriques de diversité fonctionnelle.
+
+Pour chaque métrique, on identifie trois fenêtres de référence : 
+- celle qui a la valeur minimale, 
+- celle qui a la valeur maximale et 
+- celle qui a la valeur la plus proche de la médiane. 
+Ces fenêtres couvrent la gamme de situations rencontrées. Elles servent ensuite à tester la convergence pour trouver le nombre de tirages  de 25 sp nécessaire. 
+
 ```{r}
 targets::tar_load(sum_df_40)
 # Functional dispersion
@@ -2483,12 +2497,24 @@ idx_tab <- data.frame(
             "max_dim",  "min_dim",  "med_dim")
 )
 
+# ------------------------------------------------------------------------------
+# Regroupement des fenêtres identiques
+# ------------------------------------------------------------------------------
+# Une même fenêtre peut être min, max ou médiane pour plusieurs métriques à la
+# fois (ex. la fenêtre la plus dispersée est aussi la plus riche).
+# aggregate() regroupe les 15 indices par fenêtre : on obtient une ligne par
+# fenêtre distincte, avec tous ses labels concaténés (ex. "max_fdis / max_fric").
+# -> C'est ce tableau qui indique combien de fenêtres il faut réellement
+#    traiter : inutile de lancer deux fois les tirages sur la même fenêtre.
+
 # une ligne par indice unique, avec les labels concaténés
+
 idx_tab_unique <- aggregate(label ~ idx, data = idx_tab, FUN = paste, collapse = " / ")
 
 idx_tab_unique
 
-
+## en réalité il n'y a besoin de lancé de 10 fenêtres pas 15
+## Liste des espèces de chacune des 10 fenêtres distinctes à traiter
 
 species_idx_max_dim <- unlist(sum_df_40$sp_list[[idx_max_dim]])
 species_idx_max_fdis <- unlist(sum_df_40$sp_list[[idx_max_fdis]])
@@ -2503,6 +2529,10 @@ species_idx_min_dim <- unlist(sum_df_40$sp_list[[idx_min_dim]])
 species_idx_min_orig <- unlist(sum_df_40$sp_list[[idx_min_orig]])
 species_idx_min_reg <- unlist(sum_df_40$sp_list[[idx_min_reg]])
 
+# On filtre plot_data (une ligne par espèce : scores ACP Comp.1 à Comp.4 et
+# traits bruts) pour ne garder que les 40 espèces de chaque fenêtre.
+# Chaque subset_* contient donc 40 lignes. C'est le "pool" dans lequel
+# moving_window_convex_tirages() tirera ensuite 25 espèces, n_draws fois.
 
 
 subset_species_idx_max_dim  <- plot_data |> dplyr::filter(rowname %in% species_idx_max_dim)
@@ -2521,6 +2551,12 @@ subset_species_idx_min_reg  <- plot_data |> dplyr::filter(rowname %in% species_i
 ```
 
 On a decidé de fixé draw size à 25, pour quel n draw les 5 variables que l'on calcule se stabilisent ?
+
+Tirages sur les fenêtres de référence
+
+Dans chacune des 10 fenêtres distinctes identifiées ci-dessus (40 espèces chacune), on tire 25 espèces au hasard, 1 500 fois. Pour chaque tirage, on calcule les 5 métriques de diversité fonctionnelle dans l’espace des 4 premiers axes de l’ACP. La taille de tirage (draw_size = 25) est fixée. L’objectif est de déterminer à partir de combien de tirages (n_draws) les métriques se stabilisent. 1 500 tirages volontairement surdimensionnés permettent de visualiser la convergence et de choisir ensuite une valeur plus faible.
+
+Les résultats sont sauvegardés en .rds dans data/article1/convergence/. Ce chunk n’est pas réexécuté au rendu du document (calcul long) : les fichiers sont relus dans le chunk suivant.
 
 ```{r}
 
@@ -2561,8 +2597,10 @@ On a decidé de fixé draw size à 25, pour quel n draw les 5 variables que l'on
 
 ```
 
+# ------------------------------------------------------------------------------
+# Chargement des résultats de tirages (fenêtres 40, 25 espèces, 1500 tirages)
+# ------------------------------------------------------------------------------
 ```{r}
-
 sum_df_conv_w40_draw25_max_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_dim.rds")
 sum_df_conv_w40_draw25_max_fdis <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_fdis.rds")
 sum_df_conv_w40_draw25_max_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_orig.rds")
@@ -2575,13 +2613,19 @@ sum_df_conv_w40_draw25_med_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/c
 sum_df_conv_w40_draw25_min_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_dim.rds")
 sum_df_conv_w40_draw25_min_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_orig.rds")
 sum_df_conv_w40_draw25_min_reg <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_reg.rds")
+```
 
 
-
+```{r}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(patchwork)
+
+
+# ------------------------------------------------------------------------------
+# 1. Paramètres d'affichage
+# ------------------------------------------------------------------------------
 
 # Axis labels per metric (units / description)
 metric_labels <- c(
@@ -2610,11 +2654,11 @@ col_map <- c(
   "dimensionality"        = "dimensionality_cum"
 )
 
-# Colours per dataset (Okabe-Ito, colour-blind friendly)
+# Colours per dataset ( colour-blind friendly)
 dataset_colours <- c(
-  "min" = "#1E88E5",  # blue
-  "med" = "#FFC107",  # green
-  "max" = "#D81B60"   # vermillion
+  "min" = "#1E88E5",  
+  "med" = "#FFC107",  
+  "max" = "#D81B60"   
 )
 
 dataset_labels <- c(
@@ -2641,8 +2685,28 @@ theme_supp <- theme_minimal(base_size = 10, base_family = "sans") +
     legend.text      = element_text(size = 9, colour = "black")
   )
 
+
+# ------------------------------------------------------------------------------
+# 2. Quantile cumulé
+# ------------------------------------------------------------------------------
+
+
+# NEW : quantile cumulé (équivalent de cummean() pour un quantile p)
+# au tirage k, quantile calculé sur les k premiers tirages
+cum_quantile <- function(x, p) {
+  vapply(seq_along(x),
+         function(k) stats::quantile(x[seq_len(k)], probs = p,
+                                     na.rm = TRUE, names = FALSE),
+         numeric(1))
+}
+
+# NEW : nom affiché de chaque statistique (axe y)
+stat_labels <- c("mean" = "mean", "median" = "median",
+                 "q05" = "5th percentile", "q95" = "95th percentile")
+
+
 # Build one panel per metric, with bold "(a) Title" embedded directly
-make_panel <- function(data, metric_key, letter) {
+make_panel <- function(data, metric_key, letter, stat = "mean") {   # MODIF
   cum_col <- col_map[[metric_key]]
   panel_title <- bquote(bold("(" * .(letter) * ")") ~ .(panel_titles[[metric_key]]))
 
@@ -2652,7 +2716,7 @@ make_panel <- function(data, metric_key, letter) {
     labs(
       title = panel_title,
       x     = "Number of draws (n_draws)",
-      y     = paste0("Cumulative mean\n", metric_labels[[metric_key]])
+      y     = paste0("Cumulative ", stat_labels[[stat]], "\n", metric_labels[[metric_key]])   # MODIF
     ) +
     theme_supp
 }
@@ -2664,33 +2728,45 @@ make_panel <- function(data, metric_key, letter) {
 #' @param filename nom du fichier de sortie (sans extension), ex : "min_med_max"
 #' @param output_dir dossier de sortie
 #' @param width, height, units, dpi paramètres ggsave
+#' 
+#' @param stat statistique cumulée : "mean", "median", "q05" ou "q95"  
 plot_convergence <- function(sum_df_list,
                              filename,
+                             stat = "mean",                                  
                              output_dir = here::here("figures", "convergence_article_1"),
                              width = 180, height = 130, units = "mm", dpi = 300) {
 
   stopifnot(is.list(sum_df_list), !is.null(names(sum_df_list)),
-            all(names(sum_df_list) %in% names(dataset_colours)))
+            all(names(sum_df_list) %in% names(dataset_colours)),
+            stat %in% names(stat_labels))                                    
 
-  # 1. Moyennes cumulées, calculées séparément pour chaque jeu de données
+  # NEW : fonction cumulée correspondant à la statistique demandée
+  cum_fun <- switch(stat,
+    mean   = dplyr::cummean,
+    median = function(x) cum_quantile(x, 0.50),
+    q05    = function(x) cum_quantile(x, 0.05),
+    q95    = function(x) cum_quantile(x, 0.95)
+  )
+
+  # 1. Statistiques cumulées, calculées séparément pour chaque jeu de données
   conv_df <- sum_df_list |>
     dplyr::bind_rows(.id = "dataset") |>
     dplyr::mutate(dataset = factor(dataset, levels = names(dataset_colours))) |>
     dplyr::group_by(dataset) |>
     dplyr::arrange(draw_id, .by_group = TRUE) |>
-    dplyr::mutate(
-      Richness_cum       = dplyr::cummean(Richness),
-      regularity_cum     = dplyr::cummean(regularity),
-      FDis_cum           = dplyr::cummean(functional_dispersion),
-      originality_cum    = dplyr::cummean(originality),
-      dimensionality_cum = dplyr::cummean(dimensionality)
+    dplyr::mutate(                                                           
+      Richness_cum       = cum_fun(Richness),
+      regularity_cum     = cum_fun(regularity),
+      FDis_cum           = cum_fun(functional_dispersion),
+      originality_cum    = cum_fun(originality),
+      dimensionality_cum = cum_fun(dimensionality)
     ) |>
     dplyr::ungroup()
 
   # 2. Construction des panneaux
   metric_keys <- names(panel_titles)
   panels <- purrr::imap(metric_keys, function(metric_key, i) {
-    make_panel(conv_df, metric_key, letters[i])
+    make_panel(conv_df, metric_key, letters[i], stat)                        
   })
 
   # 3. Assemblage avec une légende commune
@@ -2701,7 +2777,7 @@ plot_convergence <- function(sum_df_list,
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
   ggsave(
-    filename = file.path(output_dir, paste0("convergence_", filename, ".svg")),
+    filename = file.path(output_dir, paste0("convergence_", filename, "_", stat, ".svg")),   
     plot     = convergence_plot,
     width    = width, height = height, units = units, dpi = dpi
   )
@@ -2711,14 +2787,38 @@ plot_convergence <- function(sum_df_list,
 ```
 
 ```{r}
-plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_dim,  min = sum_df_conv_w40_draw25_min_dim, med = sum_df_conv_w40_draw25_med_dim), filename = "dim" )
-plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_orig,  min = sum_df_conv_w40_draw25_min_orig, med = sum_df_conv_w40_draw25_med_orig), filename = "orig" )
+# Une figure par métrique de sélection et par statistique cumulée
+# (5 métriques x 4 statistiques = 20 SVG)
+for (s in c("mean", "median", "q05", "q95")) {
 
-plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_reg,  min = sum_df_conv_w40_draw25_min_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "reg" )  
+  print(plot_convergence(sum_df_list = list(max = sum_df_conv_w40_draw25_max_dim,
+                                            min = sum_df_conv_w40_draw25_min_dim,
+                                            med = sum_df_conv_w40_draw25_med_dim),
+                         filename = "dim", stat = s))
 
-plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_fdis,  min = sum_df_conv_w40_draw25_max_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "fdis" )
+  print(plot_convergence(sum_df_list = list(max = sum_df_conv_w40_draw25_max_orig,
+                                            min = sum_df_conv_w40_draw25_min_orig,
+                                            med = sum_df_conv_w40_draw25_med_orig),
+                         filename = "orig", stat = s))
 
-plot_convergence(sum_df_list = list( max = sum_df_conv_w40_draw25_max_fdis,  min = sum_df_conv_w40_draw25_max_reg, med = sum_df_conv_w40_draw25_med_fdis), filename = "fric" )
+  # med_reg = même fenêtre que med_fdis (voir idx_tab_unique)
+  print(plot_convergence(sum_df_list = list(max = sum_df_conv_w40_draw25_max_reg,
+                                            min = sum_df_conv_w40_draw25_min_reg,
+                                            med = sum_df_conv_w40_draw25_med_fdis),
+                         filename = "reg", stat = s))
+
+  # min_fdis = même fenêtre que max_reg (voir idx_tab_unique)
+  print(plot_convergence(sum_df_list = list(max = sum_df_conv_w40_draw25_max_fdis,
+                                            min = sum_df_conv_w40_draw25_max_reg,
+                                            med = sum_df_conv_w40_draw25_med_fdis),
+                         filename = "fdis", stat = s))
+
+  # fric : mêmes fenêtres que fdis (À VÉRIFIER dans idx_tab_unique)
+  print(plot_convergence(sum_df_list = list(max = sum_df_conv_w40_draw25_max_fdis,
+                                            min = sum_df_conv_w40_draw25_max_reg,
+                                            med = sum_df_conv_w40_draw25_med_fdis),
+                         filename = "fric", stat = s))
+}
 
 ```
 
@@ -2744,3 +2844,102 @@ sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Com
 
 saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40_25draw_500.rds")) 
 ```
+# ------------------------------------------------------------------------------
+# threshold/ type model sensitivity
+# ------------------------------------------------------------------------------
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# ------------------------------------------------------------------------------
+# 1. Tableau des seuils
+# ------------------------------------------------------------------------------
+
+thresholds_article_1 <- read_excel("data/article1/thresholds_article_1.xlsx")
+thr_df <- thresholds_article_1
+
+# ------------------------------------------------------------------------------
+# 2. Nettoyage et passage en format long (une ligne par seuil)
+# ------------------------------------------------------------------------------
+thr_long <- thr_df |>
+  mutate(
+    type_model  = trimws(type_model),            # "stegmented " -> "stegmented"
+    # type_model = recode(type_model, "M11" = "M111"),   # si M11 est une faute de frappe
+    metric      = recode(metric, "Richeness" = "Functional richness"),
+    metric      = factor(metric, levels = c("Functional richness", "Regularity",
+                                            "Functional dispersion", "Originality",
+                                            "Functional dimensionality")),
+    window_size = factor(window_size,
+                         levels = c(30, 35, 40),
+                         labels = c("Window size 30", "Window size 35", "Window size 40")),
+    type        = recode(type, "Q5" = "P5", "Q95" = "P95"),
+    type        = factor(type, levels = c("P95", "Mean", "Median", "P5"))  # P5 en bas
+  ) |>
+  # seuil 1 et seuil 2 sur des lignes séparées
+  pivot_longer(c(threshold_1, lower_1, upper_1, threshold_2, lower_2, upper_2),
+               names_to = c(".value", "threshold_id"),
+               names_pattern = "(threshold|lower|upper)_(\\d)") |>
+  filter(!is.na(threshold)) |>
+  mutate(threshold_id = factor(threshold_id, labels = c("Threshold 1", "Threshold 2")))
+
+# Nom du modèle, une fois par ligne (fenêtre x métrique x statistique)
+model_labels <- thr_long |>
+  distinct(window_size, metric, type, type_model)
+
+# ------------------------------------------------------------------------------
+# 3. Figure : une colonne par métrique, une ligne par taille de fenêtre
+# ------------------------------------------------------------------------------
+# Couleurs Okabe-Ito (lisibles pour les daltoniens)
+thr_colours <- c("Threshold 1" = "#0072B2", "Threshold 2" = "#D55E00")
+
+thr_plot <- ggplot(thr_long, aes(y = type)) +
+  # IC à 95 % : barre épaisse semi-transparente
+  geom_linerange(aes(xmin = lower, xmax = upper, colour = threshold_id),
+                 linewidth = 2.2, alpha = 0.35, lineend = "round") +
+  # seuil estimé : point plein avec contour blanc
+  geom_point(aes(x = threshold, fill = threshold_id),
+             shape = 21, size = 2.4, colour = "white", stroke = 0.6) +
+  # séparateurs discrets entre les statistiques
+  geom_hline(yintercept = c(1.5, 2.5, 3.5), colour = "grey92", linewidth = 0.3) +
+  # nom du modèle, collé à droite du panneau
+  geom_text(data = model_labels, aes(x = Inf, label = type_model),
+            hjust = 1.05, size = 2.3, colour = "grey45", fontface = "italic") +
+  facet_grid(window_size ~ metric,
+             labeller = labeller(metric = label_wrap_gen(14))) +
+  scale_colour_manual(values = thr_colours, aesthetics = c("colour", "fill")) +
+  scale_x_continuous(expand = expansion(mult = c(0.05, 0.25))) +  # place pour le nom du modèle
+  labs(x = expression("Threshold (window median " * log[10] * "(EF + 0.01))"),
+       y = NULL) +
+  theme_minimal(base_size = 10, base_family = "sans") +
+  theme(
+    panel.grid.major.y   = element_blank(),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.x   = element_line(colour = "grey90", linewidth = 0.3),
+    panel.border         = element_rect(colour = "grey70", fill = NA, linewidth = 0.4),
+    panel.spacing        = unit(0.6, "lines"),
+    strip.text.x         = element_text(face = "bold", size = 9, hjust = 0.5),
+    strip.text.y         = element_text(face = "bold", size = 9, angle = 0, hjust = 0),
+    axis.text            = element_text(colour = "black", size = 8),
+    axis.title.x         = element_text(size = 9, margin = margin(t = 6)),
+    legend.position      = "top",
+    legend.justification = "left",
+    legend.title         = element_blank(),
+    legend.text          = element_text(size = 9),
+    plot.background      = element_rect(fill = "white", colour = NA)
+  )
+
+thr_plot
+
+# ------------------------------------------------------------------------------
+# 4. Export (2x la taille finale, consigne New Phytologist)
+# ------------------------------------------------------------------------------
+# 340 mm = 2 x ~170 mm (deux colonnes) : à ajuster selon le guide Wiley
+dir.create(here::here("figures"), showWarnings = FALSE)
+ggsave(here::here("figures", "thresholds_sensitivity.png"),
+       plot = thr_plot & theme(text      = element_text(size = 16),
+                               axis.text = element_text(size = 13)),
+       device = ragg::agg_png,
+       width = 340, height = 200, units = "mm", dpi = 300, bg = "white")
+```
+

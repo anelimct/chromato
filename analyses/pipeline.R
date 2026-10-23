@@ -272,10 +272,10 @@ tar_target(
 tar_target(compound_mean_spagg,compounds_tabled_zeroed_singleton(compounds_table_standardized[[1]], times_compound_sp) |>  compound_mean_sp( valid_samples_mono, times_compound_sp,  include_se = FALSE)), # |>  dplyr::filter(compound != "p-Cymenene")|>  dplyr::filter(compound != "p-Cymene")
 tar_target(pheno, woodiv_trait |> dplyr::filter(trait == "LeafPheno") |> dplyr::rename("spagg" = "spcode")),
 
-## emission standardisées pour chaque samples screening
+## emission standardisées pour chaque samples screening, inclue les singletons
 tar_target(compounds_samples_spagg_to_keep, compounds_samples_spagg_to_keep(compounds_table_standardized[[1]] , valid_samples_mono, times_compound_sp) |>  compounds_tabled_zeroed_singleton(times_compound_sp) |>  dplyr::filter(!dplyr::if_all(5:174, is.na)) ),
 
-##table avec iso, sum mono/mo-ox pour tous les samples de screening (pas de mean a sp)
+##table avec iso, sum mono/mo-ox pour tous les samples de screening (pas de mean a sp), tableau a utiliser pour calculer mean T et PAR across samples
 tar_target(iso_mono_EF_screening ,  wide_table_sum_per_sample(compounds_samples_spagg_to_keep, bvocs_samples, valid_samples_mono, paradise_reports_mono_ER) |>  species_aggregation(woodiv_species, "field_") |> dplyr::left_join(pheno) |>  create_all_boxplots(trait_col = "value", save_path = here::here("figures", "graphs_screening", "boxplots"), remove_zeros = TRUE, test_emissions = TRUE, apply_log_transform = TRUE, test_richness = TRUE)), 
 
 

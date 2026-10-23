@@ -72,10 +72,10 @@ my_species_order <- c(
   "Ficus carica", "Frangula alnus", "Malus sylvestris", "Populus tremula",
   "Prunus avium", "Prunus brigantina", "Prunus mahaleb", "Prunus padus", "Pyrus pyraster", "Pyrus spinosa",
    "Rhamnus cathartica", "Salix alba", "Salix purpurea", "Salix cinerea", "Sambucus racemosa",
-  "Sambucus nigra", "Sorbus aria", "Sorbus domestica", "Sorbus torminalis", "Tamarix africana", "Tamarix gallica",
+  "Sambucus nigra", "Sorbus aria", "Sorbus domestica", "Sorbus torminalis", 
 
   # Evergreen broadleaves (angiosperms)
-  "Quercus crenata", "Ilex aquifolium", "Phillyrea angustifolia", "Rhamnus alaternus",
+  "Quercus crenata", "Ilex aquifolium", "Phillyrea angustifolia", "Rhamnus alaternus","Tamarix africana", "Tamarix gallica",
 
   # Evergreen conifers (gymnosperms)
   "Taxus baccata",
@@ -588,21 +588,15 @@ create_bubble_heatmap_2 <- function(data,
   #-----------------------------
   
   if(save_plot){
-    
     ggsave(
-      filename=file_name,
-      plot=p,
-      device="png",
-      width=width,
-      height=height,
-      units="mm",
-      dpi=dpi,
-      bg="white"
+      "bubble_heatmap.svg",
+      plot = p,
+      width = width,
+      height = height,
+      units = "mm",
+      bg = "white"
     )
   }
-  
-  return(p)
-}
 
 
 
