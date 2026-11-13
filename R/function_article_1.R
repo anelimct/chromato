@@ -549,7 +549,7 @@ moving_window_convex_tirages_old <- function(data, ordination = "Sum",
 
 
 
-moving_window_convex_tirages <- function(data, ordination = "Sum",
+moving_window_convex_tirages <- function(data, data_all, ordination = "Sum",
                                          size = 25, step = 1,
                                          n_draws = 1000, draw_size = 15,
                                          col_scores, col_traits, col_species = "rowname",
@@ -564,7 +564,8 @@ moving_window_convex_tirages <- function(data, ordination = "Sum",
   start_indices <- seq(1, n_total - size + 1, by = step)
   
   # Centroïde global (référence fixe)
-  centroid_global <- colMeans(as.matrix(data_clean[, col_scores]))
+  ##data_all =plot_data
+  centroid_global <- colMeans(as.matrix(data_all[, col_scores]))
   
   # 2. Parallélisation
   future::plan(future::multisession, workers = workers)

@@ -761,7 +761,7 @@ plot_data <- merged_data_3T %>%
 # 6 especes reperes, reparties le long du gradient d'emission
 
 especes_a_entourer <- c("Corylus_avellana", "Olea_europaea", "Fagus_sylvatica",
-                        "Castanea_sativa", "Quercus_ilex", "Rhamnus_alaternus")
+                        "Castanea_sativa", "Quercus_ilex", "Populus_alba")
 
 highlight_points <- plot_data %>% filter(rowname %in% especes_a_entourer)
 
@@ -1831,7 +1831,6 @@ test <- extraire_especes_threshold(sum_df_35, "median_log_sum", 0.6202402, 0.729
 library(ggplot2)
 library(dplyr)
 library(tidyr)
-library(geometry)      # pour convhulln
 library(fundiversity)  # pour fd_fdis
 library(hypervolume)   # pour hypervolume() et hypervolume_set()
 
@@ -1961,31 +1960,7 @@ iterate_paired <- function(pre_available, post_available, data, size = 25, n_ite
   )
 }
 
-# ----------------------------------------------------------------------
-# Fonctions NON appariees (echantillonnage independant pre/post), utilisees
-# uniquement pour construire la distribution nulle du test de permutation
-# (section 4) : la ne pas besoin de hypervolume_set, juste des metriques
-# marginales par groupe.
-# ----------------------------------------------------------------------
-sample_metrics <- function(species_list, data, size = 25,
-                            scores_cols, traits_cols, global_centroid) {
-  res <- compute_group_hv(sample(species_list, size, replace = FALSE),
-                           data, scores_cols, traits_cols, global_centroid)
-  res$metrics
-}
 
-iterate_group <- function(species_list, data, size = 25, n_iter = 100,
-                           scores_cols, traits_cols, global_centroid) {
-
-  results <- replicate(n_iter, {
-    sample_metrics(species_list, data, size,
-                    scores_cols, traits_cols, global_centroid)
-  }, simplify = FALSE)
-
-  df <- do.call(rbind, lapply(results, function(x) as.data.frame(t(x))))
-  df$iteration <- 1:n_iter
-  df
-}
 
 # ======================================================================
 # 1. PREPARATION DES DONNEES
@@ -2062,85 +2037,46 @@ all_results <- all_results %>%
 pre_results  <- all_results %>% filter(groupe == "pre_seuil")
 post_results <- all_results %>% filter(groupe == "post_seuil")
 
+
 # ======================================================================
-# 4. TEST DE PERMUTATION (label shuffling) — remplace le Wilcoxon classique
+# 4. TEST DE WILCOXON (pre_seuil vs post_seuil)
 # ======================================================================
-# Principe : sous H0, l'appartenance pre/post d'une espece est arbitraire.
-# On melange les labels (en gardant les tailles de groupe reelles n_pre/n_post),
-# on refait tourner le meme pipeline de sous-echantillonnage (independant ici,
-# car on ne teste que les metriques marginales, pas le chevauchement),
-# et on obtient une statistique nulle qui integre la structure de correlation
-# induite par le reechantillonnage.
+# Pour chaque metrique : test de Wilcoxon-Mann-Whitney comparant les 100
+# valeurs pre_seuil aux 100 valeurs post_seuil (une valeur par iteration).
+# Regularity et dimensionality sont testees sur les valeurs normalisees
+# (section 3) : la transformation 1 - min-max conserve l'ordre des valeurs,
+# donc le test (base sur les rangs) donne la meme p-value que sur les valeurs brutes.
 
-permutation_test_metrics <- function(pre_available, post_available, data,
-                                      size = 25, n_iter_inner = 1, n_perm = 1000,
-                                      scores_cols, traits_cols, global_centroid,
-                                      stat_fun = median, seed = 1) {
+metrics_test <- c("Richness", "FDis", "Originality", "regularity", "dimensionality")
 
-  set.seed(seed)
-  n_pre_l  <- length(pre_available)
-  n_post_l <- length(post_available)
-  pool     <- c(pre_available, post_available)
 
-  # ---- statistique observee, sur les distributions deja calculees ----
-  obs_diff <- c(
-    Richness       = stat_fun(post_results$Richness, na.rm = TRUE)       - stat_fun(pre_results$Richness, na.rm = TRUE),
-    FDis           = stat_fun(post_results$FDis, na.rm = TRUE)           - stat_fun(pre_results$FDis, na.rm = TRUE),
-    Originality    = stat_fun(post_results$Originality, na.rm = TRUE)    - stat_fun(pre_results$Originality, na.rm = TRUE),
-    regularity     = stat_fun(post_results$regularity, na.rm = TRUE)     - stat_fun(pre_results$regularity, na.rm = TRUE),
-    dimensionality = stat_fun(post_results$dimensionality, na.rm = TRUE) - stat_fun(pre_results$dimensionality, na.rm = TRUE)
-  )
 
-  # ---- distribution nulle ----
-  null_mat <- replicate(n_perm, {
-    shuffled  <- sample(pool)
-    perm_pre  <- shuffled[1:n_pre_l]
-    perm_post <- shuffled[(n_pre_l + 1):(n_pre_l + n_post_l)]
+## test sur chaque métrique
 
-    pre_perm  <- iterate_group(perm_pre,  data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
-    post_perm <- iterate_group(perm_post, data, size, n_iter_inner, scores_cols, traits_cols, global_centroid)
+w_richness       <- stats::wilcox.test(pre_results$Richness,       post_results$Richness,       alternative = "less")
+w_regularity     <- stats::wilcox.test(pre_results$regularity,     post_results$regularity,     alternative = "greater")
+w_fdis           <- stats::wilcox.test(pre_results$FDis,           post_results$FDis,           alternative = "less")
+w_originality    <- stats::wilcox.test(pre_results$Originality,    post_results$Originality,    alternative = "greater")
+w_dimensionality <- stats::wilcox.test(pre_results$dimensionality, post_results$dimensionality, alternative = "less")
 
-    c(
-      Richness       = stat_fun(post_perm$Richness, na.rm = TRUE)           - stat_fun(pre_perm$Richness, na.rm = TRUE),
-      FDis           = stat_fun(post_perm$FDis, na.rm = TRUE)               - stat_fun(pre_perm$FDis, na.rm = TRUE),
-      Originality    = stat_fun(post_perm$Originality, na.rm = TRUE)        - stat_fun(pre_perm$Originality, na.rm = TRUE),
-      regularity     = stat_fun(post_perm$regularity_inv, na.rm = TRUE)     - stat_fun(pre_perm$regularity_inv, na.rm = TRUE),
-      dimensionality = stat_fun(post_perm$dimensionality_inv, na.rm = TRUE) - stat_fun(pre_perm$dimensionality_inv, na.rm = TRUE)
-    )
-  })
-
-  pvals <- sapply(seq_along(obs_diff), function(i) {
-    (sum(abs(null_mat[i, ]) >= abs(obs_diff[i]), na.rm = TRUE) + 1) / (n_perm + 1)
-  })
-  names(pvals) <- names(obs_diff)
-
-  list(observed = obs_diff, null = null_mat, p_value = pvals)
-}
-
-# ATTENTION : ce test est couteux en calcul (hypervolume() est lent).
-# Commencez avec n_perm et n_iter_inner faibles pour calibrer le temps
-# d'execution avant de lancer la version finale (ex. n_perm = 999).
-perm_test <- permutation_test_metrics(
-  pre_available, post_available, data,
-  size = 25, n_iter_inner = 20, n_perm = 30,
-  scores_cols = scores_cols, traits_cols = traits_cols,
-  global_centroid = global_centroid, stat_fun = median
+## tableau des résultats
+wilcox_results <- data.frame(
+  Metric  = c("Richness", "regularity", "FDis", "Originality", "dimensionality"),
+  W       = c(w_richness$statistic, w_regularity$statistic, w_fdis$statistic,
+              w_originality$statistic, w_dimensionality$statistic),
+  p_value = c(w_richness$p.value, w_regularity$p.value, w_fdis$p.value,
+              w_originality$p.value, w_dimensionality$p.value)
 )
 
-perm_results <- data.frame(
-  Metric      = names(perm_test$p_value),
-  Diff_median = perm_test$observed,
-  p_value     = perm_test$p_value
-)
-perm_results$signif <- ifelse(perm_results$p_value < 0.001, "***",
-                        ifelse(perm_results$p_value < 0.01,  "**",
-                        ifelse(perm_results$p_value < 0.05,  "*", "ns")))
+wilcox_results$signif <- ifelse(wilcox_results$p_value < 0.001, "***",
+                                ifelse(wilcox_results$p_value < 0.01,  "**",
+                                       ifelse(wilcox_results$p_value < 0.05,  "*", "ns")))
 
-cat("\n===== TEST DE PERMUTATION (label shuffling, pre_seuil vs post_seuil) =====\n")
-print(perm_results)
+cat("\n===== TEST DE WILCOXON (pre_seuil vs post_seuil, 100 iterations par groupe) =====\n")
+print(wilcox_results)
 
-
-
+# Objet utilise par la suite du script (etoiles sur la figure)
+perm_results <- wilcox_results[, c("Metric", "p_value", "signif")]
 
 library(ggsignif)
 library(patchwork)
@@ -2293,87 +2229,17 @@ ggsave(
 )
 
 
-# ======================================================================
-# 7. SCATTER PLOT : Regularity ~ Functional Richness, colore par groupe
-# ======================================================================
-
-scatter_plot <- ggplot(all_results, aes(x = Richness, y = regularity, color = groupe)) +
-  geom_point(alpha = 0.6, size = 2) +
-  scale_color_manual(
-    values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
-    labels = c(
-      paste0("Before threshold (n = ", n_pre, ")"),
-      paste0("After threshold (n = ", n_post, ")")
-    )
-  ) +
-  scale_fill_manual(
-    values = c("pre_seuil" = "steelblue", "post_seuil" = "salmon"),
-    guide = "none"
-  ) +
-  labs(
-    title = "Regularity vs Functional Richness",
-    x = "Hypervolume (unitless)",
-    y = "Regularity",
-    color = NULL
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(
-    plot.title      = element_text(face = "bold", size = 11),
-    legend.position = "bottom",
-    panel.grid.minor = element_blank()
-  )
-
-print(scatter_plot)
-
-ggsave(
-  filename = "regularity_vs_richness.svg",
-  plot = scatter_plot,
-  width = 5,
-  height = 4,
-  device = "svg"
-)
 
 # ======================================================================
-# 8. VIOLIN PLOT : % DE CHEVAUCHEMENT DES HYPERVOLUMES (pre vs post)
+# 7. VIOLIN PLOT : % DE CHEVAUCHEMENT DES HYPERVOLUMES (pre vs post)
 #    sur les n_iter iterations appariees
 # ======================================================================
-overlap_long <- overlap_results %>%
-  select(iteration, Pct_pre_in_post, Pct_post_in_pre) %>%
-  tidyr::pivot_longer(cols = c(Pct_pre_in_post, Pct_post_in_pre),
-               names_to = "direction", values_to = "pct")
+moy_pre_in_post <- mean(overlap_results$Pct_pre_in_post, na.rm = TRUE)
+sd_pre_in_post  <- sd(overlap_results$Pct_pre_in_post,   na.rm = TRUE)
 
-overlap_long$direction <- factor(
-  overlap_long$direction,
-  levels = c("Pct_pre_in_post", "Pct_post_in_pre"),
-  labels = c("% pre inclus dans post", "% post inclus dans pre")
-)
-
-overlap_plot <- ggplot(overlap_long, aes(x = direction, y = pct, fill = direction)) +
-  geom_violin(trim = FALSE, alpha = 0.6, width = 1.2) +
-  geom_boxplot(width = 0.1, color = "grey20", alpha = 0.8, outlier.shape = NA) +
-  scale_fill_manual(values = c("% pre inclus dans post" = "steelblue",
-                                "% post inclus dans pre" = "salmon")) +
-  labs(
-    title = "Chevauchement des hypervolumes pre-seuil / post-seuil",
-    x = NULL,
-    y = "% du volume inclus dans l'autre groupe",
-    fill = NULL
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(
-    legend.position  = "none",
-    panel.grid.minor = element_blank()
-  )
-
-print(overlap_plot)
-
-ggsave(
-  filename = "overlap_pre_post.svg",
-  plot = overlap_plot,
-  width = 5,
-  height = 4,
-  device = "svg"
-)
+cat("\n===== % HYPERVOLUME PRE INCLUS DANS POST =====\n")
+cat("Moyenne :", round(moy_pre_in_post, 1), "%\n")
+cat("Ecart-type :", round(sd_pre_in_post, 1), "%\n")
 
 # ======================================================================
 # 9. (OPTIONNEL) EXPORT DE LA LISTE DES ESPECES ET DU CHEVAUCHEMENT
@@ -2394,54 +2260,54 @@ ggsave(
 #| message: false
 #| warning: false
 
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 15)
-
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_15.rds"))
-
-plot_moving_window_convex(sum_df)
-
-
-
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 20)
-
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_20.rds"))
-
-plot_moving_window_convex(sum_df)
-
-
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 25)
-
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_25.rds"))
-
-plot_moving_window_convex(sum_df)
-
-
-
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 30)
-
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_30.rds"))
-
-plot_moving_window_convex(sum_df)
-
-
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3", "Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 35)
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_35.rds"))
-
-plot_moving_window_convex(sum_df)
-
-
-
-sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3", "Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40)
-
-saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40.rds"))
-
-plot_moving_window_convex(sum_df)
- 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 15)
+# 
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_15.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+# 
+# 
+# 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 20)
+# 
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_20.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+# 
+# 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 25)
+# 
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_25.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+# 
+# 
+# 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 30)
+# 
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_30.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+# 
+# 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3", "Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 35)
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_35.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+# 
+# 
+# 
+# sum_df <- moving_window_convex (plot_data, col_scores =  c("Comp.1","Comp.2","Comp.3", "Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40)
+# 
+# saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40.rds"))
+# 
+# plot_moving_window_convex(sum_df)
+#  
 ```
 
 ## moving window avec tirages
@@ -2450,11 +2316,7 @@ Test pour quelle fenêtre de taille 40 il y a la plus grande fdis ? ou est ce qu
 
 On part des résultats du moving window sans tirages pour une taille de fenêtre donnée (ici 40 espèces = le plus petit ratio, là où en piochant 25 dans 40 ça mettra dans l'idée le plus de temps à converger). Chaque fenêtre est un groupe de 40 espèces consécutives, pour lequel on a calculé les 5 métriques de diversité fonctionnelle.
 
-Pour chaque métrique, on identifie trois fenêtres de référence : 
-- celle qui a la valeur minimale, 
-- celle qui a la valeur maximale et 
-- celle qui a la valeur la plus proche de la médiane. 
-Ces fenêtres couvrent la gamme de situations rencontrées. Elles servent ensuite à tester la convergence pour trouver le nombre de tirages  de 25 sp nécessaire. 
+Pour chaque métrique, on identifie trois fenêtres de référence : - celle qui a la valeur minimale, - celle qui a la valeur maximale et - celle qui a la valeur la plus proche de la médiane. Ces fenêtres couvrent la gamme de situations rencontrées. Elles servent ensuite à tester la convergence pour trouver le nombre de tirages de 25 sp nécessaire.
 
 ```{r}
 targets::tar_load(sum_df_40)
@@ -2561,45 +2423,48 @@ Les résultats sont sauvegardés en .rds dans data/article1/convergence/. Ce chu
 ```{r}
 
 # # --- MAX ---
-# sum_df_conv_max_dim <- moving_window_convex_tirages(subset_species_idx_max_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_max_dim <- moving_window_convex_tirages(subset_species_idx_max_dim, plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_max_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_dim.rds"))
 # 
-# sum_df_conv_max_fdis <- moving_window_convex_tirages(subset_species_idx_max_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_max_fdis <- moving_window_convex_tirages(subset_species_idx_max_fdis,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_max_fdis, file = here::here("data", "article1","convergence", "sum_df_conv_w40_draw25_max_fdis.rds"))
 # 
-# sum_df_conv_max_orig <- moving_window_convex_tirages(subset_species_idx_max_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_max_orig <- moving_window_convex_tirages(subset_species_idx_max_orig,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_max_orig, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_orig.rds"))
 # 
-# sum_df_conv_max_reg <- moving_window_convex_tirages(subset_species_idx_max_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_max_reg <- moving_window_convex_tirages(subset_species_idx_max_reg,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_max_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_max_reg.rds"))
 # 
 # 
 # # --- MED ---
-# sum_df_conv_med_dim <- moving_window_convex_tirages(subset_species_idx_med_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_med_dim <- moving_window_convex_tirages(subset_species_idx_med_dim,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_med_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_dim.rds"))
 # 
-# sum_df_conv_med_fdis <- moving_window_convex_tirages(subset_species_idx_med_fdis, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_med_fdis <- moving_window_convex_tirages(subset_species_idx_med_fdis,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_med_fdis, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_med_fdis.rds"))
 # 
-# sum_df_conv_med_orig <- moving_window_convex_tirages(subset_species_idx_med_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_med_orig <- moving_window_convex_tirages(subset_species_idx_med_orig,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_med_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_med_orig.rds"))
 # 
 # 
 # # --- MIN ---
-# sum_df_conv_min_dim <- moving_window_convex_tirages(subset_species_idx_min_dim, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_min_dim <- moving_window_convex_tirages(subset_species_idx_min_dim,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_min_dim, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_dim.rds"))
 # 
-# sum_df_conv_min_orig <- moving_window_convex_tirages(subset_species_idx_min_orig, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_min_orig <- moving_window_convex_tirages(subset_species_idx_min_orig,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_min_orig, file = here::here("data", "article1","convergence",  "sum_df_conv_w40_draw25_min_orig.rds"))
 # 
-# sum_df_conv_min_reg <- moving_window_convex_tirages(subset_species_idx_min_reg, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
+# sum_df_conv_min_reg <- moving_window_convex_tirages(subset_species_idx_min_reg,plot_data, col_scores = c("Comp.1","Comp.2","Comp.3","Comp.4"), col_traits = c("HeightMax", "LeafArea", "SLA", "StemSpecDens"), ordination = "log_sum", size = 40, n_draws = 1500, draw_size = 25)
 # saveRDS(sum_df_conv_min_reg, file = here::here("data", "article1", "convergence", "sum_df_conv_w40_draw25_min_reg.rds"))
 
 ```
 
 # ------------------------------------------------------------------------------
+
 # Chargement des résultats de tirages (fenêtres 40, 25 espèces, 1500 tirages)
+
 # ------------------------------------------------------------------------------
+
 ```{r}
 sum_df_conv_w40_draw25_max_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_dim.rds")
 sum_df_conv_w40_draw25_max_fdis <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_max_fdis.rds")
@@ -2614,7 +2479,6 @@ sum_df_conv_w40_draw25_min_dim <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/ch
 sum_df_conv_w40_draw25_min_orig <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_orig.rds")
 sum_df_conv_w40_draw25_min_reg <- readRDS("C:/Users/mchateau/Nextcloud2/THESE/chromato/data/article1/convergence/sum_df_conv_w40_draw25_min_reg.rds")
 ```
-
 
 ```{r}
 library(dplyr)
@@ -2844,9 +2708,13 @@ sum_df <- moving_window_convex_tirages (plot_data, col_scores =  c("Comp.1","Com
 
 saveRDS(sum_df, file = here::here("data", "article1", "sum_df_40_25draw_500.rds")) 
 ```
+
 # ------------------------------------------------------------------------------
+
 # threshold/ type model sensitivity
+
 # ------------------------------------------------------------------------------
+
 ```{r}
 library(dplyr)
 library(tidyr)
@@ -2856,7 +2724,7 @@ library(ggplot2)
 # 1. Tableau des seuils
 # ------------------------------------------------------------------------------
 
-thresholds_article_1 <- read_excel("data/article1/thresholds_article_1.xlsx")
+thresholds_article_1 <- readxl::read_excel("data/article1/thresholds_article_1.xlsx")
 thr_df <- thresholds_article_1
 
 # ------------------------------------------------------------------------------
@@ -2891,7 +2759,7 @@ model_labels <- thr_long |>
 # 3. Figure : une colonne par métrique, une ligne par taille de fenêtre
 # ------------------------------------------------------------------------------
 # Couleurs Okabe-Ito (lisibles pour les daltoniens)
-thr_colours <- c("Threshold 1" = "#0072B2", "Threshold 2" = "#D55E00")
+thr_colours <- c("Threshold 1" = "steelblue", "Threshold 2" = "salmon")
 
 thr_plot <- ggplot(thr_long, aes(y = type)) +
   # IC à 95 % : barre épaisse semi-transparente
@@ -2909,7 +2777,8 @@ thr_plot <- ggplot(thr_long, aes(y = type)) +
              labeller = labeller(metric = label_wrap_gen(14))) +
   scale_colour_manual(values = thr_colours, aesthetics = c("colour", "fill")) +
   scale_x_continuous(expand = expansion(mult = c(0.05, 0.25))) +  # place pour le nom du modèle
-  labs(x = expression("Threshold (window median " * log[10] * "(EF + 0.01))"),
+  labs(x = expression("Window median" ~ log[10] * "(EF + 0.01)" ~
+    "(" * mu * "g" ~ "g"^{-1} ~ "h"^{-1} * ")"),
        y = NULL) +
   theme_minimal(base_size = 10, base_family = "sans") +
   theme(
@@ -2937,9 +2806,206 @@ thr_plot
 # 340 mm = 2 x ~170 mm (deux colonnes) : à ajuster selon le guide Wiley
 dir.create(here::here("figures"), showWarnings = FALSE)
 ggsave(here::here("figures", "thresholds_sensitivity.png"),
-       plot = thr_plot & theme(text      = element_text(size = 16),
+       plot = thr_plot + theme(text      = element_text(size = 16),
                                axis.text = element_text(size = 13)),
        device = ragg::agg_png,
        width = 340, height = 200, units = "mm", dpi = 300, bg = "white")
 ```
 
+# ------------------------------------------------------------------------------
+
+# Plot functional space avec les sp pre vs les sp post
+
+# ------------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-width: 8
+#| fig-height: 6
+
+# ======================================================================
+# ESPACE FONCTIONNEL PC1-PC2 : ESPECES PRE-SEUIL ET POST-SEUIL
+# Fond : densite (TPD) des 101 especes, recalculee comme dans funspace
+#        (estimation par noyau ks::kde, couleur = quantile de probabilite,
+#         contours a 0.25, 0.5 et 0.99)
+# Points : especes pre-seuil (bleu) / post-seuil (rouge) / autres (gris)
+# Polygones pointilles : enveloppe convexe de chaque groupe
+# Utilise les objets deja crees plus haut dans le quarto :
+#   pca.trait_usual_iso, plot_data
+# ======================================================================
+
+library(ggplot2)
+library(dplyr)
+
+# ---- 1. Groupes pre / post seuil (meme seuil que l'analyse) ----
+targets::tar_load(sum_df_35)
+especes_seuil <- extraire_especes_threshold(sum_df_35, "median_log_sum", 0.6202402, 0.7298538)
+
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+complete_species <- plot_data$rowname[complete.cases(plot_data[, c(scores_cols, traits_cols)])]
+pre_sp  <- intersect(especes_seuil$pre_seuil,  complete_species)
+post_sp <- intersect(especes_seuil$post_seuil, complete_species)
+
+points_seuil <- plot_data |>
+  filter(rowname %in% complete_species) |>
+  mutate(groupe = case_when(
+    rowname %in% pre_sp  ~ "pre_seuil",
+    rowname %in% post_sp ~ "post_seuil",
+    TRUE                 ~ "autre"
+  ))
+
+col_groupe <- c("pre_seuil" = "steelblue", "post_seuil" = "salmon")
+lab_groupe <- c("pre_seuil"  = paste0("Before threshold (n = ", length(pre_sp), ")"),
+                "post_seuil" = paste0("After threshold (n = ", length(post_sp), ")"))
+
+var_pct <- round(100 * pca.trait_usual_iso$sdev^2 / sum(pca.trait_usual_iso$sdev^2), 1)
+
+# ---- 2. Fond : densite de l'espace global (101 especes) ----
+scores_global <- pca.trait_usual_iso$scores[, 1:2]
+
+kde_global <- ks::kde(scores_global,
+                      H = ks::Hpi(scores_global),
+                      gridsize = c(200, 200),
+                      xmin = apply(scores_global, 2, min) - 3,
+                      xmax = apply(scores_global, 2, max) + 3)
+
+# quantile de chaque cellule = part de la probabilite contenue dans les
+# cellules plus denses (0 = coeur le plus dense, 0.99 = limite de l'espace)
+dens  <- as.vector(kde_global$estimate)
+ordre <- order(dens, decreasing = TRUE)
+quant <- numeric(length(dens))
+quant[ordre] <- cumsum(dens[ordre]) / sum(dens)
+
+tpd_global <- expand.grid(PC1 = kde_global$eval.points[[1]],
+                          PC2 = kde_global$eval.points[[2]])
+tpd_global$quantile <- quant
+
+# ---- 3. Enveloppe convexe de chaque groupe ----
+hulls <- points_seuil |>
+  filter(groupe != "autre") |>
+  group_by(groupe) |>
+  slice(chull(Comp.1, Comp.2)) |>
+  ungroup()
+
+# ---- 4. Figure ----
+fig_seuil_pc12 <- ggplot() +
+  geom_raster(data = filter(tpd_global, quantile <= 0.99),
+              aes(x = PC1, y = PC2, fill = quantile), alpha = 0.3) +
+  scale_fill_gradientn(colors = c("red", "orange", "yellow"),
+                       limits = c(0, 0.99),
+                       name = "Quantile space") +
+  geom_contour(data = tpd_global, aes(x = PC1, y = PC2, z = quantile),
+               breaks = c(0.25, 0.5, 0.99), colour = "grey30", linewidth = 0.4) +
+  ggnewscale::new_scale_fill() +
+  geom_polygon(data = hulls, aes(x = Comp.1, y = Comp.2, colour = groupe),
+               fill = NA, linetype = "dashed", linewidth = 0.7) +
+  geom_point(data = filter(points_seuil, groupe == "autre"),
+             aes(x = Comp.1, y = Comp.2),
+             colour = "grey55", size = 1.5) +
+  geom_point(data = filter(points_seuil, groupe != "autre"),
+             aes(x = Comp.1, y = Comp.2, fill = groupe),
+             shape = 21, colour = "black", size = 3) +
+  scale_fill_manual(name = NULL, values = col_groupe, labels = lab_groupe) +
+  scale_colour_manual(values = col_groupe, guide = "none") +
+  geom_hline(yintercept = 0, linetype = "dotted", colour = "black") +
+  geom_vline(xintercept = 0, linetype = "dotted", colour = "black") +
+  coord_fixed(ratio = 1) +                       # meme echelle sur x et y
+  labs(x = paste0("PC1 (", var_pct[1], "%)"),
+       y = paste0("PC2 (", var_pct[2], "%)")) +
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "bottom", legend.box = "vertical")
+
+fig_seuil_pc12
+
+ggsave(here::here("figures", "trait_space_pre_post_threshold_PC1_PC2.png"),
+       plot = fig_seuil_pc12, width = 200, height = 170, units = "mm", dpi = 300)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-width: 14
+#| fig-height: 7
+
+# ======================================================================
+# ESPACE FONCTIONNEL PC1-PC2 : DEUX PANNEAUX (PRE-SEUIL / POST-SEUIL)
+# Meme fond que la figure precedente (densite des 101 especes)
+# Dans chaque panneau :
+#   - toutes les especes en gris
+#   - les especes du groupe (pre OU post) colorees selon leur type
+#     d'emetteur (sub_type) et dimensionnees selon leur emission
+# A placer APRES le chunk precedent : reutilise points_seuil, tpd_global,
+# var_pct, pre_sp, post_sp, ainsi que col_palette et emission_labels
+# ======================================================================
+
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+# Memes limites de taille pour les deux panneaux (legendes communes)
+lim_emission <- range(points_seuil$sum_isoprenoids_mean, na.rm = TRUE)
+
+panel_groupe <- function(groupe_choisi, titre) {
+  
+  sp_groupe <- points_seuil |> filter(groupe == groupe_choisi)
+  sp_autres <- points_seuil |> filter(groupe != groupe_choisi)
+  
+  hull_groupe <- sp_groupe |> slice(chull(Comp.1, Comp.2))
+  
+  ggplot() +
+    # fond : densite de l'espace global
+    geom_raster(data = filter(tpd_global, quantile <= 0.99),
+                aes(x = PC1, y = PC2, fill = quantile), alpha = 0.3) +
+    scale_fill_gradientn(colors = c("red", "orange", "yellow"),
+                         limits = c(0, 0.99),
+                         name = "Quantile space") +
+    geom_contour(data = tpd_global, aes(x = PC1, y = PC2, z = quantile),
+                 breaks = c(0.25, 0.5, 0.99), colour = "grey30", linewidth = 0.4) +
+    ggnewscale::new_scale_fill() +
+    # enveloppe convexe du groupe
+    geom_polygon(data = hull_groupe, aes(x = Comp.1, y = Comp.2),
+                 fill = NA, colour = "black", linetype = "dashed", linewidth = 0.6) +
+    # toutes les autres especes en gris
+    geom_point(data = sp_autres, aes(x = Comp.1, y = Comp.2),
+               colour = "grey60", size = 1.5) +
+    # especes du groupe : couleur = type d'emetteur, taille = emission
+    geom_point(data = sp_groupe,
+               aes(x = Comp.1, y = Comp.2, fill = sub_type, size = sum_isoprenoids_mean),
+               shape = 21, colour = "black") +
+    scale_fill_manual(name = "Emitter type", values = col_palette,
+                      labels = emission_labels,
+                      limits = names(col_palette), drop = FALSE,
+                      # meme legende complete dans les deux panneaux -> fusionnee
+                      guide = guide_legend(override.aes = list(
+                        shape = 21, size = 4, colour = "black",
+                        fill = unname(col_palette)))) +
+    scale_size_continuous(name = expression(EF[iso+mono]),
+                          range = c(1.5, 10), limits = lim_emission) +
+    geom_hline(yintercept = 0, linetype = "dotted", colour = "black") +
+    geom_vline(xintercept = 0, linetype = "dotted", colour = "black") +
+    coord_fixed(ratio = 1) +
+    labs(title = titre,
+         x = paste0("PC1 (", var_pct[1], "%)"),
+         y = paste0("PC2 (", var_pct[2], "%)")) +
+    theme_minimal() +
+    theme(plot.background = element_rect(fill = "white", colour = NA),
+          plot.title = element_text(size = 11))
+}
+
+fig_pre_post_emission <-
+  (panel_groupe("pre_seuil",  paste0("Before threshold (n = ", length(pre_sp), ")")) |
+     panel_groupe("post_seuil", paste0("After threshold (n = ", length(post_sp), ")"))) +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+
+fig_pre_post_emission
+
+ggsave(here::here("figures", "trait_space_pre_post_emission_PC1_PC2.svg"),
+       plot = fig_pre_post_emission, width = 340, height = 170, units = "mm",
+       device = "svg")
+```
