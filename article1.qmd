@@ -2686,6 +2686,218 @@ for (s in c("mean", "median", "q05", "q95")) {
 
 ```
 
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+
+
+# ------------------------------------------------------------------------------
+# 1. Paramètres d'affichage
+# ------------------------------------------------------------------------------
+
+# Axis labels per metric (units / description)
+metric_labels <- c(
+  "Richness"              = "Hypervolume (unitless)",
+  "regularity"            = "Regularity",
+  "functional_dispersion" = "Functional dispersion",
+  "originality"           = "Originality",
+  "dimensionality"        = "Dimensionality"
+)
+
+# Metric names (used in the figure file name / annotation)
+panel_titles <- c(
+  "Richness"              = "Functional richness",
+  "regularity"            = "Regularity",
+  "functional_dispersion" = "Functional dispersion",
+  "originality"           = "Originality",
+  "dimensionality"        = "Functional dimensionality"
+)
+
+# Colours per window (colour-blind friendly)
+dataset_colours <- c(
+  "min" = "#1E88E5",
+  "med" = "#FFC107",
+  "max" = "#D81B60"
+)
+
+dataset_labels <- c(
+  "min" = "Minimum",
+  "med" = "Median",
+  "max" = "Maximum"
+)
+
+# Summary statistics
+stat_keys <- c("mean", "median", "q05", "q95")
+
+# Panel titles (shown next to the bold letter)
+stat_titles <- c(
+  "mean"   = "Mean",
+  "median" = "Median",
+  "q05"    = "5th percentile",
+  "q95"    = "95th percentile"
+)
+
+# y-axis labels
+stat_labels <- c(
+  "mean"   = "mean",
+  "median" = "median",
+  "q05"    = "5th percentile",
+  "q95"    = "95th percentile"
+)
+
+# Shared theme, journal-style (clean, minimal, black axis text)
+theme_supp <- theme_minimal(base_size = 10, base_family = "sans") +
+  theme(
+    plot.title       = element_text(size = 10, face = "plain", hjust = 0,
+                                    margin = margin(b = 4)),
+    axis.title       = element_text(size = 9, colour = "black"),
+    axis.text        = element_text(size = 8, colour = "black"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(linewidth = 0.2, colour = "grey85"),
+    panel.border     = element_rect(colour = "black", fill = NA, linewidth = 0.3),
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background  = element_rect(fill = "white", colour = NA),
+    plot.margin      = margin(5, 10, 5, 5),
+    legend.position  = "bottom",
+    legend.title     = element_blank(),
+    legend.text      = element_text(size = 9, colour = "black")
+  )
+
+
+# ------------------------------------------------------------------------------
+# 2. Quantile cumulé
+# ------------------------------------------------------------------------------
+
+# Équivalent de cummean() pour un quantile p :
+# au tirage k, quantile calculé sur les k premiers tirages
+cum_quantile <- function(x, p) {
+  vapply(seq_along(x),
+         function(k) stats::quantile(x[seq_len(k)], probs = p,
+                                     na.rm = TRUE, names = FALSE),
+         numeric(1))
+}
+
+
+# ------------------------------------------------------------------------------
+# 3. Un panneau par statistique
+# ------------------------------------------------------------------------------
+
+make_panel <- function(data, stat, metric_key, letter) {
+  panel_title <- bquote(bold("(" * .(letter) * ")") ~ .(stat_titles[[stat]]))
+  
+  ggplot(dplyr::filter(data, .data$stat == !!stat),
+         aes(x = draw_id, y = value, colour = dataset)) +
+    geom_line(linewidth = 0.5) +
+    scale_colour_manual(values = dataset_colours, labels = dataset_labels) +
+    labs(
+      title = panel_title,
+      x     = "Number of draws",
+      y     = paste0("Cumulative ", stat_labels[[stat]], "\n",
+                     metric_labels[[metric_key]])
+    ) +
+    theme_supp
+}
+
+
+# ------------------------------------------------------------------------------
+# 4. Une figure par métrique : 4 panneaux (mean, median, q05, q95),
+#    3 courbes par panneau (fenêtres min, med, max de CETTE métrique)
+# ------------------------------------------------------------------------------
+
+#' @param sum_df_list liste nommée list(min = , med = , max = ) : tirages des
+#'   fenêtres où la métrique `metric_key` est minimale, médiane et maximale
+#'   (data.frames issus de moving_window_convex_tirages)
+#' @param metric_key "Richness", "regularity", "functional_dispersion",
+#'   "originality" ou "dimensionality"
+#' @param output_dir dossier de sortie
+#' @param width, height, units, dpi paramètres ggsave
+plot_convergence_metric <- function(sum_df_list,
+                                    metric_key,
+                                    output_dir = here::here("figures", "convergence_article_1"),
+                                    width = 160, height = 140, units = "mm", dpi = 300) {
+  
+  stopifnot(is.list(sum_df_list), !is.null(names(sum_df_list)),
+            all(names(sum_df_list) %in% names(dataset_colours)),
+            metric_key %in% names(panel_titles))
+  
+  # 1. Les 4 statistiques cumulées, pour la seule métrique demandée
+  conv_df <- sum_df_list |>
+    dplyr::bind_rows(.id = "dataset") |>
+    dplyr::mutate(dataset = factor(dataset, levels = names(dataset_colours))) |>
+    dplyr::group_by(dataset) |>
+    dplyr::arrange(draw_id, .by_group = TRUE) |>
+    dplyr::mutate(
+      mean   = dplyr::cummean(.data[[metric_key]]),
+      median = cum_quantile(.data[[metric_key]], 0.50),
+      q05    = cum_quantile(.data[[metric_key]], 0.05),
+      q95    = cum_quantile(.data[[metric_key]], 0.95)
+    ) |>
+    dplyr::ungroup() |>
+    dplyr::select(dataset, draw_id, dplyr::all_of(stat_keys)) |>
+    tidyr::pivot_longer(dplyr::all_of(stat_keys),
+                        names_to = "stat", values_to = "value")
+  
+  # 2. Construction des panneaux
+  panels <- purrr::imap(stat_keys, function(s, i) {
+    make_panel(conv_df, s, metric_key, letters[i])
+  })
+  
+  # 3. Assemblage 2 x 2 avec une légende commune
+  convergence_plot <- patchwork::wrap_plots(panels, ncol = 2, guides = "collect") &
+    theme(legend.position = "bottom")
+  
+  # 4. Export
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+  
+  ggsave(
+    filename = file.path(output_dir, paste0("convergence_", metric_key, ".svg")),
+    plot     = convergence_plot,
+    width    = width, height = height, units = units, dpi = dpi
+  )
+  
+  convergence_plot
+}
+
+
+# ------------------------------------------------------------------------------
+# 5. Utilisation
+# ------------------------------------------------------------------------------
+# Fenêtres partagées (voir idx_tab_unique) :
+#   med_reg  = med_fdis
+#   min_fdis = max_reg
+#   fric     = mêmes fenêtres que fdis (À VÉRIFIER)
+
+selection <- list(
+  dimensionality = list(min = sum_df_conv_w40_draw25_min_dim,
+                        med = sum_df_conv_w40_draw25_med_dim,
+                        max = sum_df_conv_w40_draw25_max_dim),
+  
+  originality = list(min = sum_df_conv_w40_draw25_min_orig,
+                     med = sum_df_conv_w40_draw25_med_orig,
+                     max = sum_df_conv_w40_draw25_max_orig),
+  
+  regularity = list(min = sum_df_conv_w40_draw25_min_reg,
+                    med = sum_df_conv_w40_draw25_med_fdis,
+                    max = sum_df_conv_w40_draw25_max_reg),
+  
+  functional_dispersion = list(min = sum_df_conv_w40_draw25_max_reg,
+                               med = sum_df_conv_w40_draw25_med_fdis,
+                               max = sum_df_conv_w40_draw25_max_fdis),
+  
+  Richness = list(min = sum_df_conv_w40_draw25_max_reg,
+                  med = sum_df_conv_w40_draw25_med_fdis,
+                  max = sum_df_conv_w40_draw25_max_fdis)
+)
+
+convergence_plots <- purrr::imap(selection, \(lst, key) plot_convergence_metric(lst, key))
+
+# Afficher une figure
+convergence_plots$dimensionality
+
+```
+
 moving window avec tirages
 
 ```{r}
