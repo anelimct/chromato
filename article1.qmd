@@ -3033,6 +3033,168 @@ ggsave(here::here("figures", "thresholds_sensitivity.png"),
 ```{r}
 #| echo: false
 #| warning: false
+#| fig-width: 14
+#| fig-height: 7
+
+# ======================================================================
+# ESPACE FONCTIONNEL PC1-PC2 : DEUX PANNEAUX (PRE-SEUIL / POST-SEUIL)
+# Meme fond que la figure precedente (densite des 101 especes)
+# Dans chaque panneau :
+#   - toutes les especes en gris
+#   - les especes du groupe (pre OU post) colorees selon leur type
+#     d'emetteur (sub_type) et dimensionnees selon leur emission
+#   - le centroide du groupe (etoile noire, pch 8)
+# A placer APRES le chunk precedent : reutilise points_seuil, tpd_global,
+# var_pct, pre_sp, post_sp, ainsi que col_palette et emission_labels
+# ======================================================================
+
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+targets::tar_load(sum_df_35)
+especes_seuil <- extraire_especes_threshold(sum_df_35, "median_log_sum", 0.6202402, 0.7298538)
+
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+complete_species <- plot_data$rowname[complete.cases(plot_data[, c(scores_cols, traits_cols)])]
+pre_sp  <- intersect(especes_seuil$pre_seuil,  complete_species)
+post_sp <- intersect(especes_seuil$post_seuil, complete_species)
+
+points_seuil <- plot_data |>
+  filter(rowname %in% complete_species) |>
+  mutate(groupe = case_when(
+    rowname %in% pre_sp  ~ "pre_seuil",
+    rowname %in% post_sp ~ "post_seuil",
+    TRUE                 ~ "autre"
+  ))
+
+
+# ---- 2. Fond : densite de l'espace global (101 especes) ----
+scores_global <- pca.trait_usual_iso$scores[, 1:2]
+
+kde_global <- ks::kde(scores_global,
+                      H = ks::Hpi(scores_global),
+                      gridsize = c(200, 200),
+                      xmin = apply(scores_global, 2, min) - 3,
+                      xmax = apply(scores_global, 2, max) + 3)
+
+# quantile de chaque cellule = part de la probabilite contenue dans les
+# cellules plus denses (0 = coeur le plus dense, 0.99 = limite de l'espace)
+dens  <- as.vector(kde_global$estimate)
+ordre <- order(dens, decreasing = TRUE)
+quant <- numeric(length(dens))
+quant[ordre] <- cumsum(dens[ordre]) / sum(dens)
+
+tpd_global <- expand.grid(PC1 = kde_global$eval.points[[1]],
+                          PC2 = kde_global$eval.points[[2]])
+tpd_global$quantile <- quant
+
+var_pct <- round(100 * pca.trait_usual_iso$sdev^2 / sum(pca.trait_usual_iso$sdev^2), 1)
+
+# Memes limites de taille pour les deux panneaux (legendes communes)
+lim_emission <- range(points_seuil$sum_isoprenoids_mean, na.rm = TRUE)
+
+# Couche "fantome" contenant les 7 types d'emetteurs (coordonnees NA, donc
+# invisible) : garantit que les deux panneaux produisent exactement la meme
+# legende "Emitter type", que patchwork peut alors fusionner en une seule
+legende_types <- data.frame(
+  Comp.1   = NA_real_,
+  Comp.2   = NA_real_,
+  sub_type = factor(names(col_palette), levels = names(col_palette))
+)
+
+
+panel_groupe <- function(groupe_choisi, titre, especes_a_nommer = NULL) {
+  
+  sp_groupe <- points_seuil |> filter(groupe == groupe_choisi)
+  sp_autres <- points_seuil |> filter(groupe != groupe_choisi)
+  
+  hull_groupe <- sp_groupe |> slice(chull(Comp.1, Comp.2))
+  
+  centroide_groupe <- sp_groupe |>
+    summarise(Comp.1 = mean(Comp.1), Comp.2 = mean(Comp.2))
+  
+  # especes a nommer : nom en italique, "_" remplace par un espace
+  sp_noms <- points_seuil |>
+    filter(rowname %in% especes_a_nommer) |>
+    mutate(label = gsub("_", " ", rowname))
+  
+  ggplot() +
+    # fond : densite de l'espace global
+    geom_raster(data = filter(tpd_global, quantile <= 0.99),
+                aes(x = PC1, y = PC2, fill = quantile), alpha = 0.3) +
+    scale_fill_gradientn(colors = c("red", "orange", "yellow"),
+                         limits = c(0, 0.99),
+                         name = "Quantile space",
+                         guide = guide_colourbar(order = 3)) +
+    geom_contour(data = tpd_global, aes(x = PC1, y = PC2, z = quantile),
+                 breaks = c(0.25, 0.5, 0.99), colour = "grey30", linewidth = 0.4) +
+    ggnewscale::new_scale_fill() +
+    # enveloppe convexe du groupe
+    geom_polygon(data = hull_groupe, aes(x = Comp.1, y = Comp.2),
+                 fill = NA, colour = "black", linetype = "dashed", linewidth = 0.6) +
+    # toutes les autres especes en gris
+    geom_point(data = sp_autres, aes(x = Comp.1, y = Comp.2),
+               colour = "grey60", size = 1.5) +
+    # especes du groupe : couleur = type d'emetteur, taille = emission
+    geom_point(data = sp_groupe,
+               aes(x = Comp.1, y = Comp.2, fill = sub_type, size = sum_isoprenoids_mean),
+               shape = 21, colour = "black") +
+    # couche fantome : les 7 types presents dans la legende de chaque panneau
+    geom_point(data = legende_types,
+               aes(x = Comp.1, y = Comp.2, fill = sub_type),
+               shape = 21, colour = "black", size = 4, na.rm = TRUE) +
+    # centroide du groupe : etoile noire
+    geom_point(data = centroide_groupe, aes(x = Comp.1, y = Comp.2),
+               shape = 8, size = 4, colour = "black", stroke = 1.2) +
+    # noms d'especes (ggrepel evite les chevauchements avec les points)
+    ggrepel::geom_text_repel(data = sp_noms,
+                             aes(x = Comp.1, y = Comp.2, label = label),
+                             fontface = "italic", size = 3.2,
+                             box.padding = 0.6, point.padding = 0.4,
+                             min.segment.length = 0, segment.colour = "grey30",
+                             seed = 1) +
+    scale_fill_manual(name = "Emitter type", values = col_palette,
+                      labels = emission_labels,
+                      limits = names(col_palette), drop = FALSE,
+                      guide = guide_legend(order = 1, override.aes = list(
+                        shape = 21, size = 4, colour = "black",
+                        fill = unname(col_palette)))) +
+    scale_size_continuous(name = expression(EF[iso+mono]),
+                          range = c(1.5, 10), limits = lim_emission,
+                          guide = guide_legend(order = 2)) +
+    geom_hline(yintercept = 0, linetype = "dotted", colour = "black") +
+    geom_vline(xintercept = 0, linetype = "dotted", colour = "black") +
+    coord_fixed(ratio = 1) +
+    labs(title = titre,
+         x = paste0("PC1 (", var_pct[1], "%)"),
+         y = paste0("PC2 (", var_pct[2], "%)")) +
+    theme_minimal() +
+    theme(plot.background = element_rect(fill = "white", colour = NA),
+          plot.title = element_text(size = 11))
+}
+
+fig_pre_post_emission <-
+  (panel_groupe("pre_seuil",  paste0("Before threshold (n = ", length(pre_sp), ")"),
+                especes_a_nommer = c("Corylus_avellana", "Olea_europaea")) |
+     panel_groupe("post_seuil", paste0("After threshold (n = ", length(post_sp), ")"),
+                  especes_a_nommer = c("Quercus_ilex", "Populus_alba", "Frangula_alnus"))) +
+  plot_annotation(tag_levels = "A") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "right")
+
+fig_pre_post_emission
+
+ggsave(here::here("figures", "trait_space_pre_post_emission_PC1_PC2.svg"),
+       plot = fig_pre_post_emission, width = 340, height = 170, units = "mm",
+       device = "svg")
+```
+
+```{r}
+#| echo: false
+#| warning: false
 #| fig-width: 8
 #| fig-height: 6
 
@@ -3150,6 +3312,9 @@ ggsave(here::here("figures", "trait_space_pre_post_threshold_PC1_PC2.png"),
 #   - toutes les especes en gris
 #   - les especes du groupe (pre OU post) colorees selon leur type
 #     d'emetteur (sub_type) et dimensionnees selon leur emission
+#   - le centroide du groupe (etoile noire, pch 8)
+#   - les fleches des traits, de longueur proportionnelle aux loadings,
+#     identiques a celles de funspace (x$PCAInfo$fit[[1]])
 # A placer APRES le chunk precedent : reutilise points_seuil, tpd_global,
 # var_pct, pre_sp, post_sp, ainsi que col_palette et emission_labels
 # ======================================================================
@@ -3158,15 +3323,119 @@ library(ggplot2)
 library(dplyr)
 library(patchwork)
 
+targets::tar_load(sum_df_35)
+especes_seuil <- extraire_especes_threshold(sum_df_35, "median_log_sum", 0.6202402, 0.7298538)
+
+scores_cols <- c("Comp.1", "Comp.2", "Comp.3", "Comp.4")
+traits_cols <- c("SLA", "StemSpecDens", "HeightMax", "LeafArea")
+
+complete_species <- plot_data$rowname[complete.cases(plot_data[, c(scores_cols, traits_cols)])]
+pre_sp  <- intersect(especes_seuil$pre_seuil,  complete_species)
+post_sp <- intersect(especes_seuil$post_seuil, complete_species)
+
+points_seuil <- plot_data |>
+  filter(rowname %in% complete_species) |>
+  mutate(groupe = case_when(
+    rowname %in% pre_sp  ~ "pre_seuil",
+    rowname %in% post_sp ~ "post_seuil",
+    TRUE                 ~ "autre"
+  ))
+
+
+# ---- 2. Fond : densite de l'espace global (101 especes) ----
+scores_global <- pca.trait_usual_iso$scores[, 1:2]
+
+kde_global <- ks::kde(scores_global,
+                      H = ks::Hpi(scores_global),
+                      gridsize = c(200, 200),
+                      xmin = apply(scores_global, 2, min) - 3,
+                      xmax = apply(scores_global, 2, max) + 3)
+
+# quantile de chaque cellule = part de la probabilite contenue dans les
+# cellules plus denses (0 = coeur le plus dense, 0.99 = limite de l'espace)
+dens  <- as.vector(kde_global$estimate)
+ordre <- order(dens, decreasing = TRUE)
+quant <- numeric(length(dens))
+quant[ordre] <- cumsum(dens[ordre]) / sum(dens)
+
+tpd_global <- expand.grid(PC1 = kde_global$eval.points[[1]],
+                          PC2 = kde_global$eval.points[[2]])
+tpd_global$quantile <- quant
+
+var_pct <- round(100 * pca.trait_usual_iso$sdev^2 / sum(pca.trait_usual_iso$sdev^2), 1)
+
 # Memes limites de taille pour les deux panneaux (legendes communes)
 lim_emission <- range(points_seuil$sum_isoprenoids_mean, na.rm = TRUE)
 
-panel_groupe <- function(groupe_choisi, titre) {
+# Couche "fantome" contenant les 7 types d'emetteurs (coordonnees NA, donc
+# invisible) : garantit que les deux panneaux produisent exactement la meme
+# legende "Emitter type", que patchwork peut alors fusionner en une seule
+legende_types <- data.frame(
+  Comp.1   = NA_real_,
+  Comp.2   = NA_real_,
+  sub_type = factor(names(col_palette), levels = names(col_palette))
+)
+
+# ---- Fleches des traits : memes vecteurs que funspace ----
+# x$PCAInfo$fit[[1]] : coordonnees des traits sur PC1-PC2, dont la longueur
+# est proportionnelle a la contribution du trait aux axes
+fs12 <- funspace::funspace(pca.trait_usual_iso, PCs = c(1, 2))
+
+longueur_fleches <- 0.9      # meme facteur que dans la figure supplementaire
+decalage_noms    <- 0.015    # ecart pointe -> texte (fraction de l'etendue des axes)
+
+fit_traits <- fs12$PCAInfo$fit[[1]]
+fleches_traits <- data.frame(
+  trait = rownames(fit_traits),
+  xe    = fit_traits[, 1] * longueur_fleches,
+  ye    = fit_traits[, 2] * longueur_fleches
+)
+
+# position des noms : juste au bout de chaque fleche, alignes selon sa direction
+etendue <- with(filter(tpd_global, quantile <= 0.99),
+                max(diff(range(PC1)), diff(range(PC2))))
+off <- decalage_noms * etendue
+ang <- atan2(fleches_traits$ye, fleches_traits$xe)
+fleches_traits$xl <- fleches_traits$xe + off * cos(ang)
+fleches_traits$yl <- fleches_traits$ye + off * sin(ang)
+fleches_traits$hj <- (1 - cos(ang)) / 2
+fleches_traits$vj <- (1 - sin(ang)) / 2
+
+# ---- Limites des axes : espace occupe + place pour les noms des traits ----
+# marge_noms = place reservee autour du bout des fleches pour le texte
+# (en unites d'axe ; augmenter si un nom est encore coupe)
+marge_noms <- 1.2
+occupe <- filter(tpd_global, quantile <= 0.99)
+lim_x <- range(occupe$PC1,
+               fleches_traits$xl + marge_noms * cos(ang))
+lim_y <- range(occupe$PC2,
+               fleches_traits$yl + marge_noms * sin(ang))
+
+
+# afficher_legende_types : la legende "Emitter type" n'est affichee que dans
+# un seul panneau, pour eviter qu'elle soit repetee deux fois
+panel_groupe <- function(groupe_choisi, titre, especes_a_nommer = NULL,
+                         afficher_legende_types = TRUE) {
   
   sp_groupe <- points_seuil |> filter(groupe == groupe_choisi)
   sp_autres <- points_seuil |> filter(groupe != groupe_choisi)
   
   hull_groupe <- sp_groupe |> slice(chull(Comp.1, Comp.2))
+  
+  centroide_groupe <- sp_groupe |>
+    summarise(Comp.1 = mean(Comp.1), Comp.2 = mean(Comp.2))
+  
+  # especes a nommer : nom en italique, "_" remplace par un espace
+  sp_noms <- points_seuil |>
+    filter(rowname %in% especes_a_nommer) |>
+    transmute(x = Comp.1, y = Comp.2, label = gsub("_", " ", rowname),
+              psize = 2)
+  
+  # les noms de traits sont ajoutes comme obstacles invisibles (label vide)
+  # pour que ggrepel place les noms d'especes sans les chevaucher
+  rep_df <- rbind(sp_noms,
+                  data.frame(x = fleches_traits$xl, y = fleches_traits$yl,
+                             label = "", psize = 8))
   
   ggplot() +
     # fond : densite de l'espace global
@@ -3174,7 +3443,8 @@ panel_groupe <- function(groupe_choisi, titre) {
                 aes(x = PC1, y = PC2, fill = quantile), alpha = 0.3) +
     scale_fill_gradientn(colors = c("red", "orange", "yellow"),
                          limits = c(0, 0.99),
-                         name = "Quantile space") +
+                         name = "Quantile space",
+                         guide = "none") +
     geom_contour(data = tpd_global, aes(x = PC1, y = PC2, z = quantile),
                  breaks = c(0.25, 0.5, 0.99), colour = "grey30", linewidth = 0.4) +
     ggnewscale::new_scale_fill() +
@@ -3188,18 +3458,44 @@ panel_groupe <- function(groupe_choisi, titre) {
     geom_point(data = sp_groupe,
                aes(x = Comp.1, y = Comp.2, fill = sub_type, size = sum_isoprenoids_mean),
                shape = 21, colour = "black") +
+    # couche fantome : les 7 types presents dans la legende de chaque panneau
+    geom_point(data = legende_types,
+               aes(x = Comp.1, y = Comp.2, fill = sub_type),
+               shape = 21, colour = "black", size = 4, na.rm = TRUE) +
+    # fleches des traits (longueur proportionnelle aux loadings)
+    geom_segment(data = fleches_traits, aes(x = 0, y = 0, xend = xe, yend = ye),
+                 arrow = arrow(length = unit(1.5, "mm"), type = "closed", angle = 22),
+                 linewidth = 0.45, colour = "black") +
+    geom_text(data = fleches_traits,
+              aes(x = xl, y = yl, label = trait, hjust = hj, vjust = vj),
+              size = 3, colour = "black") +
+    # centroide du groupe : etoile noire
+    geom_point(data = centroide_groupe, aes(x = Comp.1, y = Comp.2),
+               shape = 8, size = 4, colour = "black", stroke = 1.2) +
+    # noms d'especes (ggrepel evite les chevauchements avec les points)
+    ggrepel::geom_text_repel(data = rep_df,
+                             aes(x = x, y = y, label = label, point.size = psize),
+                             fontface = "italic", size = 3.2,
+                             bg.colour = "white", bg.r = 0.12,
+                             box.padding = 0.6, point.padding = 0.3,
+                             force = 5, max.iter = 1e5, max.overlaps = Inf,
+                             min.segment.length = 0, segment.colour = "grey30",
+                             seed = 1) +
     scale_fill_manual(name = "Emitter type", values = col_palette,
                       labels = emission_labels,
                       limits = names(col_palette), drop = FALSE,
-                      # meme legende complete dans les deux panneaux -> fusionnee
-                      guide = guide_legend(override.aes = list(
-                        shape = 21, size = 4, colour = "black",
-                        fill = unname(col_palette)))) +
-    scale_size_continuous(name = expression(EF[iso+mono]),
-                          range = c(1.5, 10), limits = lim_emission) +
+                      guide = if (afficher_legende_types) {
+                        guide_legend(order = 1, override.aes = list(
+                          shape = 21, size = 4, colour = "black",
+                          fill = unname(col_palette)))
+                      } else "none") +
+    scale_size_continuous(name = expression(EF[iso+mono] ~
+                                              "(" * mu * "g" ~ "g"^{-1} ~ "h"^{-1} * ")"),
+                          range = c(1.5, 10), limits = lim_emission,
+                          guide = guide_legend(order = 2)) +
     geom_hline(yintercept = 0, linetype = "dotted", colour = "black") +
     geom_vline(xintercept = 0, linetype = "dotted", colour = "black") +
-    coord_fixed(ratio = 1) +
+    coord_fixed(ratio = 1, xlim = lim_x, ylim = lim_y, clip = "off") +
     labs(title = titre,
          x = paste0("PC1 (", var_pct[1], "%)"),
          y = paste0("PC2 (", var_pct[2], "%)")) +
@@ -3209,8 +3505,11 @@ panel_groupe <- function(groupe_choisi, titre) {
 }
 
 fig_pre_post_emission <-
-  (panel_groupe("pre_seuil",  paste0("Before threshold (n = ", length(pre_sp), ")")) |
-     panel_groupe("post_seuil", paste0("After threshold (n = ", length(post_sp), ")"))) +
+  (panel_groupe("pre_seuil",  paste0("Before threshold (n = ", length(pre_sp), ")"),
+                especes_a_nommer = c("Corylus_avellana", "Olea_europaea"),
+                afficher_legende_types = FALSE) |
+     panel_groupe("post_seuil", paste0("After threshold (n = ", length(post_sp), ")"),
+                  especes_a_nommer = c("Quercus_ilex", "Platanus_orientalis", "Frangula_alnus"))) +
   plot_annotation(tag_levels = "A") +
   plot_layout(guides = "collect") &
   theme(legend.position = "right")
